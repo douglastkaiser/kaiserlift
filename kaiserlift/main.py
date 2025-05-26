@@ -1,12 +1,12 @@
 import pandas as pd
-import numpy as np
 import os
 import glob
-import math
 import matplotlib.pyplot as plt
+import base64
+from io import BytesIO
+from IPython.display import display, HTML
 
-from helpers import calculate_1rm, estimate_weight_from_1rm, \
-    add_1rm_column, dougs_next_pareto, highest_weight_per_rep, plot_df
+from helpers import dougs_next_pareto, highest_weight_per_rep, plot_df
 
 # Get a list of all CSV files in the current directory
 working_dir = '/content/drive/MyDrive/Personal Work/Workout Analysis (90%)/'
@@ -18,13 +18,6 @@ print(f"Using {latest_file}")
 
 # Load the latest file into a pandas DataFrame
 df = pd.read_csv(latest_file)
-
-
-
-
-
-
-from difflib import get_close_matches
 
 
 test_df = pd.DataFrame({
@@ -106,9 +99,6 @@ with open(output_file, "w") as f:
 
 print(f"Saved to {output_file}")
 
-import matplotlib.pyplot as plt
-import base64
-from io import BytesIO
 
 # Create a dictionary: { exercise_name: base64_image_string }
 figures_html = {}
@@ -127,8 +117,6 @@ for exercise in df['Exercise'].unique():
         errors += f"{e}"
 
 all_figures_html = "\n".join(figures_html.values())
-
-from IPython.display import display, HTML
 
 # Basic setup
 exercise_column = "Exercise"  # Adjust if needed

@@ -2,6 +2,7 @@ import math
 import numpy as np
 import pandas as pd
 from difflib import get_close_matches
+import matplotlib.pyplot as plt
 
 def calculate_1rm(weight: float, reps: int) -> float:
     # Input validation

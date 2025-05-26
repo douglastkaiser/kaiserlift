@@ -30,7 +30,6 @@ jobs:
         run: |
           pytest tests/
 
-
   lint:
     name: Lint and Format Code
     runs-on: ubuntu-latest

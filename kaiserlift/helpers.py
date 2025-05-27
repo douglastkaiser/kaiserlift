@@ -24,7 +24,6 @@ def calculate_1rm(weight: float, reps: int) -> float:
 
     return estimated_1rm
 
-
 def highest_weight_per_rep(df: pd.DataFrame) -> pd.DataFrame:
     # Ensure required columns exist
     required_cols = ['Exercise', 'Weight', 'Reps']
@@ -103,7 +102,6 @@ def estimate_weight_from_1rm(one_rm: float, reps: int) -> float:
 
     return estimated_weight
 
-
 def add_1rm_column(df: pd.DataFrame) -> pd.DataFrame:
     # Check if necessary columns exist
     required_cols = ['Weight', 'Reps']
@@ -130,7 +128,6 @@ def add_1rm_column(df: pd.DataFrame) -> pd.DataFrame:
     # df_copy['1RM'] = df_copy['1RM'].round(2)
 
     return df_copy
-
 
 def dougs_next_pareto(df_records):
     rows = []

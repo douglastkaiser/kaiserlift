@@ -4,7 +4,7 @@ on: push
 
 jobs:
   run-tests:
-    name: Run Pytest
+    name: Run Pytest on Local Code
     runs-on: ubuntu-latest
 
     strategy:
@@ -45,3 +45,28 @@ jobs:
       run: ruff check --output-format=github --target-version=py39
     - name: Check code formatting with Ruff
       run: ruff format --diff --target-version=py39
+
+
+  # Test from pypi
+  install-from-pypi:
+    name: Run Pytest on Installed Package from PyPI
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package from PyPI
+        run: |
+          pip install --upgrade pip
+          pip install kaiserlift
+          pip install pytest
+
+      - name: Run tests using installed package
+        run: |
+          pytest tests_from_pypi/

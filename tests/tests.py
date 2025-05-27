@@ -1,4 +1,6 @@
-from kaiserlift.helpers import calculate_1rm, estimate_weight_from_1rm, \
+
+# Use pypi installed version of kaiserlift, not local version.
+from kaiserlift import calculate_1rm, estimate_weight_from_1rm, \
     add_1rm_column, dougs_next_pareto, highest_weight_per_rep
 import pandas as pd
 

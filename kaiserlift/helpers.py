@@ -4,6 +4,24 @@ import pandas as pd
 from difflib import get_close_matches
 import matplotlib.pyplot as plt
 
+def assert_frame_equal(df1, df2):
+    assert df1.shape == df2.shape, "DataFrames have different shapes." + \
+      f"\n{df1=}\n{df2=}"
+    assert sorted(df1.columns) == sorted(df2.columns), "DataFrames have different column names." + \
+      f"\n{df1=}\n{df2=}"
+    # Ensure column order is the same before sorting rows
+    df1_reordered_cols = df1.sort_index(axis=1)
+    df2_reordered_cols = df2.sort_index(axis=1)
+    # Reset index, sort by all columns, reset index again
+    df1_processed = df1_reordered_cols.reset_index(drop=True)\
+                                      .sort_values(by=df1_reordered_cols.columns.tolist())\
+                                      .reset_index(drop=True)
+    df2_processed = df2_reordered_cols.reset_index(drop=True)\
+                                      .sort_values(by=df2_reordered_cols.columns.tolist())\
+                                      .reset_index(drop=True)
+    assert df1_processed.equals(df2_processed), f'\n{df1_processed}\nnot equal to\n{df2_processed}'
+
+
 def calculate_1rm(weight: float, reps: int) -> float:
     # Input validation
     if weight is None or reps is None or \

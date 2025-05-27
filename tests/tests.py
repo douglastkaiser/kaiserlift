@@ -1,25 +1,10 @@
 
 # Use pypi installed version of kaiserlift, not local version.
 from kaiserlift import calculate_1rm, estimate_weight_from_1rm, \
-    add_1rm_column, dougs_next_pareto, highest_weight_per_rep
+    add_1rm_column, dougs_next_pareto, highest_weight_per_rep, \
+    assert_frame_equal
 import pandas as pd
 
-def assert_frame_equal(df1, df2):
-    assert df1.shape == df2.shape, "DataFrames have different shapes." + \
-      f"\n{df1=}\n{df2=}"
-    assert sorted(df1.columns) == sorted(df2.columns), "DataFrames have different column names." + \
-      f"\n{df1=}\n{df2=}"
-    # Ensure column order is the same before sorting rows
-    df1_reordered_cols = df1.sort_index(axis=1)
-    df2_reordered_cols = df2.sort_index(axis=1)
-    # Reset index, sort by all columns, reset index again
-    df1_processed = df1_reordered_cols.reset_index(drop=True)\
-                                      .sort_values(by=df1_reordered_cols.columns.tolist())\
-                                      .reset_index(drop=True)
-    df2_processed = df2_reordered_cols.reset_index(drop=True)\
-                                      .sort_values(by=df2_reordered_cols.columns.tolist())\
-                                      .reset_index(drop=True)
-    assert df1_processed.equals(df2_processed), f'\n{df1_processed}\nnot equal to\n{df2_processed}'
 
 
 def test_assert_frame_equal():

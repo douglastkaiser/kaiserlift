@@ -5,7 +5,8 @@ from .helpers import (
     add_1rm_column,
     dougs_next_pareto,
     get_closest_exercise,
-    plot_df
+    plot_df,
+    assert_frame_equal,
 )
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "add_1rm_column",
     "dougs_next_pareto",
     "get_closest_exercise",
-    "plot_df"
+    "plot_df",
+    "assert_frame_equal",
 ]

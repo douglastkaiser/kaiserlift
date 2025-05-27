@@ -188,3 +188,4 @@ cython_debug/
 .cursorindexingignore
 
 # From the actual data source as a test
+*.csv

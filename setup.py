@@ -4,10 +4,14 @@ from setuptools import setup, find_packages
 from pathlib import Path
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
+long_description = long_description.replace(
+    "](images/",
+    "](https://github.com/douglastkaiser/kaiserlift/raw/main/images/"
+)
 
 setup(
     name='kaiserlift',
-    version='0.1.2',
+    version='0.1.3',
     description='Data-driven progressive overload',
     long_description=long_description,
     long_description_content_type='text/markdown',

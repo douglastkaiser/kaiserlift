@@ -5,21 +5,22 @@ on: push
 jobs:
 
   lint:
-    name: Lint and Format Code
+    name: Lint with pre-commit
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.x'
-    - name: Install the code linting and formatting tool Ruff
-      run: pipx install ruff
-    - name: Lint code with Ruff
-      run: ruff check --output-format=github --target-version=py39
-    - name: Check code formatting with Ruff
-      run: ruff format --diff --target-version=py39
+      - name: Checkout repo
+        uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install pre-commit
+        run: pip install pre-commit
+
+      - name: Run pre-commit on all files
+        run: pre-commit run --all-files
 
   # Test from pypi
   install-from-pypi:
@@ -40,8 +41,10 @@ jobs:
           pip install --upgrade pip
           pip install kaiserlift
           pip install pytest
+      
+      - name: Checkout repo to get tests
+        uses: actions/checkout@v4
 
       - name: Run tests using installed package
         run: |
-          pytest tests/
-          
+          pytest tests

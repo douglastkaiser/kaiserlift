@@ -1,4 +1,4 @@
-from .helper import (
+from .helpers import (
     calculate_1rm,
     highest_weight_per_rep,
     estimate_weight_from_1rm,

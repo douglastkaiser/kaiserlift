@@ -9,8 +9,7 @@ from IPython.display import display, HTML
 from helpers import dougs_next_pareto, highest_weight_per_rep, plot_df
 
 # Get a list of all CSV files in the current directory
-working_dir = "/content/drive/MyDrive/Personal Work/Workout Analysis (90%)/"
-csv_files = glob.glob(working_dir + "FitNotes_Export_*.csv")
+csv_files = glob.glob("FitNotes_Export_*.csv")
 
 # Find the file with the most recent timestamp
 latest_file = max(csv_files, key=os.path.getctime)
@@ -107,7 +106,7 @@ for category in sorted_categories[
     output_lines.append("\n")  # Add a blank line between categories
 
 # Save to file
-output_file = working_dir + "workout_summary.txt"
+output_file = "workout_summary.txt"
 with open(output_file, "w") as f:
     f.writelines(output_lines)
 
@@ -236,5 +235,5 @@ full_html = js_and_css + dropdown_html + table_html + all_figures_html
 display(HTML(full_html))
 
 # --- Save the HTML to a file ---
-with open(working_dir + "interactive_table.html", "w", encoding="utf-8") as f:
+with open("interactive_table.html", "w", encoding="utf-8") as f:
     f.write(full_html)

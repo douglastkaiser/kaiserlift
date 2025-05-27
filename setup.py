@@ -22,6 +22,7 @@ setup(
         "pandas>=2.2.3",
         "numpy>=2.2.6",
         "matplotlib>=3.10.3",
+        "IPython",
     ],
     entry_points={
         "console_scripts": [

@@ -11,7 +11,7 @@ long_description = long_description.replace(
 
 setup(
     name="kaiserlift",
-    version="0.1.6",
+    version="0.1.7",
     description="Data-driven progressive overload",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -19,9 +19,9 @@ setup(
     author_email="douglastkaiser@gmail.com",
     packages=find_packages(),
     install_requires=[
-        "pandas>=2.2.3",
-        "numpy>=2.2.6",
-        "matplotlib>=3.10.3",
+        "pandas",
+        "numpy",
+        "matplotlib",
         "IPython",
     ],
     entry_points={

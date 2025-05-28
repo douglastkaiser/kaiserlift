@@ -6,7 +6,7 @@ import base64
 from io import BytesIO
 from IPython.display import display, HTML
 
-from helpers import dougs_next_pareto, highest_weight_per_rep, plot_df
+from kaiserlift import dougs_next_pareto, highest_weight_per_rep, plot_df
 
 # Get a list of all CSV files in the current directory
 csv_files = glob.glob("FitNotes_Export_*.csv")

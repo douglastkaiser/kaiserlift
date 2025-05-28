@@ -39,7 +39,7 @@ jobs:
       - name: Install package from PyPI
         run: |
           pip install --upgrade pip
-          pip install kaiserlift
+          pip install --upgrade kaiserlift
           pip install pytest
       
       - name: Checkout repo to get tests

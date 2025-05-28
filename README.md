@@ -1,6 +1,8 @@
 # [kaiserlift](https://www.douglastkaiser.com/projects/#workoutPlanner)
 A smarter way to choose your next workout: data-driven progressive overload
 
+[pypi package](https://pypi.org/project/kaiserlift/)
+
 ## Why keep doing 10 rep sets? Are you pushing in a smart way?
 
 The core idea I’m exploring is simple: I want a science-based system for determining what’s the best workout to do next if your goal is muscle growth. The foundation of this is progressive overload—the principle that muscles grow when you consistently challenge them beyond what they’re used to.

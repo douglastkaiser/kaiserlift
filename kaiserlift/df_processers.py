@@ -1,8 +1,40 @@
 import math
 import numpy as np
 import pandas as pd
-from difflib import get_close_matches
-import matplotlib.pyplot as plt
+import os
+
+
+def import_fitnotes_csv(csv_files: list) -> pd.DataFrame:
+    # Find the file with the most recent timestamp
+    latest_file = max(csv_files, key=os.path.getctime)
+    print(f"Using {latest_file}")
+
+    # Load the latest file into a pandas DataFrame
+    df = pd.read_csv(latest_file)
+
+    # Assuming 'Date' column exists and is in datetime format.
+    # If not, convert it first:
+    df["Date"] = pd.to_datetime(
+        df["Date"], format="%Y-%m-%d"
+    )  # Example format, adjust as needed.
+
+    # Sort the DataFrame by 'Date' in ascending order (least recent to most recent)
+    df_sorted = df.sort_values(by="Date", ascending=True)
+
+    # Turn Distance into Weight?
+    df_sorted["Weight"] = df_sorted["Weight"].combine_first(df_sorted["Distance"])
+    df_sorted["Time"] = pd.to_timedelta(df_sorted["Time"]).dt.total_seconds() / 60
+    df_sorted["Reps"] = df_sorted["Reps"].combine_first(df_sorted["Time"])
+
+    # drop what we don't care about
+    df_sorted = df_sorted.drop(
+        ["Distance", "Weight Unit", "Distance Unit", "Comment", "Time"], axis=1
+    )
+    df_sorted = df_sorted[df_sorted["Category"] != "Cardio"]
+    df_sorted = df_sorted[df_sorted["Exercise"] != "Climbing"]
+    df_sorted = df_sorted[df_sorted["Exercise"] != "Tricep Push Ul"]
+
+    return df_sorted
 
 
 def assert_frame_equal(df1, df2):
@@ -194,89 +226,3 @@ def dougs_next_pareto(df_records):
         rows.append((ex, ws[-1], rs[-1] + 1))
 
     return add_1rm_column(pd.DataFrame(rows, columns=["Exercise", "Weight", "Reps"]))
-
-
-def get_closest_exercise(df, Exercise):
-    all_exercises = df["Exercise"].unique()
-    matches = get_close_matches(Exercise, all_exercises, n=1, cutoff=0.6)
-    if matches:
-        return matches[0]
-    else:
-        raise ValueError(f"No close match found for '{Exercise}'.")
-
-
-def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
-    df = df[df["Reps"] != 0]
-
-    if Exercise is None:
-        exercises = df["Exercise"].unique()
-        fig, ax = plt.subplots()
-        for exercise in exercises:
-            exercise_df = df[df["Exercise"] == exercise]
-            ax.scatter(
-                exercise_df["Reps"] / max(exercise_df["Reps"]),
-                exercise_df["Weight"] / max(exercise_df["Weight"]),
-                label=exercise,
-            )
-        ax.set_title("Weight vs. Reps for All Exercises")
-        ax.set_xlabel("Reps")
-        ax.set_ylabel("Weight")
-        return fig
-
-    closest_match = get_closest_exercise(df, Exercise)
-    df = df[df["Exercise"] == closest_match]
-    if df_pareto is not None:
-        df_pareto = df_pareto[df_pareto["Exercise"] == closest_match]
-    if df_targets is not None:
-        df_targets = df_targets[df_targets["Exercise"] == closest_match]
-
-    fig, ax = plt.subplots()
-
-    if df_pareto is not None:
-        pareto_points = list(zip(df_pareto["Reps"], df_pareto["Weight"]))
-        pareto_reps, pareto_weights = zip(*sorted(pareto_points, key=lambda x: x[0]))
-
-        # Compute best 1RM from Pareto front
-        one_rms = [calculate_1rm(w, r) for w, r in zip(pareto_weights, pareto_reps)]
-        max_1rm = max(one_rms)
-
-        # Generate dotted Epley decay line
-        x_vals = np.linspace(min(df["Reps"]), max(df["Reps"]), 10)
-        y_vals = [estimate_weight_from_1rm(max_1rm, r) for r in x_vals]
-        ax.plot(x_vals, y_vals, "k--", label="Max Achieved 1RM", alpha=0.7)
-
-        ax.step(
-            pareto_reps, pareto_weights, color="red", marker="o", label="Pareto Front"
-        )
-
-    if df_targets is not None:
-        target_points = list(zip(df_targets["Reps"], df_targets["Weight"]))
-        target_reps, target_weights = zip(*sorted(target_points, key=lambda x: x[0]))
-
-        # Compute best 1RM from Pareto front
-        one_rms = [calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)]
-        min_1rm = min(one_rms)
-
-        # Generate dotted Epley decay line
-        x_vals = np.linspace(min(df["Reps"]), max(df["Reps"]), 10)
-        y_vals = [estimate_weight_from_1rm(min_1rm, r) for r in x_vals]
-        ax.plot(x_vals, y_vals, "g-.", label="Min Target 1RM", alpha=0.7)
-
-        ax.scatter(
-            df_targets["Reps"],
-            df_targets["Weight"],
-            color="green",
-            marker="x",
-            label="Targets",
-        )
-
-    # Plotting
-    ax.scatter(df["Reps"], df["Weight"], label="Data Points")
-
-    ax.set_title(f"Weight vs. Reps for {closest_match}")
-    ax.set_xlabel("Reps")
-    ax.set_xlim(left=0)
-    ax.set_ylabel("Weight")
-    ax.legend()
-
-    return fig

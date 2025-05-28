@@ -11,7 +11,7 @@ long_description = long_description.replace(
 
 setup(
     name="kaiserlift",
-    version="0.1.7",
+    version="0.1.8",
     description="Data-driven progressive overload",
     long_description=long_description,
     long_description_content_type="text/markdown",

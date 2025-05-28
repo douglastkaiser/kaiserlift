@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
 from IPython.display import display, HTML
-from df_processers import (
+from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
     estimate_weight_from_1rm,

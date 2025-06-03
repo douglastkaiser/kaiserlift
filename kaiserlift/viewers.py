@@ -2,6 +2,7 @@ import numpy as np
 from difflib import get_close_matches
 import matplotlib.pyplot as plt
 import base64
+import os
 from io import BytesIO
 from IPython.display import display, HTML
 from .df_processers import (
@@ -146,6 +147,7 @@ def print_oldest_excercise(df_sorted) -> None:
         output_lines.append("\n")  # Add a blank line between categories
 
     # Save to file
+    os.makedirs("build", exist_ok=True)
     output_file = "build/workout_summary.txt"
     with open(output_file, "w") as f:
         f.writelines(output_lines)
@@ -279,5 +281,6 @@ def gen_html_viewer(df_sorted):
     display(HTML(full_html))
 
     # --- Save the HTML to a file ---
+    os.makedirs("build", exist_ok=True)
     with open("build/interactive_table.html", "w", encoding="utf-8") as f:
         f.write(full_html)

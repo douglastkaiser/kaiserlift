@@ -18,10 +18,13 @@ df_records = highest_weight_per_rep(df_sorted)
 df_targets = dougs_next_pareto(df_records)
 
 fig = plot_df(df_sorted, Exercise="Curl Pulldown Bicep")
-fig = plot_df(df_sorted, df_pareto=df_records, Exercise="Curl Pulldown Bicep")
-fig = plot_df(df_sorted, df_records, df_targets, Exercise="Curl Pulldown Bicep")
+fig.savefig("build/Curl Pulldown Bicep.png")
 
-fig = plot_df(df_sorted, df_records, df_targets, Exercise="Straight-Arm Cable Pushdown")
+fig = plot_df(df_sorted, df_pareto=df_records, Exercise="Curl Pulldown Bicep")
+fig.savefig("build/Curl Pulldown Bicep Pareto.png")
+
+fig = plot_df(df_sorted, df_records, df_targets, Exercise="Curl Pulldown Bicep")
+fig.savefig("build/Curl Pulldown Bicep Pareto and Targets.png")
 
 print_oldest_excercise(df_sorted)
 

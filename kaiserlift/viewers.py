@@ -9,7 +9,7 @@ from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
     estimate_weight_from_1rm,
-    dougs_next_pareto,
+    df_next_pareto,
 )
 
 
@@ -105,7 +105,7 @@ def print_oldest_excercise(df_sorted) -> None:
     N_TARGET_SETS_PER_EXERCISES = 2
 
     df_records = highest_weight_per_rep(df_sorted)
-    df_targets = dougs_next_pareto(df_records)
+    df_targets = df_next_pareto(df_records)
 
     # Find the most recent date for each category
     category_most_recent = df_sorted.groupby("Category")["Date"].max()
@@ -157,7 +157,7 @@ def print_oldest_excercise(df_sorted) -> None:
 
 def gen_html_viewer(df_sorted):
     df_records = highest_weight_per_rep(df_sorted)
-    df_targets = dougs_next_pareto(df_records)
+    df_targets = df_next_pareto(df_records)
 
     # Create a dictionary: { exercise_name: base64_image_string }
     figures_html = {}

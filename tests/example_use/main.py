@@ -1,7 +1,7 @@
 import glob
 
 from kaiserlift import (
-    dougs_next_pareto,
+    df_next_pareto,
     highest_weight_per_rep,
     plot_df,
     print_oldest_excercise,
@@ -15,7 +15,7 @@ csv_files = glob.glob("FitNotes_Export_*.csv")
 df_sorted = import_fitnotes_csv(csv_files)
 
 df_records = highest_weight_per_rep(df_sorted)
-df_targets = dougs_next_pareto(df_records)
+df_targets = df_next_pareto(df_records)
 
 fig = plot_df(df_sorted, Exercise="Curl Pulldown Bicep")
 fig.savefig("build/Curl Pulldown Bicep.png")

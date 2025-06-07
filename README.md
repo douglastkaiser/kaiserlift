@@ -17,7 +17,12 @@ To make this system more precise, I propose using a one-rep max (1RM) equivalenc
 
 ![Curl Pulldown with Pareto](images/CurlPulldownwithPareto.png "Curl Pulldown with Pareto")
 
-Here's how I operationalize it:
+For the 1 rep max we use `The Epley Formula`:
+$$
+\text{estimated\_1rm} = \text{weight} \times \left(1 + \frac{\text{reps}}{30.0}\right)
+$$
+
+## Here's how to operationalize it:
 
 1. Collect your full workout history for a given exercise—every weight and rep combo you’ve done.
 2. Calculate the Pareto front of that data. This is the set of “non-dominated” performances: the heaviest weights at each rep range that can’t be beaten in both weight and reps at the same time.
@@ -36,3 +41,61 @@ The end goal here is simple: use your data to intelligently apply progressive ov
 To this end I also made an HTML page that can organize these in a text searchable way and can be accessed from my phone at the gym. This table of taget sets can be ordered by 1RPM and so easilly parsed.
 
 ![Curl Pulldown Example - HTML](images/curlpulldown_html.png "Curl Pulldown Example - HTML")
+
+## How to use
+
+Current needs for the data format in a `.csv`
+```
+Date,Exercise,Category,Weight,Reps
+2022-09-14,Flat Barbell Bench Press,Chest,45.0,10""
+2022-09-14,Flat Barbell Bench Press,Chest,65.0,15""
+2022-09-14,Dumbbell Curl,Biceps,35.0,10""
+2022-09-14,Dumbbell Curl,Biceps,40.0,1,""
+2022-09-25,Parallel Bar Triceps Dip,Triceps,1.0,10""
+2022-09-25,Parallel Bar Triceps Dip,Triceps,1.0,12""
+```
+
+Installation
+```
+> pip install kaiserlift
+```
+
+Import data and run the pareto calculations:
+```
+from kaiserlift import (
+    import_fitnotes_csv,
+    highest_weight_per_rep,
+    df_next_pareto,
+)
+csv_files = glob.glob("*.csv")
+df = import_fitnotes_csv(csv_files)
+df_pareto = highest_weight_per_rep(df)
+df_targets = df_next_pareto(df_pareto)
+```
+
+Plotting the data:
+```
+from kaiserlift import plot_df
+
+# Simple view of all data (only the blue dots)
+fig = plot_df(df, Exercise="Dumbbell Curl")
+fig.savefig("build/Dumbbell_Curl_Raw.png")
+
+# View with pareto front plotted (the red line)
+fig = plot_df(df, df_pareto=df_pareto, Exercise="Dumbbell Curl")
+fig.savefig("build/Dumbbell_Curl_Pareto.png")
+
+# View with pareto and targets (the green x's)
+fig = plot_df(df, df_pareto=df_pareto, df_targets=df_targets, Exercise="Dumbbell Curl")
+fig.savefig("build/Dumbbell_Curl_Pareto_and_Targets.png")
+```
+
+Generate views:
+```
+from kaiserlift import (
+    print_oldest_excercise,
+    gen_html_viewer,
+)
+print_oldest_excercise(df)
+gen_html_viewer(df)
+```

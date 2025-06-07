@@ -203,7 +203,7 @@ def add_1rm_column(df: pd.DataFrame) -> pd.DataFrame:
     return df_copy
 
 
-def dougs_next_pareto(df_records):
+def df_next_pareto(df_records):
     rows = []
     for ex in df_records["Exercise"].unique():
         ed = df_records[df_records["Exercise"] == ex].sort_values("Reps")

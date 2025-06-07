@@ -3,7 +3,7 @@ from kaiserlift import (
     calculate_1rm,
     estimate_weight_from_1rm,
     add_1rm_column,
-    dougs_next_pareto,
+    df_next_pareto,
     highest_weight_per_rep,
     assert_frame_equal,
 )
@@ -141,10 +141,10 @@ def test_add_1rm_column():
     )
 
 
-def test_dougs_next_pareto():
+def test_df_next_pareto():
     # Simple case for 100x1; 105x1 and 100x2
     assert_frame_equal(
-        dougs_next_pareto(
+        df_next_pareto(
             pd.DataFrame(
                 {
                     "Exercise": "Bench Press",
@@ -165,7 +165,7 @@ def test_dougs_next_pareto():
     )
 
     assert_frame_equal(
-        dougs_next_pareto(
+        df_next_pareto(
             pd.DataFrame(
                 {
                     "Exercise": "Bench Press",
@@ -187,7 +187,7 @@ def test_dougs_next_pareto():
 
     # Two excersice test
     assert_frame_equal(
-        dougs_next_pareto(
+        df_next_pareto(
             pd.DataFrame(
                 {
                     "Exercise": ["Bench Press"] + ["Incline Bench Press"] * 2,
@@ -212,7 +212,7 @@ def test_dougs_next_pareto():
     # Gaps in both rep and weight
     # Single increment off example (80x5 and 75x6)
     assert_frame_equal(
-        dougs_next_pareto(
+        df_next_pareto(
             pd.DataFrame(
                 {
                     "Exercise": "Bench Press",

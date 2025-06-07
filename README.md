@@ -18,7 +18,9 @@ To make this system more precise, I propose using a one-rep max (1RM) equivalenc
 ![Curl Pulldown with Pareto](images/CurlPulldownwithPareto.png "Curl Pulldown with Pareto")
 
 For the 1 rep max we use [`The Epley Formula`](https://en.wikipedia.org/wiki/One-repetition_maximum#cite_ref-7):
-![Epley Formula](https://latex.codecogs.com/png.image?\dpi{150}&space;\text{1 RPM}=weight\cdot\left(1+\frac{reps}{30.0}\right))
+$$
+\text{estimated\_1rm} = \text{weight} \times \left(1 + \frac{\text{reps}}{30.0}\right)
+$$
 
 ## Here's how to operationalize it:
 

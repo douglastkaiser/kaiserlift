@@ -2,9 +2,7 @@ import numpy as np
 from difflib import get_close_matches
 import matplotlib.pyplot as plt
 import base64
-import os
 from io import BytesIO
-from IPython.display import display, HTML
 from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
@@ -99,33 +97,31 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     return fig
 
 
-def print_oldest_excercise(df_sorted) -> None:
-    N_CAT = 2
-    N_EXERCISES_PER_CAT = 2
-    N_TARGET_SETS_PER_EXERCISES = 2
-
-    df_records = highest_weight_per_rep(df_sorted)
+def print_oldest_excercise(
+    df, n_cat=2, n_exercises_per_cat=2, n_target_sets_per_exercises=2
+) -> None:
+    df_records = highest_weight_per_rep(df)
     df_targets = df_next_pareto(df_records)
 
     # Find the most recent date for each category
-    category_most_recent = df_sorted.groupby("Category")["Date"].max()
+    category_most_recent = df.groupby("Category")["Date"].max()
 
     # Sort categories by their most recent date (oldest first)
     sorted_categories = category_most_recent.sort_values().index
     output_lines = []
 
     for category in sorted_categories[
-        :N_CAT
+        :n_cat
     ]:  # Take the category with oldest most recent date
         print(f"{category=}")
         output_lines.append(f"Category: {category}\n")
 
         # Filter to this category
-        category_df = df_sorted[df_sorted["Category"] == category]
+        category_df = df[df["Category"] == category]
 
         # Find the oldest exercises in this category
         exercise_oldest_dates = category_df.groupby("Exercise")["Date"].max()
-        oldest_exercises = exercise_oldest_dates.nsmallest(N_EXERCISES_PER_CAT)
+        oldest_exercises = exercise_oldest_dates.nsmallest(n_exercises_per_cat)
 
         for exercise, oldest_date in oldest_exercises.items():
             print(f"  {exercise=}, date={oldest_date}")
@@ -134,7 +130,7 @@ def print_oldest_excercise(df_sorted) -> None:
             # Find the lowest 3 sets to target
             sorted_exercise_targets = df_targets[
                 df_targets["Exercise"] == exercise
-            ].nsmallest(n=N_TARGET_SETS_PER_EXERCISES, columns="1RM")
+            ].nsmallest(n=n_target_sets_per_exercises, columns="1RM")
             for index, row in sorted_exercise_targets.iterrows():
                 print(
                     f"    {row['Weight']} for {row['Reps']} reps ({row['1RM']:.2f} 1rm)"
@@ -146,25 +142,19 @@ def print_oldest_excercise(df_sorted) -> None:
         print(" ")
         output_lines.append("\n")  # Add a blank line between categories
 
-    # Save to file
-    os.makedirs("build", exist_ok=True)
-    output_file = "build/workout_summary.txt"
-    with open(output_file, "w") as f:
-        f.writelines(output_lines)
-
-    print(f"Saved to {output_file}")
+    return output_lines
 
 
-def gen_html_viewer(df_sorted):
-    df_records = highest_weight_per_rep(df_sorted)
+def gen_html_viewer(df):
+    df_records = highest_weight_per_rep(df)
     df_targets = df_next_pareto(df_records)
 
     # Create a dictionary: { exercise_name: base64_image_string }
     figures_html = {}
     errors = ""
-    for exercise in df_sorted["Exercise"].unique():
+    for exercise in df["Exercise"].unique():
         try:
-            fig = plot_df(df_sorted, df_records, df_targets, Exercise=exercise)
+            fig = plot_df(df, df_records, df_targets, Exercise=exercise)
             buf = BytesIO()
             fig.savefig(buf, format="png", bbox_inches="tight")
             buf.seek(0)
@@ -278,9 +268,5 @@ def gen_html_viewer(df_sorted):
 
     # Final combo
     full_html = js_and_css + dropdown_html + table_html + all_figures_html
-    display(HTML(full_html))
 
-    # --- Save the HTML to a file ---
-    os.makedirs("build", exist_ok=True)
-    with open("build/interactive_table.html", "w", encoding="utf-8") as f:
-        f.write(full_html)
+    return full_html

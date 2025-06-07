@@ -17,10 +17,8 @@ To make this system more precise, I propose using a one-rep max (1RM) equivalenc
 
 ![Curl Pulldown with Pareto](images/CurlPulldownwithPareto.png "Curl Pulldown with Pareto")
 
-For the 1 rep max we use `The Epley Formula`:
-$$
-\text{estimated\_1rm} = \text{weight} \times \left(1 + \frac{\text{reps}}{30.0}\right)
-$$
+For the 1 rep max we use [`The Epley Formula`](https://en.wikipedia.org/wiki/One-repetition_maximum#cite_ref-7):
+![Epley Formula](https://latex.codecogs.com/png.image?\dpi{150}&space;\text{1 RPM}=weight\cdot\left(1+\frac{reps}{30.0}\right))
 
 ## Here's how to operationalize it:
 
@@ -96,6 +94,18 @@ from kaiserlift import (
     print_oldest_excercise,
     gen_html_viewer,
 )
-print_oldest_excercise(df)
-gen_html_viewer(df)
+
+# Console print out with optional args
+output_lines = print_oldest_excercise(df, n_cat=2, n_exercises_per_cat=2, n_target_sets_per_exercises=2)
+with open("your_workout_summary.txt", "w") as f:
+    f.writelines(output_lines)
+
+# Print in HTML format for ease of use
+full_html = gen_html_viewer(df)
+with open("your_interactive_table.html", "w", encoding="utf-8") as f:
+    f.write(full_html)
+
+# Console print of the HTML
+from IPython.display import display, HTML
+display(HTML(full_html))
 ```

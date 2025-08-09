@@ -2,7 +2,7 @@ from kaiserlift import (
     df_next_pareto,
     highest_weight_per_rep,
     plot_df,
-    print_oldest_excercise,
+    print_oldest_exercise,
     import_fitnotes_csv,
     gen_html_viewer,
 )
@@ -30,7 +30,7 @@ fig = plot_df(df, df_records, df_targets, Exercise="Curl Pulldown Bicep")
 fig.savefig("build/Curl Pulldown Bicep Pareto and Targets.png")
 
 # Console print out with optional args
-output_lines = print_oldest_excercise(
+output_lines = print_oldest_exercise(
     df, n_cat=2, n_exercises_per_cat=2, n_target_sets_per_exercises=2
 )
 with open("build/your_workout_summary.txt", "w") as f:

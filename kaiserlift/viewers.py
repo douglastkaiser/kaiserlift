@@ -3,6 +3,7 @@ from difflib import get_close_matches
 import matplotlib.pyplot as plt
 import base64
 from io import BytesIO
+import re
 from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
@@ -97,6 +98,11 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     return fig
 
 
+def _sanitize_for_id(text: str) -> str:
+    """Return a string safe for use as an HTML id."""
+    return re.sub(r"[^A-Za-z0-9_-]", "_", text)
+
+
 def print_oldest_excercise(
     df, n_cat=2, n_exercises_per_cat=2, n_target_sets_per_exercises=2
 ) -> None:
@@ -159,7 +165,11 @@ def gen_html_viewer(df):
             fig.savefig(buf, format="png", bbox_inches="tight")
             buf.seek(0)
             base64_img = base64.b64encode(buf.read()).decode("utf-8")
-            img_html = f'<img src="data:image/png;base64,{base64_img}" id="fig-{exercise}" class="exercise-figure" style="display:none; max-width:100%; height:auto;">'
+            sanitized = _sanitize_for_id(exercise)
+            img_html = (
+                f'<img src="data:image/png;base64,{base64_img}" id="fig-{sanitized}" '
+                'class="exercise-figure" style="display:none; max-width:100%; height:auto;">'
+            )
             figures_html[exercise] = img_html
             plt.close(fig)
         except Exception as e:
@@ -244,12 +254,7 @@ def gen_html_viewer(df):
             allowClear: true
         });
 
-        // Filter by selected exercise
-        $('#exerciseDropdown').on('change', function() {
-            var val = $.fn.dataTable.util.escapeRegex($(this).val());
-            table.column(0).search(val ? '^' + val + '$' : '', true, false).draw(); // assumes Exercise is col 0
-        });
-
+        // Filter table and show corresponding figure
         $('#exerciseDropdown').on('change', function() {
             var val = $.fn.dataTable.util.escapeRegex($(this).val());
             table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
@@ -259,7 +264,8 @@ def gen_html_viewer(df):
 
             // Show the matching figure
             if (this.value) {
-                $('#fig-' + this.value).show();
+                var sanitized = this.value.replace(/[^A-Za-z0-9_-]/g, '_');
+                $('#fig-' + sanitized).show();
             }
         });
     });

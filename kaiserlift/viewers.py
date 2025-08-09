@@ -97,7 +97,7 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     return fig
 
 
-def print_oldest_excercise(
+def print_oldest_exercise(
     df, n_cat=2, n_exercises_per_cat=2, n_target_sets_per_exercises=2
 ) -> None:
     df_records = highest_weight_per_rep(df)

@@ -1,7 +1,7 @@
 from .viewers import (
     get_closest_exercise,
     plot_df,
-    print_oldest_excercise,
+    print_oldest_exercise,
     gen_html_viewer,
 )
 
@@ -24,7 +24,7 @@ __all__ = [
     "get_closest_exercise",
     "plot_df",
     "assert_frame_equal",
-    "print_oldest_excercise",
+    "print_oldest_exercise",
     "import_fitnotes_csv",
     "gen_html_viewer",
 ]

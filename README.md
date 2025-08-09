@@ -93,12 +93,12 @@ fig.savefig("build/Dumbbell_Curl_Pareto_and_Targets.png")
 Generate views:
 ```
 from kaiserlift import (
-    print_oldest_excercise,
+    print_oldest_exercise,
     gen_html_viewer,
 )
 
 # Console print out with optional args
-output_lines = print_oldest_excercise(df, n_cat=2, n_exercises_per_cat=2, n_target_sets_per_exercises=2)
+output_lines = print_oldest_exercise(df, n_cat=2, n_exercises_per_cat=2, n_target_sets_per_exercises=2)
 with open("your_workout_summary.txt", "w") as f:
     f.writelines(output_lines)
 

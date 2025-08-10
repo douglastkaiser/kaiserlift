@@ -45,3 +45,30 @@ jobs:
       - name: Run tests using installed package
         run: |
           pytest tests
+
+  generate-example-html:
+    name: Generate example HTML
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install package
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+
+      - name: Generate example HTML
+        run: python tests/example_use/generate_example_html.py
+
+      - name: Upload HTML artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-html
+          path: tests/example_use/build/example.html

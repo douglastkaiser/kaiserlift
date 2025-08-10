@@ -111,3 +111,16 @@ with open("your_interactive_table.html", "w", encoding="utf-8") as f:
 from IPython.display import display, HTML
 display(HTML(full_html))
 ```
+
+### Example HTML generation in CI
+
+An example dataset and helper script live in `tests/example_use`. You can
+generate the interactive HTML table locally with:
+
+```
+python tests/example_use/generate_example_html.py
+```
+
+The "Generate example HTML" job in the CI workflow runs the same script and
+publishes the resulting `example.html` file as a build artifact, allowing review
+of the generated page without executing code locally.

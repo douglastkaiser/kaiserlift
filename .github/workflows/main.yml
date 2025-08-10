@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repo to get tests
+        uses: actions/checkout@v4
+
       - uses: astral-sh/setup-uv@v6
 
       - name: Create venv and install package from PyPI
@@ -31,11 +34,8 @@ jobs:
           uv venv
           uv pip install kaiserlift pytest
 
-      - name: Checkout repo to get tests
-        uses: actions/checkout@v4
-
       - name: Run tests using installed package
-        run: uv run pytest tests
+        run: uv run --no-project pytest tests
 
   generate-example-html:
     name: Generate example HTML

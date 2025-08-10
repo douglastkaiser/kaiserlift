@@ -1,3 +1,22 @@
 [build-system]
 requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "kaiserlift"
+version = "0.1.14"
+description = "Data-driven progressive overload"
+readme = "README.md"
+authors = [{ name = "Douglas Kaiser", email = "douglastkaiser@gmail.com" }]
+dependencies = [
+    "pandas",
+    "numpy",
+    "matplotlib",
+    "ipython",
+]
+
+[project.scripts]
+kaiserlift-cli = "kaiserlift.main:main"
+
+[tool.setuptools.packages.find]
+include = ["kaiserlift*"]

@@ -16,6 +16,21 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
 
+      - name: Bump version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          current=$(grep '^version =' pyproject.toml | head -n1 | cut -d '"' -f2)
+          IFS='.' read -r major minor patch <<< "$current"
+          patch=$((patch + 1))
+          new="$major.$minor.$patch"
+          sed -i -E "s/^version = \"[0-9]+\.[0-9]+\.[0-9]+\"/version = \"$new\"/" pyproject.toml
+          uv lock
+          git config user.email "github-actions@github.com"
+          git config user.name "github-actions"
+          git commit -am "chore: bump version to $new [skip ci]" || echo "No changes to commit"
+          git push
+
       - name: Build package
         run: uv build
 

@@ -11,16 +11,12 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install pre-commit
-        run: pip install pre-commit
+      - uses: astral-sh/setup-uv@v6
 
       - name: Run pre-commit on all files
-        run: pre-commit run --all-files
+        env:
+          PRE_COMMIT_USE_UV: "1"
+        run: uvx pre-commit run --all-files
 
   # Test from pypi
   install-from-pypi:
@@ -28,23 +24,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Install package from PyPI
-        run: |
-          pip install --upgrade pip
-          pip install --upgrade kaiserlift
-          pip install pytest
-
       - name: Checkout repo to get tests
         uses: actions/checkout@v4
 
-      - name: Run tests using installed package
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Create venv and install package from PyPI
         run: |
-          pytest tests
+          uv venv
+          uv pip install kaiserlift pytest
+
+      - name: Run tests using installed package
+        run: uv run --no-project pytest tests
 
   generate-example-html:
     name: Generate example HTML
@@ -54,18 +45,13 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
+      - uses: astral-sh/setup-uv@v6
 
-      - name: Install package
-        run: |
-          pip install --upgrade pip
-          pip install -e .
+      - name: Sync dependencies
+        run: uv sync
 
       - name: Generate example HTML
-        run: python tests/example_use/generate_example_html.py
+        run: uv run python tests/example_use/generate_example_html.py
 
       - name: Upload HTML artifact
         uses: actions/upload-artifact@v4

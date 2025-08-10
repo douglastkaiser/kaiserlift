@@ -57,7 +57,16 @@ Date,Exercise,Category,Weight,Reps
 
 Installation
 ```
-> pip install kaiserlift
+> uv pip install kaiserlift
+```
+
+### Development
+
+Set up a local environment with [uv](https://docs.astral.sh/uv/):
+
+```
+uv venv
+uv sync
 ```
 
 Import data and run the pareto calculations:

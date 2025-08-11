@@ -171,7 +171,13 @@ def gen_html_viewer(df):
     exercise_column = "Exercise"  # Adjust if needed
     exercise_options = sorted(df_targets[exercise_column].dropna().unique())
 
-    # Build dropdown
+    # File upload and dropdown
+    upload_html = """
+    <label for='csvUpload'>Upload CSV:</label>
+    <input type='file' id='csvUpload' accept='.csv'/>
+    <br><br>
+    """
+
     dropdown_html = f"""
     <label for="exerciseDropdown">Filter by Exercise:</label>
     <select id="exerciseDropdown">
@@ -190,13 +196,16 @@ def gen_html_viewer(df):
     # JS, CSS, and styling improvements
     js_and_css = """
     <!-- DataTables -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <link rel='stylesheet' href='https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css'/>
+    <script src='https://code.jquery.com/jquery-3.5.1.js'></script>
+    <script src='https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js'></script>
 
     <!-- Select2 for searchable dropdown -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link href='https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css' rel='stylesheet'/>
+    <script src='https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js'></script>
+
+    <!-- PapaParse for CSV parsing -->
+    <script src='https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js'></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
@@ -232,41 +241,138 @@ def gen_html_viewer(df):
     </style>
 
     <script>
+    var table;
+
+    function calculate1rm(weight, reps) {
+        weight = parseFloat(weight);
+        reps = parseInt(reps);
+        if (!weight || !reps || reps <= 0 || weight < 0) {
+            return NaN;
+        }
+        if (reps === 1) {
+            return weight;
+        }
+        return weight * (1 + reps / 30.0);
+    }
+
+    function highestWeightPerRep(data) {
+        const byExercise = {};
+        data.forEach(row => {
+            const ex = row.Exercise;
+            const reps = parseInt(row.Reps);
+            const weight = parseFloat(row.Weight);
+            if (!ex || isNaN(reps) || isNaN(weight)) return;
+            if (!byExercise[ex]) byExercise[ex] = {};
+            if (!byExercise[ex][reps] || byExercise[ex][reps].Weight < weight) {
+                byExercise[ex][reps] = { Exercise: ex, Reps: reps, Weight: weight };
+            }
+        });
+        const records = [];
+        Object.keys(byExercise).forEach(ex => {
+            Object.keys(byExercise[ex]).forEach(r => records.push(byExercise[ex][r]));
+        });
+        const grouped = {};
+        records.forEach(row => {
+            if (!grouped[row.Exercise]) grouped[row.Exercise] = [];
+            grouped[row.Exercise].push(row);
+        });
+        const finalRecords = [];
+        Object.keys(grouped).forEach(ex => {
+            const grp = grouped[ex].sort((a,b) => a.Reps - b.Reps);
+            grp.forEach(row => {
+                const superseded = grp.some(other => other.Reps > row.Reps && other.Weight >= row.Weight);
+                if (!superseded) finalRecords.push(row);
+            });
+        });
+        return finalRecords;
+    }
+
+    function dfNextPareto(records) {
+        const grouped = {};
+        records.forEach(row => {
+            if (!grouped[row.Exercise]) grouped[row.Exercise] = [];
+            grouped[row.Exercise].push(row);
+        });
+        const rows = [];
+        Object.keys(grouped).forEach(ex => {
+            const ed = grouped[ex].sort((a,b) => a.Reps - b.Reps);
+            const ws = ed.map(r => r.Weight);
+            const rs = ed.map(r => r.Reps);
+            if (ws.length === 0) return;
+            rows.push({Exercise: ex, Weight: ws[0] + 5, Reps: 1});
+            for (let i=0; i<rs.length-1; i++) {
+                if (rs[i+1] > rs[i] + 1) {
+                    const nr = rs[i] + 1;
+                    const c1_w = ws[i];
+                    const c2_w = ws[i+1] + 5;
+                    rows.push({Exercise: ex, Weight: Math.min(c1_w, c2_w), Reps: nr});
+                }
+            }
+            rows.push({Exercise: ex, Weight: ws[ws.length-1], Reps: rs[rs.length-1] + 1});
+        });
+        return rows.map(r => ({...r, '1RM': calculate1rm(r.Weight, r.Reps)}));
+    }
+
+    function bindDropdown() {
+        $('#exerciseDropdown').off('change').on('change', function() {
+            var val = $.fn.dataTable.util.escapeRegex($(this).val());
+            table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
+            $('.exercise-figure').hide();
+            if (this.value) {
+                $('#fig-' + this.value).show();
+            }
+        });
+    }
+
+    function updateDropdown(options) {
+        const dropdown = $('#exerciseDropdown');
+        dropdown.select2('destroy');
+        dropdown.empty();
+        dropdown.append('<option value="">All</option>');
+        options.forEach(x => dropdown.append(`<option value="${x}">${x}</option>`));
+        dropdown.select2({ placeholder: 'Filter by Exercise', allowClear: true });
+        bindDropdown();
+    }
+
     $(document).ready(function() {
         // Initialize DataTable
-        var table = $('#exerciseTable').DataTable({
+        table = $('#exerciseTable').DataTable({
             responsive: true
         });
 
         // Initialize Select2 for searchable dropdown
         $('#exerciseDropdown').select2({
-            placeholder: "Filter by Exercise",
+            placeholder: 'Filter by Exercise',
             allowClear: true
         });
 
-        // Filter by selected exercise
-        $('#exerciseDropdown').on('change', function() {
-            var val = $.fn.dataTable.util.escapeRegex($(this).val());
-            table.column(0).search(val ? '^' + val + '$' : '', true, false).draw(); // assumes Exercise is col 0
-        });
+        bindDropdown();
 
-        $('#exerciseDropdown').on('change', function() {
-            var val = $.fn.dataTable.util.escapeRegex($(this).val());
-            table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
-
-            // Hide all figures
-            $('.exercise-figure').hide();
-
-            // Show the matching figure
-            if (this.value) {
-                $('#fig-' + this.value).show();
-            }
+        // Handle CSV upload
+        document.getElementById('csvUpload').addEventListener('change', function(evt) {
+            const file = evt.target.files[0];
+            if (!file) return;
+            Papa.parse(file, {
+                header: true,
+                complete: function(results) {
+                    const data = results.data;
+                    const records = highestWeightPerRep(data);
+                    const targets = dfNextPareto(records);
+                    table.clear();
+                    targets.forEach(r => {
+                        table.row.add([r.Exercise, r.Weight, r.Reps, r['1RM'].toFixed(2)]);
+                    });
+                    table.draw();
+                    const exercises = [...new Set(targets.map(r => r.Exercise))].sort();
+                    updateDropdown(exercises);
+                }
+            });
         });
     });
     </script>
     """
 
     # Final combo
-    full_html = js_and_css + dropdown_html + table_html + all_figures_html
+    full_html = js_and_css + upload_html + dropdown_html + table_html + all_figures_html
 
     return full_html

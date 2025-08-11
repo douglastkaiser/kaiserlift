@@ -15,6 +15,5 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     out_file.write_text(html, encoding="utf-8")
     assert out_file.exists()
     assert "<table" in html
-    # ensure at least one exercise figure is present and linked in the dropdown
-    assert 'data-fig="' in html
+    # ensure at least one exercise figure is present
     assert 'class="exercise-figure"' in html

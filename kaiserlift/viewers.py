@@ -187,6 +187,9 @@ def gen_html_viewer(df):
 
     # Build dropdown with data attribute linking to figure id
     dropdown_html = """
+    <label for="csvUpload">Upload CSV:</label>
+    <input type="file" id="csvUpload" accept=".csv" />
+    <br><br>
     <label for="exerciseDropdown">Filter by Exercise:</label>
     <select id="exerciseDropdown">
     <option value="">All</option>
@@ -209,13 +212,13 @@ def gen_html_viewer(df):
     # JS, CSS, and styling improvements
     js_and_css = """
     <!-- DataTables -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <link rel=\"stylesheet\" href=\"https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css\"/>
+    <script src=\"https://code.jquery.com/jquery-3.5.1.js\"></script>
+    <script src=\"https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js\"></script>
 
     <!-- Select2 for searchable dropdown -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link href=\"https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css\" rel=\"stylesheet\" />
+    <script src=\"https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js\"></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
@@ -251,6 +254,70 @@ def gen_html_viewer(df):
     </style>
 
     <script>
+    function calculate1RM(weight, reps) {
+        weight = parseFloat(weight);
+        reps = parseInt(reps);
+        if (!weight || !reps || reps <= 0 || weight < 0) {
+            if (weight === 0 && reps > 0) { return 0; }
+            return NaN;
+        }
+        if (reps === 1) { return weight; }
+        return weight * (1 + reps / 30.0);
+    }
+
+    function highestWeightPerRep(data) {
+        const groups = {};
+        data.forEach(row => {
+            const ex = row.Exercise;
+            if (!groups[ex]) { groups[ex] = []; }
+            groups[ex].push(row);
+        });
+        const result = [];
+        Object.values(groups).forEach(rows => {
+            const byRep = {};
+            rows.forEach(r => {
+                const reps = parseInt(r.Reps);
+                const weight = parseFloat(r.Weight);
+                if (!byRep[reps] || weight > byRep[reps].Weight) {
+                    byRep[reps] = { ...r, Reps: reps, Weight: weight };
+                }
+            });
+            const candidates = Object.values(byRep);
+            candidates.forEach(c => {
+                const superseded = candidates.some(o => o.Reps > c.Reps && o.Weight >= c.Weight);
+                if (!superseded) { result.push(c); }
+            });
+        });
+        return result;
+    }
+
+    function dfNextPareto(records) {
+        const groups = {};
+        records.forEach(r => {
+            const ex = r.Exercise;
+            if (!groups[ex]) { groups[ex] = []; }
+            groups[ex].push(r);
+        });
+        const rows = [];
+        Object.entries(groups).forEach(([ex, arr]) => {
+            arr.sort((a, b) => a.Reps - b.Reps);
+            const ws = arr.map(r => r.Weight);
+            const rs = arr.map(r => r.Reps);
+            rows.push({ Exercise: ex, Weight: ws[0] + 5, Reps: 1 });
+            for (let i = 0; i < rs.length - 1; i++) {
+                if (rs[i + 1] > rs[i] + 1) {
+                    const nr = rs[i] + 1;
+                    const c1 = ws[i];
+                    const c2 = ws[i + 1] + 5;
+                    rows.push({ Exercise: ex, Weight: Math.min(c1, c2), Reps: nr });
+                }
+            }
+            rows.push({ Exercise: ex, Weight: ws[ws.length - 1], Reps: rs[rs.length - 1] + 1 });
+        });
+        rows.forEach(r => { r["1RM"] = calculate1RM(r.Weight, r.Reps); });
+        return rows;
+    }
+
     $(document).ready(function() {
         // Initialize DataTable
         var table = $('#exerciseTable').DataTable({
@@ -267,14 +334,45 @@ def gen_html_viewer(df):
             var val = $.fn.dataTable.util.escapeRegex($(this).val());
             table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
 
-            // Hide all figures
             $('.exercise-figure').hide();
-
-            // Show the matching figure
             var figId = $(this).find('option:selected').data('fig');
             if (figId) {
                 $('#fig-' + figId).show();
             }
+        });
+
+        $('#csvUpload').on('change', function(evt) {
+            var file = evt.target.files[0];
+            if (!file) { return; }
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var text = e.target.result.trim();
+                var lines = text.split(/\r?\n/);
+                var headers = lines[0].split(',');
+                var data = lines.slice(1).map(line => {
+                    var cols = line.split(',');
+                    var obj = {};
+                    headers.forEach((h, i) => { obj[h.trim()] = cols[i]; });
+                    return obj;
+                });
+                var records = highestWeightPerRep(data);
+                var targets = dfNextPareto(records);
+                table.clear();
+                targets.forEach(r => {
+                    table.row.add([r.Exercise, r.Weight, r.Reps, r["1RM"].toFixed(2)]);
+                });
+                table.draw();
+                $('.exercise-figure').hide();
+                var options = [...new Set(data.map(d => d.Exercise))].sort();
+                var dropdown = $('#exerciseDropdown');
+                dropdown.empty();
+                dropdown.append('<option value="">All</option>');
+                options.forEach(opt => {
+                    dropdown.append(`<option value="${opt}" data-fig="">${opt}</option>`);
+                });
+                dropdown.val('').trigger('change');
+            };
+            reader.readAsText(file);
         });
     });
     </script>

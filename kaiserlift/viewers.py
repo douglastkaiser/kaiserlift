@@ -152,23 +152,29 @@ def gen_html_viewer(df):
 
     # Create a dictionary: { exercise_name: base64_image_string }
     figures_html: dict[str, str] = {}
-    exercise_slug: dict[str, str] = {}
     errors = ""
-    for exercise in df["Exercise"].unique():
+
+    def slugify(name: str) -> str:
+        """Return a normalized slug for the given exercise name."""
+        slug = re.sub(r"[^\w]+", "_", name)
+        slug = re.sub(r"_+", "_", slug).strip("_")
+        return slug.lower()
+
+    exercise_slug = {ex: slugify(ex) for ex in df["Exercise"].unique()}
+
+    for exercise, slug in exercise_slug.items():
         try:
             fig = plot_df(df, df_records, df_targets, Exercise=exercise)
             buf = BytesIO()
             fig.savefig(buf, format="png", bbox_inches="tight")
             buf.seek(0)
             base64_img = base64.b64encode(buf.read()).decode("utf-8")
-            slug = re.sub(r"[^\w-]+", "_", exercise).strip("_")
             img_html = (
                 f'<img src="data:image/png;base64,{base64_img}" '
                 f'id="fig-{slug}" class="exercise-figure" '
                 'style="display:none; max-width:100%; height:auto;">'
             )
             figures_html[exercise] = img_html
-            exercise_slug[exercise] = slug
             plt.close(fig)
         except Exception as e:
             errors += f"{e}"

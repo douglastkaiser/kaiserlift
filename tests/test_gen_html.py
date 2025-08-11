@@ -15,3 +15,5 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     out_file.write_text(html, encoding="utf-8")
     assert out_file.exists()
     assert "<table" in html
+    assert 'data-fig="Flat_Barbell_Bench_Press"' in html
+    assert 'id="fig-Flat_Barbell_Bench_Press"' in html

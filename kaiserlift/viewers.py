@@ -2,6 +2,7 @@ import numpy as np
 from difflib import get_close_matches
 import matplotlib.pyplot as plt
 import base64
+import re
 from io import BytesIO
 from .df_processers import (
     calculate_1rm,
@@ -150,7 +151,8 @@ def gen_html_viewer(df):
     df_targets = df_next_pareto(df_records)
 
     # Create a dictionary: { exercise_name: base64_image_string }
-    figures_html = {}
+    figures_html: dict[str, str] = {}
+    exercise_slug: dict[str, str] = {}
     errors = ""
     for exercise in df["Exercise"].unique():
         try:
@@ -159,8 +161,14 @@ def gen_html_viewer(df):
             fig.savefig(buf, format="png", bbox_inches="tight")
             buf.seek(0)
             base64_img = base64.b64encode(buf.read()).decode("utf-8")
-            img_html = f'<img src="data:image/png;base64,{base64_img}" id="fig-{exercise}" class="exercise-figure" style="display:none; max-width:100%; height:auto;">'
+            slug = re.sub(r"[^\w-]", "_", exercise)
+            img_html = (
+                f'<img src="data:image/png;base64,{base64_img}" '
+                f'id="fig-{slug}" class="exercise-figure" '
+                'style="display:none; max-width:100%; height:auto;">'
+            )
             figures_html[exercise] = img_html
+            exercise_slug[exercise] = slug
             plt.close(fig)
         except Exception as e:
             errors += f"{e}"
@@ -171,12 +179,17 @@ def gen_html_viewer(df):
     exercise_column = "Exercise"  # Adjust if needed
     exercise_options = sorted(df_targets[exercise_column].dropna().unique())
 
-    # Build dropdown
-    dropdown_html = f"""
+    # Build dropdown with data attribute linking to figure id
+    dropdown_html = """
     <label for="exerciseDropdown">Filter by Exercise:</label>
     <select id="exerciseDropdown">
     <option value="">All</option>
-    {"".join(f'<option value="{x}">{x}</option>' for x in exercise_options)}
+    """
+    dropdown_html += "".join(
+        f'<option value="{x}" data-fig="{exercise_slug.get(x, "")}">{x}</option>'
+        for x in exercise_options
+    )
+    dropdown_html += """
     </select>
     <br><br>
     """
@@ -244,12 +257,6 @@ def gen_html_viewer(df):
             allowClear: true
         });
 
-        // Filter by selected exercise
-        $('#exerciseDropdown').on('change', function() {
-            var val = $.fn.dataTable.util.escapeRegex($(this).val());
-            table.column(0).search(val ? '^' + val + '$' : '', true, false).draw(); // assumes Exercise is col 0
-        });
-
         $('#exerciseDropdown').on('change', function() {
             var val = $.fn.dataTable.util.escapeRegex($(this).val());
             table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
@@ -258,8 +265,9 @@ def gen_html_viewer(df):
             $('.exercise-figure').hide();
 
             // Show the matching figure
-            if (this.value) {
-                $('#fig-' + this.value).show();
+            var figId = $(this).find('option:selected').data('fig');
+            if (figId) {
+                $('#fig-' + figId).show();
             }
         });
     });

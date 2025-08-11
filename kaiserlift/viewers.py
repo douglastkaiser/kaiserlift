@@ -268,7 +268,7 @@ def gen_html_viewer(df):
             table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
 
             $('.exercise-figure').hide();
-            var figId = this.selectedOptions[0].dataset.fig;
+            var figId = $(this).find(':selected').data('fig');
             if (figId) {
                 $('#fig-' + figId).show();
             }

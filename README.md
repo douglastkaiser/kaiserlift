@@ -121,6 +121,13 @@ from IPython.display import display, HTML
 display(HTML(full_html))
 ```
 
+### Browser upload page
+
+A minimal HTML page lives at `static/upload.html`. It lets you upload a CSV and
+posts the file to `/viewer`, replacing the `#viewer` div with the returned
+HTML. The page is self-contained and can be embedded in other sites via an
+`<iframe>`.
+
 ### Example HTML generation in CI
 
 An example dataset and helper script live in `tests/example_use`. You can

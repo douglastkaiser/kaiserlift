@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import base64
 import re
 from io import BytesIO
+from pathlib import Path
 from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
@@ -149,6 +150,7 @@ def print_oldest_exercise(
 def gen_html_viewer(df):
     df_records = highest_weight_per_rep(df)
     df_targets = df_next_pareto(df_records)
+    processors_js = (Path(__file__).with_name("js") / "processors.js").read_text()
 
     # Create a dictionary: { exercise_name: base64_image_string }
     figures_html: dict[str, str] = {}
@@ -187,6 +189,9 @@ def gen_html_viewer(df):
 
     # Build dropdown with data attribute linking to figure id
     dropdown_html = """
+    <label for="csvUpload">Upload CSV:</label>
+    <input type="file" id="csvUpload" accept=".csv" />
+    <br><br>
     <label for="exerciseDropdown">Filter by Exercise:</label>
     <select id="exerciseDropdown">
     <option value="">All</option>
@@ -207,15 +212,12 @@ def gen_html_viewer(df):
 
     # JS and CSS for DataTables + filtering
     # JS, CSS, and styling improvements
-    js_and_css = """
+    js_and_css = (
+        """
     <!-- DataTables -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
-
-    <!-- Select2 for searchable dropdown -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link rel=\"stylesheet\" href=\"https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css\"/>
+    <script src=\"https://code.jquery.com/jquery-3.5.1.js\"></script>
+    <script src=\"https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js\"></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
@@ -251,34 +253,64 @@ def gen_html_viewer(df):
     </style>
 
     <script>
+    """
+        + processors_js
+        + """
+
     $(document).ready(function() {
         // Initialize DataTable
         var table = $('#exerciseTable').DataTable({
             responsive: true
         });
 
-        // Initialize Select2 for searchable dropdown
-        $('#exerciseDropdown').select2({
-            placeholder: "Filter by Exercise",
-            allowClear: true
-        });
-
         $('#exerciseDropdown').on('change', function() {
             var val = $.fn.dataTable.util.escapeRegex($(this).val());
             table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
 
-            // Hide all figures
             $('.exercise-figure').hide();
-
-            // Show the matching figure
-            var figId = $(this).find('option:selected').data('fig');
+            var figId = $(this).find(':selected').data('fig');
             if (figId) {
                 $('#fig-' + figId).show();
             }
         });
+
+        $('#csvUpload').on('change', function(evt) {
+            var file = evt.target.files[0];
+            if (!file) { return; }
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var text = e.target.result.trim();
+                var lines = text.split(/\r?\n/);
+                var headers = lines[0].split(',');
+                var data = lines.slice(1).map(line => {
+                    var cols = line.split(',');
+                    var obj = {};
+                    headers.forEach((h, i) => { obj[h.trim()] = cols[i]; });
+                    return obj;
+                });
+                var records = highestWeightPerRep(data);
+                var targets = dfNextPareto(records);
+                table.clear();
+                targets.forEach(r => {
+                    table.row.add([r.Exercise, r.Weight, r.Reps, r["1RM"].toFixed(2)]);
+                });
+                table.draw();
+                $('.exercise-figure').hide();
+                var options = [...new Set(data.map(d => d.Exercise))].sort();
+                var dropdown = $('#exerciseDropdown');
+                dropdown.empty();
+                dropdown.append('<option value="">All</option>');
+                options.forEach(opt => {
+                    dropdown.append(`<option value="${opt}" data-fig="">${opt}</option>`);
+                });
+                dropdown.val('').trigger('change');
+            };
+            reader.readAsText(file);
+        });
     });
     </script>
     """
+    )
 
     # Final combo
     full_html = js_and_css + dropdown_html + table_html + all_figures_html

@@ -177,7 +177,7 @@ def gen_html_viewer(df):
 
     # Basic setup
     exercise_column = "Exercise"  # Adjust if needed
-    exercise_options = sorted(df_targets[exercise_column].dropna().unique())
+    exercise_options = sorted(df[exercise_column].dropna().unique())
 
     # Build dropdown with data attribute linking to figure id
     dropdown_html = """

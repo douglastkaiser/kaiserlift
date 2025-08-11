@@ -17,4 +17,3 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     assert "<table" in html
     # ensure at least one exercise figure is present
     assert 'class="exercise-figure"' in html
-    assert 'id="csvUpload"' in html

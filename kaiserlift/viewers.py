@@ -219,10 +219,6 @@ def gen_html_viewer(df):
     <script src=\"https://code.jquery.com/jquery-3.5.1.js\"></script>
     <script src=\"https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js\"></script>
 
-    <!-- Select2 for searchable dropdown -->
-    <link href=\"https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css\" rel=\"stylesheet\" />
-    <script src=\"https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js\"></script>
-
     <!-- Custom Styling for Mobile -->
     <style>
     body {
@@ -267,18 +263,12 @@ def gen_html_viewer(df):
             responsive: true
         });
 
-        // Initialize Select2 for searchable dropdown
-        $('#exerciseDropdown').select2({
-            placeholder: "Filter by Exercise",
-            allowClear: true
-        });
-
         $('#exerciseDropdown').on('change', function() {
             var val = $.fn.dataTable.util.escapeRegex($(this).val());
             table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
 
             $('.exercise-figure').hide();
-            var figId = $(this).find('option:selected').data('fig');
+            var figId = this.selectedOptions[0].dataset.fig;
             if (figId) {
                 $('#fig-' + figId).show();
             }

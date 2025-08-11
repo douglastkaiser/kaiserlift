@@ -161,7 +161,7 @@ def gen_html_viewer(df):
             fig.savefig(buf, format="png", bbox_inches="tight")
             buf.seek(0)
             base64_img = base64.b64encode(buf.read()).decode("utf-8")
-            slug = re.sub(r"[^\w-]", "_", exercise)
+            slug = re.sub(r"[^\w-]+", "_", exercise).strip("_")
             img_html = (
                 f'<img src="data:image/png;base64,{base64_img}" '
                 f'id="fig-{slug}" class="exercise-figure" '

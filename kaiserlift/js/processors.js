@@ -61,3 +61,10 @@ function dfNextPareto(records) {
     rows.forEach(r => { r["1RM"] = calculate1RM(r.Weight, r.Reps); });
     return rows;
 }
+
+function slugify(name) {
+    return name.toString().toLowerCase()
+        .replace(/[^\w]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_|_$/g, '');
+}

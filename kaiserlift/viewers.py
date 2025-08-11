@@ -301,7 +301,9 @@ def gen_html_viewer(df):
                 dropdown.empty();
                 dropdown.append('<option value="">All</option>');
                 options.forEach(opt => {
-                    dropdown.append(`<option value="${opt}" data-fig="">${opt}</option>`);
+                    var slug = slugify(opt);
+                    var figAttr = document.getElementById('fig-' + slug) ? slug : '';
+                    dropdown.append(`<option value="${opt}" data-fig="${figAttr}">${opt}</option>`);
                 });
                 dropdown.val('').trigger('change');
             };

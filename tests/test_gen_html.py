@@ -19,3 +19,4 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     assert 'class="exercise-figure"' in html
     # each dropdown option links to a figure via data attribute
     assert 'data-fig="' in html
+    assert 'id="csvUpload"' in html

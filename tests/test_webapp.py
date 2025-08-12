@@ -2,10 +2,16 @@
 
 from pathlib import Path
 
-from fastapi.testclient import TestClient
+import pytest
 
-from kaiserlift.webapp import app
-
+try:
+    from fastapi.testclient import TestClient
+    from kaiserlift.webapp import app
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    pytest.skip(
+        "fastapi and kaiserlift.webapp are required for these tests",
+        allow_module_level=True,
+    )
 
 client = TestClient(app)
 

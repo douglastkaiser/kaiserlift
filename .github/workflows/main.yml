@@ -18,6 +18,24 @@ jobs:
           PRE_COMMIT_USE_UV: "1"
         run: uvx pre-commit run --all-files
 
+  test:
+    name: Run Pytest on Local Checkout
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Create venv and install package
+        run: |
+          uv venv
+          uv pip install -e . pytest
+
+      - name: Run tests
+        run: uv run --no-project python -m pytest tests
+
   # Test from pypi
   install-from-pypi:
     name: Run Pytest on Installed Package from PyPI

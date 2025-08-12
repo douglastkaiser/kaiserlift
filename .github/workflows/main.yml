@@ -40,6 +40,13 @@ jobs:
   generate-example-html:
     name: Generate example HTML
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repo
@@ -53,22 +60,20 @@ jobs:
       - name: Generate example HTML
         run: uv run python tests/example_use/generate_example_html.py
 
-      - name: Add HTML preview to summary
-        run: |
-          python - <<'PY'
-          import base64, os, pathlib
-
-          html_path = pathlib.Path("tests/example_use/build/example.html")
-          b64 = base64.b64encode(html_path.read_bytes()).decode()
-
-          summary = pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"])
-          with summary.open("a") as fh:
-              fh.write("### Example HTML\n")
-              fh.write(f"[Open example.html](data:text/html;base64,{b64})\n")
-          PY
-
-      - name: Upload HTML artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload HTML to Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: example-html
-          path: tests/example_use/build/example.html
+          path: tests/example_use/build
+
+      - id: deployment
+        name: Deploy example HTML to Pages
+        uses: actions/deploy-pages@v4
+
+      - name: Add preview link to summary
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        run: |
+          {
+            echo "### Example HTML";
+            echo "[View example.html](${PAGE_URL}/example.html)";
+          } >> "$GITHUB_STEP_SUMMARY"

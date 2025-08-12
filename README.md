@@ -131,7 +131,6 @@ python tests/example_use/generate_example_html.py
 ```
 
 The "Generate example HTML" job in the CI workflow runs the same script and
-publishes the resulting `example.html` file as a build artifact, allowing review
-of the generated page without executing code locally. For quick inspection,
-the job summary also contains a direct preview link so the page can be viewed
-without downloading and extracting the artifact.
+deploys the resulting `example.html` to a temporary GitHub Pages site. Each run
+adds a link to that live preview in the job summary, allowing inspection of the
+generated page without downloading or extracting an artifact.

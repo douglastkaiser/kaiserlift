@@ -20,3 +20,6 @@ kaiserlift-cli = "kaiserlift.main:main"
 
 [tool.setuptools.packages.find]
 include = ["kaiserlift*"]
+
+[tool.setuptools.package-data]
+kaiserlift = ["js/*.js"]

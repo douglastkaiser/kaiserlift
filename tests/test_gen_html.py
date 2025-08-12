@@ -1,9 +1,12 @@
 from pathlib import Path
+import inspect
 
 from kaiserlift import gen_html_viewer, import_fitnotes_csv
 
 
 def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
+    # Diagnostic to ensure we are testing the local source
+    print("gen_html_viewer module path:", inspect.getfile(gen_html_viewer))
     csv_file = (
         Path(__file__).parent
         / "example_use"

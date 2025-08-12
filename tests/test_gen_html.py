@@ -1,4 +1,9 @@
 from pathlib import Path
+import sys
+
+
+# Ensure local package is used even if an older kaiserlift is installed
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from kaiserlift import gen_html_viewer, import_fitnotes_csv
 

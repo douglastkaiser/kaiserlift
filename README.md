@@ -130,6 +130,8 @@ generate the interactive HTML table locally with:
 python tests/example_use/generate_example_html.py
 ```
 
-The "Generate example HTML" job in the CI workflow runs the same script and
-publishes the resulting `example.html` file as a build artifact, allowing review
-of the generated page without executing code locally.
+The "Generate example HTML" job in the CI workflow runs the same script. If
+GitHub Pages is enabled for the repository, the resulting `example.html`
+(also copied to `index.html` so the root URL renders the page) is deployed to
+a temporary Pages site and linked in the job summary for quick preview.
+Otherwise, the HTML remains available as a downloadable artifact.

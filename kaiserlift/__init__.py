@@ -13,6 +13,7 @@ from .df_processers import (
     df_next_pareto,
     assert_frame_equal,
     import_fitnotes_csv,
+    process_csv_files,
 )
 
 __all__ = [
@@ -26,5 +27,6 @@ __all__ = [
     "assert_frame_equal",
     "print_oldest_exercise",
     "import_fitnotes_csv",
+    "process_csv_files",
     "gen_html_viewer",
 ]

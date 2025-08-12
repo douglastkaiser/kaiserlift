@@ -3,7 +3,7 @@ from kaiserlift import (
     highest_weight_per_rep,
     plot_df,
     print_oldest_exercise,
-    import_fitnotes_csv,
+    process_csv_files,
     gen_html_viewer,
 )
 from IPython.display import display, HTML
@@ -15,7 +15,7 @@ os.makedirs("build", exist_ok=True)
 # Get a list of all CSV files in the current directory
 csv_files = glob.glob("FitNotes_Export_*.csv")
 
-df = import_fitnotes_csv(csv_files)
+df = process_csv_files(csv_files)
 
 df_records = highest_weight_per_rep(df)
 df_targets = df_next_pareto(df_records)

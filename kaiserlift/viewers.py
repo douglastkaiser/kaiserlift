@@ -152,7 +152,6 @@ def gen_html_viewer(df):
 
     # Create a dictionary: { exercise_name: base64_image_string }
     figures_html: dict[str, str] = {}
-    errors = ""
 
     def slugify(name: str) -> str:
         """Return a normalized slug for the given exercise name."""
@@ -176,8 +175,9 @@ def gen_html_viewer(df):
             )
             figures_html[exercise] = img_html
             plt.close(fig)
-        except Exception as e:
-            errors += f"{e}"
+        except Exception:
+            # Ignore plotting errors so the rest of the page can render.
+            pass
 
     all_figures_html = "\n".join(figures_html.values())
 
@@ -205,82 +205,119 @@ def gen_html_viewer(df):
         classes="display compact cell-border", table_id="exerciseTable", index=False
     )
 
-    # JS and CSS for DataTables + filtering
-    # JS, CSS, and styling improvements
-    js_and_css = """
+    # Final combo
+    full_html = dropdown_html + table_html + all_figures_html
+
+    return full_html
+
+
+def gen_html_base(viewer_html: str = "") -> str:
+    """Return a base HTML page with upload controls and optional viewer content.
+
+    Parameters
+    ----------
+    viewer_html:
+        Pre-rendered HTML fragment from :func:`gen_html_viewer` to display
+        initially. Defaults to an empty string, which leaves the display
+        container blank until a file is uploaded.
+    """
+
+    return f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>KaiserLift</title>
     <!-- DataTables -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <link rel=\"stylesheet\" href=\"https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css\"/>
+    <script src=\"https://code.jquery.com/jquery-3.5.1.js\"></script>
+    <script src=\"https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js\"></script>
 
     <!-- Select2 for searchable dropdown -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link href=\"https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css\" rel=\"stylesheet\" />
+    <script src=\"https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js\"></script>
 
-    <!-- Custom Styling for Mobile -->
     <style>
-    body {
+    body {{
         font-family: Arial, sans-serif;
         font-size: 34px;
         padding: 28px;
-    }
+    }}
 
-    table.dataTable {
+    table.dataTable {{
         font-size: 32px;
         width: 100% !important;
         word-wrap: break-word;
-    }
+    }}
 
-    label, select {
+    label, select {{
         font-size: 34px;
-    }
+    }}
 
-    #exerciseDropdown {
+    #exerciseDropdown {{
         width: 100%;
         max-width: 400px;
-    }
+    }}
 
-    @media only screen and (max-width: 600px) {
-        table, thead, tbody, th, td, tr {
+    @media only screen and (max-width: 600px) {{
+        table, thead, tbody, th, td, tr {{
         display: block;
-        }
-        th {
+        }}
+        th {{
         text-align: left;
-        }
-    }
+        }}
+    }}
     </style>
-
+</head>
+<body>
+    <input type=\"file\" id=\"csvFile\">
+    <button id=\"uploadBtn\">Upload</button>
+    <div id=\"viewerContainer\">
+        {viewer_html}
+    </div>
     <script>
-    $(document).ready(function() {
-        // Initialize DataTable
-        var table = $('#exerciseTable').DataTable({
+    async function uploadCSV() {{
+        const fileInput = document.getElementById('csvFile');
+        if (!fileInput.files.length) return;
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        const response = await fetch('/upload', {{
+            method: 'POST',
+            body: formData,
+        }});
+        if (response.ok) {{
+            const html = await response.text();
+            const container = document.getElementById('viewerContainer');
+            container.innerHTML = html;
+            initViewer();
+        }}
+    }}
+
+    function initViewer() {{
+        const tableEl = $('#exerciseTable');
+        if (!tableEl.length) return;
+        const table = tableEl.DataTable({{
             responsive: true
-        });
-
-        // Initialize Select2 for searchable dropdown
-        $('#exerciseDropdown').select2({
-            placeholder: "Filter by Exercise",
-            allowClear: true
-        });
-
-        $('#exerciseDropdown').on('change', function() {
+        }});
+        $('#exerciseDropdown').select2({{
+            placeholder: 'Filter by Exercise',
+            allowClear: true,
+        }});
+        $('#exerciseDropdown').on('change', function() {{
             var val = $.fn.dataTable.util.escapeRegex($(this).val());
             table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
 
-            // Hide all figures
             $('.exercise-figure').hide();
-
-            // Show the matching figure
             var figId = $(this).find('option:selected').data('fig');
-            if (figId) {
+            if (figId) {{
                 $('#fig-' + figId).show();
-            }
-        });
-    });
+            }}
+        }});
+    }}
+
+    document.getElementById('uploadBtn').addEventListener('click', uploadCSV);
+    // Initialize if content already present
+    initViewer();
     </script>
-    """
-
-    # Final combo
-    full_html = js_and_css + dropdown_html + table_html + all_figures_html
-
-    return full_html
+</body>
+</html>
+"""

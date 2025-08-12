@@ -3,6 +3,7 @@ from .viewers import (
     plot_df,
     print_oldest_exercise,
     gen_html_viewer,
+    gen_html_base,
 )
 
 from .df_processers import (
@@ -29,4 +30,5 @@ __all__ = [
     "import_fitnotes_csv",
     "process_csv_files",
     "gen_html_viewer",
+    "gen_html_base",
 ]

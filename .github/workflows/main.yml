@@ -90,7 +90,7 @@ jobs:
         run: |
           {
             echo "### Example HTML";
-            echo "[View example.html](${PAGE_URL}/example.html)";
+            echo "[View example.html](${PAGE_URL})";
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Note preview artifact

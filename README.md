@@ -72,12 +72,12 @@ uv sync
 Import data and run the pareto calculations:
 ```
 from kaiserlift import (
-    import_fitnotes_csv,
+    process_csv_files,
     highest_weight_per_rep,
     df_next_pareto,
 )
 csv_files = glob.glob("*.csv")
-df = import_fitnotes_csv(csv_files)
+df = process_csv_files(csv_files)
 df_pareto = highest_weight_per_rep(df)
 df_targets = df_next_pareto(df_pareto)
 ```

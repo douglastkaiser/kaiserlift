@@ -1,32 +1,50 @@
 import math
+import os
+from pathlib import Path
+from typing import IO, Iterable
+
 import numpy as np
 import pandas as pd
-import os
 
 
-def import_fitnotes_csv(csv_files: list) -> pd.DataFrame:
-    # Find the file with the most recent timestamp
-    latest_file = max(csv_files, key=os.path.getctime)
-    print(f"Using {latest_file}")
+def process_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
+    """Load and clean a FitNotes CSV export.
 
-    # Load the latest file into a pandas DataFrame
-    df = pd.read_csv(latest_file)
+    Parameters
+    ----------
+    files:
+        Iterable of file paths or file-like objects. When multiple paths are
+        provided the most recently created one is used. When file-like objects
+        are supplied the last object in the iterable is processed. This allows
+        callers (e.g. web applications) to pass uploaded files without writing
+        them to disk.
+    """
 
-    # Assuming 'Date' column exists and is in datetime format.
-    # If not, convert it first:
-    df["Date"] = pd.to_datetime(
-        df["Date"], format="%Y-%m-%d"
-    )  # Example format, adjust as needed.
+    file_list = list(files)
+    if not file_list:
+        raise ValueError("No CSV files provided")
 
-    # Sort the DataFrame by 'Date' in ascending order (least recent to most recent)
+    def _is_pathlike(obj: object) -> bool:
+        return isinstance(obj, (str, os.PathLike))
+
+    if all(_is_pathlike(f) for f in file_list):
+        latest_file = max(file_list, key=os.path.getctime)
+        print(f"Using {latest_file}")
+        data_source = latest_file
+    else:
+        # Assume the iterable contains file-like objects. Use the last one
+        # provided which mirrors typical upload handling in web frameworks.
+        data_source = file_list[-1]
+
+    df = pd.read_csv(data_source)
+
+    df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d")
     df_sorted = df.sort_values(by="Date", ascending=True)
 
-    # Turn Distance into Weight?
     df_sorted["Weight"] = df_sorted["Weight"].combine_first(df_sorted["Distance"])
     df_sorted["Time"] = pd.to_timedelta(df_sorted["Time"]).dt.total_seconds() / 60
     df_sorted["Reps"] = df_sorted["Reps"].combine_first(df_sorted["Time"])
 
-    # drop what we don't care about
     df_sorted = df_sorted.drop(
         ["Distance", "Weight Unit", "Distance Unit", "Comment", "Time"], axis=1
     )
@@ -35,6 +53,12 @@ def import_fitnotes_csv(csv_files: list) -> pd.DataFrame:
     df_sorted = df_sorted[df_sorted["Exercise"] != "Tricep Push Ul"]
 
     return df_sorted
+
+
+def import_fitnotes_csv(csv_files: list) -> pd.DataFrame:
+    """Backward compatible wrapper around :func:`process_csv_files`."""
+
+    return process_csv_files(csv_files)
 
 
 def assert_frame_equal(df1, df2):

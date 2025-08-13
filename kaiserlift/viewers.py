@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import base64
 import re
 from io import BytesIO
+import pandas as pd
 from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
@@ -146,11 +147,16 @@ def print_oldest_exercise(
     return output_lines
 
 
-def gen_html_viewer(df):
+def render_viewer_fragment(df: pd.DataFrame) -> str:
+    """Return the HTML fragment for the exercise viewer.
+
+    The fragment contains the dropdown, data table and generated figures but no
+    surrounding page scaffolding.
+    """
+
     df_records = highest_weight_per_rep(df)
     df_targets = df_next_pareto(df_records)
 
-    # Create a dictionary: { exercise_name: base64_image_string }
     figures_html: dict[str, str] = {}
     errors = ""
 
@@ -176,17 +182,14 @@ def gen_html_viewer(df):
             )
             figures_html[exercise] = img_html
             plt.close(fig)
-        except Exception as e:
+        except Exception as e:  # pragma: no cover - visualization errors
             errors += f"{e}"
 
     all_figures_html = "\n".join(figures_html.values())
 
-    # Basic setup
-    exercise_column = "Exercise"  # Adjust if needed
-    exercise_options = sorted(df[exercise_column].dropna().unique())
+    exercise_options = sorted(df["Exercise"].dropna().unique())
 
-    # Build dropdown with data attribute linking to figure id
-    dropdown_html = """
+    dropdown_html = """\
     <label for="exerciseDropdown">Filter by Exercise:</label>
     <select id="exerciseDropdown">
     <option value="">All</option>
@@ -195,19 +198,29 @@ def gen_html_viewer(df):
         f'<option value="{x}" data-fig="{exercise_slug.get(x, "")}">{x}</option>'
         for x in exercise_options
     )
-    dropdown_html += """
+    dropdown_html += """\
     </select>
     <br><br>
     """
 
-    # Convert DataFrame to HTML table
     table_html = df_targets.to_html(
         classes="display compact cell-border", table_id="exerciseTable", index=False
     )
 
-    # JS and CSS for DataTables + filtering
-    # JS, CSS, and styling improvements
-    js_and_css = """
+    return dropdown_html + table_html + all_figures_html
+
+
+def gen_html_viewer(df: pd.DataFrame) -> str:
+    """Return a full HTML page for viewing exercise data.
+
+    The page exposes a file input and upload button that posts to ``/upload``
+    using ``fetch``. On success the viewer content is replaced with the server's
+    response and DataTables/Select2 are reinitialized.
+    """
+
+    fragment = render_viewer_fragment(df)
+
+    css_and_js_links = """\
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
     <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
@@ -249,15 +262,15 @@ def gen_html_viewer(df):
         }
     }
     </style>
+    """
 
+    script = """\
     <script>
-    $(document).ready(function() {
-        // Initialize DataTable
+    function initViewer() {
         var table = $('#exerciseTable').DataTable({
             responsive: true
         });
 
-        // Initialize Select2 for searchable dropdown
         $('#exerciseDropdown').select2({
             placeholder: "Filter by Exercise",
             allowClear: true
@@ -267,20 +280,54 @@ def gen_html_viewer(df):
             var val = $.fn.dataTable.util.escapeRegex($(this).val());
             table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
 
-            // Hide all figures
             $('.exercise-figure').hide();
 
-            // Show the matching figure
             var figId = $(this).find('option:selected').data('fig');
             if (figId) {
                 $('#fig-' + figId).show();
             }
         });
+    }
+
+    async function uploadCSV() {
+        const fileInput = document.getElementById('csvFile');
+        if (!fileInput.files.length) {
+            return;
+        }
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        if (response.ok) {
+            const html = await response.text();
+            document.getElementById('viewerContainer').innerHTML = html;
+            initViewer();
+        }
+    }
+
+    document.getElementById('uploadBtn').addEventListener('click', uploadCSV);
+    $(document).ready(function() {
+        initViewer();
     });
     </script>
     """
 
-    # Final combo
-    full_html = js_and_css + dropdown_html + table_html + all_figures_html
+    full_html = (
+        css_and_js_links
+        + """\
+    <div>
+        <input type=\"file\" id=\"csvFile\">
+        <button id=\"uploadBtn\">Upload</button>
+    </div>
+    <div id=\"viewerContainer\">
+    """
+        + fragment
+        + """\
+    </div>
+    """
+        + script
+    )
 
     return full_html

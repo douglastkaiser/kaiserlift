@@ -17,11 +17,11 @@ client = TestClient(app)
 
 
 def test_get_root() -> None:
-    """The index route should return an HTML form."""
+    """The index route should return the upload interface."""
 
     response = client.get("/")
     assert response.status_code == 200
-    assert "<form" in response.text
+    assert 'id="csvFile"' in response.text
 
 
 def test_upload_csv() -> None:

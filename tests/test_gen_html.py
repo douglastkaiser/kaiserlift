@@ -8,6 +8,7 @@ if process_csv_files is None:
     pytest.skip("process_csv_files not available", allow_module_level=True)
 
 gen_html_viewer = kaiserlift.gen_html_viewer
+gen_html_base = kaiserlift.gen_html_base
 
 
 def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
@@ -26,3 +27,10 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     assert "<table" in html
     # ensure at least one exercise figure is present
     assert 'class="exercise-figure"' in html
+
+
+def test_base_template_has_upload_elements() -> None:
+    html = gen_html_base()
+    assert 'id="csvFile"' in html
+    assert 'id="uploadBtn"' in html
+    assert "fetch('/upload'" in html or 'fetch("/upload"' in html

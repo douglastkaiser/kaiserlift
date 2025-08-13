@@ -16,6 +16,8 @@ from .df_processers import (
     process_csv_files,
 )
 
+from .pipeline import pipeline
+
 __all__ = [
     "calculate_1rm",
     "highest_weight_per_rep",
@@ -29,4 +31,5 @@ __all__ = [
     "import_fitnotes_csv",
     "process_csv_files",
     "gen_html_viewer",
+    "pipeline",
 ]

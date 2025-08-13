@@ -18,7 +18,7 @@ import os
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse
 
-from . import df_next_pareto, gen_html_viewer, highest_weight_per_rep, process_csv_files
+from .pipeline import pipeline
 
 
 app = FastAPI()
@@ -50,16 +50,14 @@ async def index() -> HTMLResponse:
 
 @app.post("/upload", response_class=HTMLResponse)
 async def upload(file: UploadFile = File(...)) -> HTMLResponse:
-    """Process the uploaded CSV and return the rendered HTML snippet."""
+    """Process the uploaded CSV via the core pipeline and return HTML.
 
-    df = process_csv_files([file.file])
+    All numerical computations occur within :func:`pipeline`. Any JavaScript
+    embedded in the resulting HTML is dedicated solely to updating the user
+    interface and performs no calculations.
+    """
 
-    # These calls are executed separately to satisfy the requirement of running
-    # each processing step explicitly.
-    _records = highest_weight_per_rep(df)
-    _targets = df_next_pareto(_records)
-
-    html = gen_html_viewer(df)
+    html = pipeline([file.file])
     return HTMLResponse(html)
 
 

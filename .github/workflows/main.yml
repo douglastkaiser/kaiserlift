@@ -38,7 +38,7 @@ jobs:
 
   # Test from pypi
   install-from-pypi:
-    name: Run Pytest on Installed Package from PyPI
+    name: Run Pytest on Built Wheel
     runs-on: ubuntu-latest
 
     steps:
@@ -47,10 +47,11 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
 
-      - name: Create venv and install package from PyPI
+      - name: Create venv, build and install wheel
         run: |
           uv venv
-          uv pip install kaiserlift pytest
+          uv build
+          uv pip install dist/*.whl pytest
 
       - name: Run tests using installed package
         run: uv run --no-project pytest tests

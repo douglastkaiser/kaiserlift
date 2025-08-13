@@ -121,6 +121,10 @@ from IPython.display import display, HTML
 display(HTML(full_html))
 ```
 
+The generated page includes a file input and upload button. When hosted via
+``kaiserlift.webapp`` the control posts new CSV files to ``/upload`` and the
+viewer refreshes without a full page reload.
+
 ### Example HTML generation in CI
 
 An example dataset and helper script live in `tests/example_use`. You can

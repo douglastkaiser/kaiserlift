@@ -1,14 +1,17 @@
-import numpy as np
-from difflib import get_close_matches
-import matplotlib.pyplot as plt
 import base64
 import re
+from difflib import get_close_matches
 from io import BytesIO
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 from .df_processers import (
     calculate_1rm,
-    highest_weight_per_rep,
-    estimate_weight_from_1rm,
     df_next_pareto,
+    estimate_weight_from_1rm,
+    highest_weight_per_rep,
 )
 
 
@@ -146,13 +149,14 @@ def print_oldest_exercise(
     return output_lines
 
 
-def gen_html_viewer(df):
+def render_table_fragment(df: pd.DataFrame) -> str:
+    """Return the HTML fragment with the dropdown, upload area, table and figures."""
+
     df_records = highest_weight_per_rep(df)
     df_targets = df_next_pareto(df_records)
 
     # Create a dictionary: { exercise_name: base64_image_string }
     figures_html: dict[str, str] = {}
-    errors = ""
 
     def slugify(name: str) -> str:
         """Return a normalized slug for the given exercise name."""
@@ -176,8 +180,8 @@ def gen_html_viewer(df):
             )
             figures_html[exercise] = img_html
             plt.close(fig)
-        except Exception as e:
-            errors += f"{e}"
+        except Exception:
+            continue
 
     all_figures_html = "\n".join(figures_html.values())
 
@@ -212,8 +216,29 @@ def gen_html_viewer(df):
         classes="display compact cell-border", table_id="exerciseTable", index=False
     )
 
-    # JS and CSS for DataTables + filtering
-    # JS, CSS, and styling improvements
+    fragment = dropdown_html + upload_html + table_html + all_figures_html
+
+    return fragment
+
+
+def gen_html_viewer(df: pd.DataFrame, embed_assets: bool = True) -> str:
+    """Generate the HTML viewer.
+
+    Parameters
+    ----------
+    df:
+        DataFrame containing FitNotes records.
+    embed_assets:
+        If ``True`` the returned HTML includes ``<script>`` and ``<link>`` tags
+        for the required assets. Set to ``False`` when those assets are already
+        provided elsewhere (e.g. in the static client build).
+    """
+
+    fragment = render_table_fragment(df)
+
+    if not embed_assets:
+        return fragment
+
     js_and_css = """
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
@@ -287,19 +312,9 @@ def gen_html_viewer(df):
     </script>
     """
 
-    # Final combo
     scripts = """
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script type="module" src="main.js"></script>
     """
 
-    full_html = (
-        js_and_css
-        + dropdown_html
-        + upload_html
-        + table_html
-        + all_figures_html
-        + scripts
-    )
-
-    return full_html
+    return js_and_css + fragment + scripts

@@ -7,6 +7,7 @@ showing figures and does not duplicate these computations.
 
 from __future__ import annotations
 
+import sys
 from typing import IO, Iterable
 
 from .df_processers import (
@@ -17,13 +18,17 @@ from .df_processers import (
 from .viewers import gen_html_viewer
 
 
-def pipeline(files: Iterable[IO]) -> str:
+def pipeline(files: Iterable[IO], *, embed_assets: bool | None = None) -> str:
     """Run the KaiserLift processing pipeline and return HTML.
 
     Parameters
     ----------
     files:
         Iterable of file paths or file-like objects containing FitNotes CSV data.
+    embed_assets:
+        When ``True`` include ``<script>`` and ``<link>`` tags in the returned
+        HTML. If ``None`` (the default), assets are embedded unless the code is
+        executing in a Pyodide environment.
 
     Returns
     -------
@@ -42,4 +47,7 @@ def pipeline(files: Iterable[IO]) -> str:
     records = highest_weight_per_rep(df)
     _ = df_next_pareto(records)
 
-    return gen_html_viewer(df)
+    if embed_assets is None:
+        embed_assets = sys.platform != "emscripten"
+
+    return gen_html_viewer(df, embed_assets=embed_assets)

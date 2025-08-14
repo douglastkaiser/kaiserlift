@@ -33,9 +33,19 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
               globals: new Map(),
               loadPackage: async () => {{}},
               runPythonAsync: async code => {{
+                if (code.includes("micropip.install")) {{
+                  const match = code.match(/micropip.install\\(['"]([^'"]+)['"]\\)/);
+                  if (!match) throw new Error('missing wheel');
+                  const wheel = match[1];
+                  if (!wheel.startsWith('client/')) throw new Error('wheel path');
+                  const py = `\\nfrom packaging.utils import parse_wheel_filename\\nparse_wheel_filename(__import__('sys').argv[1])\\n`;
+                  const r = spawnSync('{sys.executable}', ['-c', py, wheel.split('/').pop()], {{ encoding: 'utf-8' }});
+                  if (r.status !== 0) throw new Error(r.stderr);
+                  return;
+                }}
                 if (code.includes("pipeline([")) {{
                   const csv = pyodide.globals.get('csv_text');
-                  const py = `\nimport io, sys, json\nfrom kaiserlift.pipeline import pipeline\nbuffer = io.StringIO(json.loads(sys.argv[1]))\nsys.stdout.write(pipeline([buffer]))\n`;
+                  const py = `\\nimport io, sys, json\\nfrom kaiserlift.pipeline import pipeline\\nbuffer = io.StringIO(json.loads(sys.argv[1]))\\nsys.stdout.write(pipeline([buffer]))\\n`;
                   const r = spawnSync('{sys.executable}', ['-c', py, JSON.stringify(csv)], {{ encoding: 'utf-8' }});
                   if (r.status !== 0) throw new Error(r.stderr);
                   return r.stdout;

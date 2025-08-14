@@ -9,9 +9,10 @@ export async function init(loadPyodide, doc = document) {
       )).loadPyodide;
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
+    const wheel = "client/kaiserlift-0.1.24-py3-none-any.whl";
     await pyodide.runPythonAsync(`
 import micropip
-await micropip.install('client/kaiserlift.whl')
+await micropip.install('${wheel}')
 `);
 
     const fileInput = doc.getElementById("csvFile");

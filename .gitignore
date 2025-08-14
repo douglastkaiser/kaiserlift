@@ -192,3 +192,6 @@ cython_debug/
 
 # From the actual data source as a test
 *.csv
+
+# Client wheel artifact
+client/*.whl

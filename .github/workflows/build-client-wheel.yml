@@ -1,0 +1,27 @@
+name: Build client wheel
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build wheel
+        run: |
+          uv build
+          mkdir -p client
+          cp dist/*.whl client/kaiserlift.whl
+
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-wheel
+          path: client/kaiserlift.whl

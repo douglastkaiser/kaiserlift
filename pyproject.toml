@@ -13,6 +13,10 @@ dependencies = [
     "numpy",
     "matplotlib",
     "ipython",
+]
+
+[project.optional-dependencies]
+server = [
     "fastapi",
     "uvicorn",
     "python-multipart",

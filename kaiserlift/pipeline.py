@@ -17,13 +17,18 @@ from .df_processers import (
 from .viewers import gen_html_viewer
 
 
-def pipeline(files: Iterable[IO]) -> str:
+def pipeline(files: Iterable[IO], *, embed_assets: bool = True) -> str:
     """Run the KaiserLift processing pipeline and return HTML.
 
     Parameters
     ----------
     files:
-        Iterable of file paths or file-like objects containing FitNotes CSV data.
+        Iterable of file paths or file-like objects containing FitNotes CSV
+        data.
+    embed_assets:
+        If ``True`` (default) the returned HTML includes the required CSS and
+        JavaScript assets. Set to ``False`` when the caller already embeds these
+        assets, such as the in-browser client.
 
     Returns
     -------
@@ -42,4 +47,4 @@ def pipeline(files: Iterable[IO]) -> str:
     records = highest_weight_per_rep(df)
     _ = df_next_pareto(records)
 
-    return gen_html_viewer(df)
+    return gen_html_viewer(df, embed_assets=embed_assets)

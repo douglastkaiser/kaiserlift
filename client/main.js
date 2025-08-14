@@ -39,7 +39,7 @@ await micropip.install('${wheelName}')
 import io
 from kaiserlift.pipeline import pipeline
 buffer = io.StringIO(csv_text)
-pipeline([buffer])
+pipeline([buffer], embed_assets=False)
 `);
         result.innerHTML = html;
       } catch (err) {

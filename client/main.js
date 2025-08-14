@@ -58,10 +58,11 @@ async function fetchWheel(doc) {
       console.error("Failed to fetch Pyodide wheel", url.href, err);
     }
   }
-  throw new Error(
+  console.error(
     "Failed to fetch wheel from known locations: " +
       candidates.map((u) => u.href).join(", "),
   );
+  return null;
 }
 
 export async function init(loadPyodide, doc = document) {
@@ -79,17 +80,25 @@ export async function init(loadPyodide, doc = document) {
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
 
-    const { response, url: wheelUrl } = await fetchWheel(doc);
-    const data = new Uint8Array(await response.arrayBuffer());
-    const wheelName = wheelUrl.split("/").pop();
-    pyodide.FS.writeFile(wheelName, data);
+    const wheel = await fetchWheel(doc);
     try {
-      await pyodide.runPythonAsync(`
+      if (wheel) {
+        const data = new Uint8Array(await wheel.response.arrayBuffer());
+        const wheelName = wheel.url.split("/").pop();
+        pyodide.FS.writeFile(wheelName, data);
+        await pyodide.runPythonAsync(`
 import micropip
 await micropip.install('${wheelName}')
 `);
+      } else {
+        console.warn("Falling back to installing kaiserlift from PyPI");
+        await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('kaiserlift')
+`);
+      }
     } catch (err) {
-      console.error("Failed to install wheel", wheelName, err);
+      console.error("Failed to install kaiserlift", err);
       throw err;
     }
 

@@ -22,6 +22,34 @@ export function initializeUI(root = document) {
     });
 }
 
+async function fetchWheel(doc) {
+  const candidates = [];
+  try {
+    candidates.push(new URL("kaiserlift.whl", import.meta.url));
+  } catch (_) {}
+  if (doc?.baseURI) {
+    candidates.push(new URL("kaiserlift.whl", doc.baseURI));
+    candidates.push(new URL("client/kaiserlift.whl", doc.baseURI));
+  }
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        return { response, url: url.href };
+      }
+      console.error(
+        `Wheel fetch returned ${response.status} at ${url.href}`,
+      );
+    } catch (err) {
+      console.error("Failed to fetch Pyodide wheel", url.href, err);
+    }
+  }
+  throw new Error(
+    "Failed to fetch wheel from known locations: " +
+      candidates.map((u) => u.href).join(", "),
+  );
+}
+
 export async function init(loadPyodide, doc = document) {
   const result = doc.getElementById("result");
 
@@ -37,22 +65,7 @@ export async function init(loadPyodide, doc = document) {
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
 
-    const wheelUrl = new URL(
-      "kaiserlift.whl",
-      doc?.baseURI ?? import.meta.url,
-    ).href;
-    let response;
-    try {
-      response = await fetch(wheelUrl);
-    } catch (err) {
-      console.error("Failed to fetch Pyodide wheel", wheelUrl, err);
-      throw err;
-    }
-    if (!response.ok) {
-      const msg = `Failed to fetch wheel from ${wheelUrl}: ${response.status}`;
-      console.error(msg);
-      throw new Error(msg);
-    }
+    const { response, url: wheelUrl } = await fetchWheel(doc);
     const data = new Uint8Array(await response.arrayBuffer());
     const wheelName = wheelUrl.split("/").pop();
     pyodide.FS.writeFile(wheelName, data);

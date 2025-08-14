@@ -1,7 +1,8 @@
 import glob
+import shutil
 from pathlib import Path
 
-from kaiserlift import process_csv_files, gen_html_viewer
+from kaiserlift import gen_html_viewer, process_csv_files
 
 
 def main() -> None:
@@ -14,6 +15,9 @@ def main() -> None:
     out_dir.mkdir(exist_ok=True)
     for name in ("example.html", "index.html"):
         (out_dir / name).write_text(html, encoding="utf-8")
+
+    client_js = here.parent.parent / "client" / "main.js"
+    shutil.copy(client_js, out_dir / "main.js")
 
 
 if __name__ == "__main__":

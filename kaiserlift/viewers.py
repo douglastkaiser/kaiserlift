@@ -200,6 +200,13 @@ def gen_html_viewer(df):
     <br><br>
     """
 
+    upload_html = """
+    <input type="file" id="csvFile">
+    <button id="uploadButton">Upload</button>
+    <div id="result"></div>
+    <br><br>
+    """
+
     # Convert DataFrame to HTML table
     table_html = df_targets.to_html(
         classes="display compact cell-border", table_id="exerciseTable", index=False
@@ -281,6 +288,18 @@ def gen_html_viewer(df):
     """
 
     # Final combo
-    full_html = js_and_css + dropdown_html + table_html + all_figures_html
+    scripts = """
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <script type="module" src="main.js"></script>
+    """
+
+    full_html = (
+        js_and_css
+        + dropdown_html
+        + upload_html
+        + table_html
+        + all_figures_html
+        + scripts
+    )
 
     return full_html

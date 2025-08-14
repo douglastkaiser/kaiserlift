@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 *.html
+!client/index.html
 *.txt
 
 # C extensions

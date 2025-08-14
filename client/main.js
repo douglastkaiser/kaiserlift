@@ -1,3 +1,27 @@
+export function initializeUI(root = document) {
+  if (typeof $ === "undefined") {
+    return;
+  }
+  const tableEl = root.querySelector("#exerciseTable");
+  const dropdownEl = root.querySelector("#exerciseDropdown");
+  if (!tableEl || !dropdownEl) {
+    return;
+  }
+
+  const table = $(tableEl).DataTable({ responsive: true });
+  $(dropdownEl)
+    .select2({ placeholder: "Filter by Exercise", allowClear: true })
+    .on("change", function () {
+      const val = $.fn.dataTable.util.escapeRegex($(this).val());
+      table.column(0).search(val ? "^" + val + "$" : "", true, false).draw();
+      $(".exercise-figure").hide();
+      const figId = $(this).find("option:selected").data("fig");
+      if (figId) {
+        $("#fig-" + figId).show();
+      }
+    });
+}
+
 export async function init(loadPyodide, doc = document) {
   const result = doc.getElementById("result");
 
@@ -41,7 +65,9 @@ from kaiserlift.pipeline import pipeline
 buffer = io.StringIO(csv_text)
 pipeline([buffer], embed_assets=False)
 `);
+        result.innerHTML = "";
         result.innerHTML = html;
+        initializeUI(result);
       } catch (err) {
         console.error(err);
         result.textContent = "Failed to process CSV: " + err;
@@ -49,6 +75,8 @@ pipeline([buffer], embed_assets=False)
         pyodide.globals.delete("csv_text");
       }
     });
+
+    initializeUI(doc);
   } catch (err) {
     console.error(err);
     result.textContent = "Failed to initialize Pyodide: " + err;

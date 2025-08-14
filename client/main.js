@@ -1,3 +1,31 @@
+export function initializeUI(root = document) {
+  const $root = typeof window !== "undefined" && window.$ ? window.$(root) : null;
+  if (!$root) {
+    return;
+  }
+
+  const tableEl = $root.find("#exerciseTable");
+  if (!tableEl.length) {
+    return;
+  }
+  const table = tableEl.DataTable({ responsive: true });
+
+  const dropdown = $root.find("#exerciseDropdown");
+  if (dropdown.length) {
+    dropdown.select2({ placeholder: "Filter by Exercise", allowClear: true });
+    dropdown.on("change", function () {
+      const val = window.$.fn.dataTable.util.escapeRegex(window.$(this).val());
+      table.column(0).search(val ? "^" + val + "$" : "", true, false).draw();
+
+      window.$(".exercise-figure").hide();
+      const figId = window.$(this).find("option:selected").data("fig");
+      if (figId) {
+        window.$("#fig-" + figId).show();
+      }
+    });
+  }
+}
+
 export async function init(loadPyodide, doc = document) {
   const result = doc.getElementById("result");
 
@@ -9,7 +37,7 @@ export async function init(loadPyodide, doc = document) {
       )).loadPyodide;
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
-    const wheelUrl = "client/kaiserlift-0.1.24-py3-none-any.whl";
+    const wheelUrl = "client/kaiserlift-0.1.25-py3-none-any.whl";
     const response = await fetch(wheelUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch wheel: ${response.status}`);
@@ -33,6 +61,7 @@ await micropip.install('${wheelName}')
       }
 
       try {
+        result.innerHTML = "";
         const text = await file.text();
         pyodide.globals.set("csv_text", text);
         const html = await pyodide.runPythonAsync(`
@@ -42,6 +71,7 @@ buffer = io.StringIO(csv_text)
 pipeline([buffer])
 `);
         result.innerHTML = html;
+        initializeUI(result);
       } catch (err) {
         console.error(err);
         result.textContent = "Failed to process CSV: " + err;
@@ -49,6 +79,7 @@ pipeline([buffer])
         pyodide.globals.delete("csv_text");
       }
     });
+    initializeUI(doc);
   } catch (err) {
     console.error(err);
     result.textContent = "Failed to initialize Pyodide: " + err;

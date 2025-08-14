@@ -66,7 +66,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
                 }}
                 if (code.includes("pipeline([")) {{
                   const csv = pyodide.globals.get('csv_text');
-                  const py = `\\nimport io, sys, json\\nfrom kaiserlift.pipeline import pipeline\\nbuffer = io.StringIO(json.loads(sys.argv[1]))\\nsys.stdout.write(pipeline([buffer]))\\n`;
+                  const py = `\\nimport io, sys, json\\nfrom kaiserlift.pipeline import pipeline\\nbuffer = io.StringIO(json.loads(sys.argv[1]))\\nsys.stdout.write(pipeline([buffer], embed_assets=False))\\n`;
                   const r = spawnSync('{sys.executable}', ['-c', py, JSON.stringify(csv)], {{ encoding: 'utf-8' }});
                   if (r.status !== 0) throw new Error(r.stderr);
                   return r.stdout;

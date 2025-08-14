@@ -146,13 +146,18 @@ def print_oldest_exercise(
     return output_lines
 
 
-def gen_html_viewer(df):
+def render_table_fragment(df) -> str:
+    """Render the viewer fragment without external assets.
+
+    The returned HTML contains the dropdown, upload controls, table and all
+    figures but omits any ``<script>`` or ``<link>`` tags so that assets can be
+    injected separately.
+    """
+
     df_records = highest_weight_per_rep(df)
     df_targets = df_next_pareto(df_records)
 
-    # Create a dictionary: { exercise_name: base64_image_string }
     figures_html: dict[str, str] = {}
-    errors = ""
 
     def slugify(name: str) -> str:
         """Return a normalized slug for the given exercise name."""
@@ -163,29 +168,24 @@ def gen_html_viewer(df):
     exercise_slug = {ex: slugify(ex) for ex in df["Exercise"].unique()}
 
     for exercise, slug in exercise_slug.items():
-        try:
-            fig = plot_df(df, df_records, df_targets, Exercise=exercise)
-            buf = BytesIO()
-            fig.savefig(buf, format="png", bbox_inches="tight")
-            buf.seek(0)
-            base64_img = base64.b64encode(buf.read()).decode("utf-8")
-            img_html = (
-                f'<img src="data:image/png;base64,{base64_img}" '
-                f'id="fig-{slug}" class="exercise-figure" '
-                'style="display:none; max-width:100%; height:auto;">'
-            )
-            figures_html[exercise] = img_html
-            plt.close(fig)
-        except Exception as e:
-            errors += f"{e}"
+        fig = plot_df(df, df_records, df_targets, Exercise=exercise)
+        buf = BytesIO()
+        fig.savefig(buf, format="png", bbox_inches="tight")
+        buf.seek(0)
+        base64_img = base64.b64encode(buf.read()).decode("utf-8")
+        img_html = (
+            f'<img src="data:image/png;base64,{base64_img}" '
+            f'id="fig-{slug}" class="exercise-figure" '
+            'style="display:none; max-width:100%; height:auto;">'
+        )
+        figures_html[exercise] = img_html
+        plt.close(fig)
 
     all_figures_html = "\n".join(figures_html.values())
 
-    # Basic setup
     exercise_column = "Exercise"  # Adjust if needed
     exercise_options = sorted(df[exercise_column].dropna().unique())
 
-    # Build dropdown with data attribute linking to figure id
     dropdown_html = """
     <label for="exerciseDropdown">Filter by Exercise:</label>
     <select id="exerciseDropdown">
@@ -207,13 +207,30 @@ def gen_html_viewer(df):
     <br><br>
     """
 
-    # Convert DataFrame to HTML table
     table_html = df_targets.to_html(
         classes="display compact cell-border", table_id="exerciseTable", index=False
     )
 
-    # JS and CSS for DataTables + filtering
-    # JS, CSS, and styling improvements
+    return dropdown_html + upload_html + table_html + all_figures_html
+
+
+def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
+    """Generate the full viewer HTML.
+
+    Parameters
+    ----------
+    df:
+        Source DataFrame.
+    embed_assets:
+        If ``True`` (default), include ``<script>`` and ``<link>`` tags for a
+        standalone page. When ``False`` only the HTML fragment from
+        :func:`render_table_fragment` is returned.
+    """
+
+    fragment = render_table_fragment(df)
+    if not embed_assets:
+        return fragment
+
     js_and_css = """
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
@@ -287,19 +304,9 @@ def gen_html_viewer(df):
     </script>
     """
 
-    # Final combo
     scripts = """
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script type="module" src="main.js"></script>
     """
 
-    full_html = (
-        js_and_css
-        + dropdown_html
-        + upload_html
-        + table_html
-        + all_figures_html
-        + scripts
-    )
-
-    return full_html
+    return js_and_css + fragment + scripts

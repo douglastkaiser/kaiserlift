@@ -29,7 +29,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
 
             const wheelBytes = await fs.readFile('{wheel_path.as_posix()}');
             globalThis.fetch = async (url) => {{
-              if (url === 'client/{wheel_name}') {{
+              if (url === 'client/kaiserlift.whl') {{
                 return new Response(wheelBytes);
               }}
               throw new Error('unexpected fetch ' + url);
@@ -56,8 +56,11 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
                   const match = code.match(/micropip.install\\(['"]([^'"]+)['"]\\)/);
                   if (!match) throw new Error('missing wheel');
                   const wheel = match[1];
+                  if (wheel !== 'kaiserlift.whl') {{
+                    throw new Error('unexpected wheel ' + wheel);
+                  }}
                   const py = `\\nfrom packaging.utils import parse_wheel_filename\\nparse_wheel_filename(__import__('sys').argv[1])\\n`;
-                  const r = spawnSync('{sys.executable}', ['-c', py, wheel], {{ encoding: 'utf-8' }});
+                  const r = spawnSync('{sys.executable}', ['-c', py, '{wheel_name}'], {{ encoding: 'utf-8' }});
                   if (r.status !== 0) throw new Error(r.stderr);
                   return;
                 }}
@@ -72,7 +75,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             }};
 
             await init(() => pyodide, doc);
-            console.log(pyodide.fsPath === '{wheel_name}');
+            console.log(pyodide.fsPath === 'kaiserlift.whl');
             await elements.uploadButton.click();
             console.log(elements.result.innerHTML.includes('exercise-figure'));
             """

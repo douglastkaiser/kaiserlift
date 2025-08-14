@@ -1,3 +1,5 @@
+const VERSION = "0.1.27";
+
 export function initializeUI(root = document) {
   if (typeof $ === "undefined") {
     return;
@@ -23,23 +25,35 @@ export function initializeUI(root = document) {
 }
 
 async function fetchWheel(doc) {
-  const candidates = [];
+  const bases = [];
   try {
-    candidates.push(new URL("kaiserlift.whl", import.meta.url));
+    bases.push(new URL(import.meta.url));
   } catch (_) {}
   if (doc?.baseURI) {
-    candidates.push(new URL("kaiserlift.whl", doc.baseURI));
-    candidates.push(new URL("client/kaiserlift.whl", doc.baseURI));
+    bases.push(new URL(doc.baseURI));
   }
+
+  const names = [
+    "kaiserlift.whl",
+    `kaiserlift-${VERSION}-py3-none-any.whl`,
+    "dist/kaiserlift.whl",
+    `dist/kaiserlift-${VERSION}-py3-none-any.whl`,
+  ];
+
+  const candidates = [];
+  for (const base of bases) {
+    for (const name of names) {
+      candidates.push(new URL(name, base));
+    }
+  }
+
   for (const url of candidates) {
     try {
       const response = await fetch(url);
       if (response.ok) {
         return { response, url: url.href };
       }
-      console.error(
-        `Wheel fetch returned ${response.status} at ${url.href}`,
-      );
+      console.error(`Wheel fetch returned ${response.status} at ${url.href}`);
     } catch (err) {
       console.error("Failed to fetch Pyodide wheel", url.href, err);
     }

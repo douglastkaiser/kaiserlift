@@ -1,18 +1,21 @@
-import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.mjs";
-
-async function main() {
-  const result = document.getElementById("result");
+export async function init(loadPyodide, doc = document) {
+  const result = doc.getElementById("result");
 
   try {
-    const pyodide = await loadPyodide();
+    const loader =
+      loadPyodide ??
+      (await import(
+        "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.mjs"
+      )).loadPyodide;
+    const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
     await pyodide.runPythonAsync(`
 import micropip
 await micropip.install('client/kaiserlift.whl')
 `);
 
-    const fileInput = document.getElementById("csvFile");
-    const uploadButton = document.getElementById("uploadButton");
+    const fileInput = doc.getElementById("csvFile");
+    const uploadButton = doc.getElementById("uploadButton");
 
     uploadButton.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
@@ -44,4 +47,6 @@ pipeline([buffer])
   }
 }
 
-main().catch((err) => console.error(err));
+if (typeof window !== "undefined") {
+  init().catch((err) => console.error(err));
+}

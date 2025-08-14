@@ -7,6 +7,7 @@ showing figures and does not duplicate these computations.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import IO, Iterable
 
 from .df_processers import (
@@ -17,7 +18,7 @@ from .df_processers import (
 from .viewers import gen_html_viewer
 
 
-def pipeline(files: Iterable[IO]) -> str:
+def pipeline(files: Iterable[IO], *, embed_assets: bool = False) -> str:
     """Run the KaiserLift processing pipeline and return HTML.
 
     Parameters
@@ -42,4 +43,15 @@ def pipeline(files: Iterable[IO]) -> str:
     records = highest_weight_per_rep(df)
     _ = df_next_pareto(records)
 
-    return gen_html_viewer(df)
+    html = gen_html_viewer(df)
+    if embed_assets:
+        main_js = Path(__file__).resolve().parent.parent / "client" / "main.js"
+        if main_js.exists():
+            script = main_js.read_text(encoding="utf-8")
+            html = html.replace(
+                '<script type="module" src="main.js"></script>',
+                f'<script type="module">{script}</script>',
+            )
+        html = f"<!DOCTYPE html><html><head></head><body>{html}</body></html>"
+
+    return html

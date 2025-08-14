@@ -57,7 +57,7 @@ async def upload(file: UploadFile = File(...)) -> HTMLResponse:
     interface and performs no calculations.
     """
 
-    html = pipeline([file.file])
+    html = pipeline([file.file], embed_assets=True)
     return HTMLResponse(html)
 
 

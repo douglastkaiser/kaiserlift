@@ -34,4 +34,5 @@ def test_upload_csv() -> None:
         )
 
     assert response.status_code == 200
+    assert "<html" in response.text
     assert "exercise-figure" in response.text

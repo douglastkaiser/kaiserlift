@@ -5,8 +5,11 @@ async function main() {
 
   try {
     const pyodide = await loadPyodide();
-    await pyodide.loadPackage(["pandas", "numpy", "matplotlib"]);
-    await pyodide.loadPackage("client/kaiserlift.whl");
+    await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
+    await pyodide.runPythonAsync(`
+import micropip
+await micropip.install('client/kaiserlift.whl')
+`);
 
     const fileInput = document.getElementById("csvFile");
     const uploadButton = document.getElementById("uploadButton");
@@ -28,10 +31,11 @@ buffer = io.StringIO(csv_text)
 pipeline([buffer])
 `);
         result.innerHTML = html;
-        pyodide.globals.delete("csv_text");
       } catch (err) {
         console.error(err);
         result.textContent = "Failed to process CSV: " + err;
+      } finally {
+        pyodide.globals.delete("csv_text");
       }
     });
   } catch (err) {
@@ -40,4 +44,4 @@ pipeline([buffer])
   }
 }
 
-main();
+main().catch((err) => console.error(err));

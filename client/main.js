@@ -9,7 +9,7 @@ export async function init(loadPyodide, doc = document) {
       )).loadPyodide;
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
-    const wheelUrl = "client/kaiserlift-0.1.24-py3-none-any.whl";
+    const wheelUrl = "client/kaiserlift.whl";
     const response = await fetch(wheelUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch wheel: ${response.status}`);

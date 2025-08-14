@@ -29,7 +29,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
 
             const wheelBytes = await fs.readFile('{wheel_path.as_posix()}');
             globalThis.fetch = async (url) => {{
-              if (url === 'kaiserlift.whl') {{
+              if (url.toString().endsWith('kaiserlift.whl')) {{
                 return new Response(wheelBytes);
               }}
               throw new Error('unexpected fetch ' + url);

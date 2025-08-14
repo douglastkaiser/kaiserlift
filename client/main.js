@@ -36,18 +36,32 @@ export async function init(loadPyodide, doc = document) {
       )).loadPyodide;
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
-    const wheelUrl = "kaiserlift.whl";
-    const response = await fetch(wheelUrl);
+
+    const wheelUrl = new URL("./kaiserlift.whl", import.meta.url).href;
+    let response;
+    try {
+      response = await fetch(wheelUrl);
+    } catch (err) {
+      console.error("Failed to fetch Pyodide wheel", wheelUrl, err);
+      throw err;
+    }
     if (!response.ok) {
-      throw new Error(`Failed to fetch wheel: ${response.status}`);
+      const msg = `Failed to fetch wheel from ${wheelUrl}: ${response.status}`;
+      console.error(msg);
+      throw new Error(msg);
     }
     const data = new Uint8Array(await response.arrayBuffer());
     const wheelName = wheelUrl.split("/").pop();
     pyodide.FS.writeFile(wheelName, data);
-    await pyodide.runPythonAsync(`
+    try {
+      await pyodide.runPythonAsync(`
 import micropip
 await micropip.install('${wheelName}')
 `);
+    } catch (err) {
+      console.error("Failed to install wheel", wheelName, err);
+      throw err;
+    }
 
     const fileInput = doc.getElementById("csvFile");
     const uploadButton = doc.getElementById("uploadButton");

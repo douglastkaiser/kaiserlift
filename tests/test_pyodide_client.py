@@ -6,15 +6,13 @@ import zipfile
 from pathlib import Path
 
 import pytest
-import tomllib
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
 def test_pipeline_via_pyodide(tmp_path: Path) -> None:
     """Execute the pipeline through the browser client using a Pyodide stub."""
 
-    version = tomllib.loads(Path("pyproject.toml").read_text())["project"]["version"]
-    wheel_name = f"kaiserlift-{version}-py3-none-any.whl"
+    wheel_name = "kaiserlift.whl"
     wheel_path = tmp_path / wheel_name
     with zipfile.ZipFile(wheel_path, "w"):
         pass
@@ -29,7 +27,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
 
             const wheelBytes = await fs.readFile('{wheel_path.as_posix()}');
             globalThis.fetch = async (url) => {{
-              if (url === 'client/{wheel_name}') {{
+              if (url === 'client/kaiserlift.whl') {{
                 return new Response(wheelBytes);
               }}
               throw new Error('unexpected fetch ' + url);
@@ -42,7 +40,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
                 addEventListener: (event, cb) => {{ elements.uploadButton._cb = cb; }},
                 click: async () => {{ await elements.uploadButton._cb(); }}
               }},
-              result: {{ textContent: '', innerHTML: '' }}
+              result: {{ textContent: '', innerHTML: '<tr id="old-exercise"></tr>' }}
             }};
             const doc = {{ getElementById: id => elements[id] }};
 
@@ -56,9 +54,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
                   const match = code.match(/micropip.install\\(['"]([^'"]+)['"]\\)/);
                   if (!match) throw new Error('missing wheel');
                   const wheel = match[1];
-                  const py = `\\nfrom packaging.utils import parse_wheel_filename\\nparse_wheel_filename(__import__('sys').argv[1])\\n`;
-                  const r = spawnSync('{sys.executable}', ['-c', py, wheel], {{ encoding: 'utf-8' }});
-                  if (r.status !== 0) throw new Error(r.stderr);
+                  if (wheel !== '{wheel_name}') throw new Error('unexpected wheel ' + wheel);
                   return;
                 }}
                 if (code.includes("pipeline([")) {{
@@ -74,6 +70,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             await init(() => pyodide, doc);
             console.log(pyodide.fsPath === '{wheel_name}');
             await elements.uploadButton.click();
+            console.log(!elements.result.innerHTML.includes('old-exercise'));
             console.log(elements.result.innerHTML.includes('exercise-figure'));
             """
         )
@@ -83,4 +80,4 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
         ["node", script.as_posix()], capture_output=True, text=True, check=True
     )
     lines = [line for line in result.stdout.splitlines() if line]
-    assert lines[-2:] == ["true", "true"]
+    assert lines[-3:] == ["true", "true", "true"]

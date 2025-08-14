@@ -44,7 +44,10 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
               }},
               result: {{ textContent: '', innerHTML: '' }}
             }};
-            const doc = {{ getElementById: id => elements[id] }};
+            const doc = {{
+              getElementById: id => elements[id],
+              baseURI: 'https://example.test/',
+            }};
 
             const pyodide = {{
               fsPath: '',

@@ -37,7 +37,10 @@ export async function init(loadPyodide, doc = document) {
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
 
-    const wheelUrl = new URL("./kaiserlift.whl", import.meta.url).href;
+    const wheelUrl = new URL(
+      "kaiserlift.whl",
+      doc?.baseURI ?? import.meta.url,
+    ).href;
     let response;
     try {
       response = await fetch(wheelUrl);

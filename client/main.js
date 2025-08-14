@@ -9,10 +9,17 @@ export async function init(loadPyodide, doc = document) {
       )).loadPyodide;
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
-    const wheel = "client/kaiserlift-0.1.24-py3-none-any.whl";
+    const wheelUrl = "client/kaiserlift-0.1.24-py3-none-any.whl";
+    const response = await fetch(wheelUrl);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch wheel: ${response.status}`);
+    }
+    const data = new Uint8Array(await response.arrayBuffer());
+    const wheelName = wheelUrl.split("/").pop();
+    pyodide.FS.writeFile(wheelName, data);
     await pyodide.runPythonAsync(`
 import micropip
-await micropip.install('${wheel}')
+await micropip.install('${wheelName}')
 `);
 
     const fileInput = doc.getElementById("csvFile");

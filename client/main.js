@@ -25,6 +25,9 @@ export function initializeUI(root = document) {
 export async function init(loadPyodide, doc = document) {
   const result = doc.getElementById("result");
 
+  // Ensure the initial UI is usable even if Pyodide fails to load.
+  initializeUI(doc);
+
   try {
     const loader =
       loadPyodide ??
@@ -33,7 +36,7 @@ export async function init(loadPyodide, doc = document) {
       )).loadPyodide;
     const pyodide = await loader();
     await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
-    const wheelUrl = "client/kaiserlift.whl";
+    const wheelUrl = "kaiserlift.whl";
     const response = await fetch(wheelUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch wheel: ${response.status}`);
@@ -75,8 +78,6 @@ pipeline([buffer], embed_assets=False)
         pyodide.globals.delete("csv_text");
       }
     });
-
-    initializeUI(doc);
   } catch (err) {
     console.error(err);
     result.textContent = "Failed to initialize Pyodide: " + err;

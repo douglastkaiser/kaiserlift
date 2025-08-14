@@ -289,30 +289,35 @@ wheels = [
 
 [[package]]
 name = "kaiserlift"
-version = "0.1.22"
+version = "0.1.23"
 source = { editable = "." }
 dependencies = [
-    { name = "fastapi" },
-    { name = "httpx" },
     { name = "ipython" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
+]
+
+[package.optional-dependencies]
+server = [
+    { name = "fastapi" },
+    { name = "httpx" },
     { name = "python-multipart" },
     { name = "uvicorn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi" },
-    { name = "httpx" },
+    { name = "fastapi", marker = "extra == 'server'" },
+    { name = "httpx", marker = "extra == 'server'" },
     { name = "ipython" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "python-multipart" },
-    { name = "uvicorn" },
+    { name = "python-multipart", marker = "extra == 'server'" },
+    { name = "uvicorn", marker = "extra == 'server'" },
 ]
+provides-extras = ["server"]
 
 [[package]]
 name = "kiwisolver"

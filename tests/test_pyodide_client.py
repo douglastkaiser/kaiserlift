@@ -15,7 +15,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
     script.write_text(
         textwrap.dedent(
             f"""
-            import {{ init }} from 'file://{Path('client/main.js').resolve().as_posix()}';
+            import {{ init }} from 'file://{Path("client/main.js").resolve().as_posix()}';
             import {{ spawnSync }} from 'child_process';
 
             const csv = `Date,Exercise,Category,Weight,Weight Unit,Reps,Distance,Distance Unit,Time,Comment\\n2025-05-21,Bicep Curl,Biceps,50,lbs,10,,,0:00:00,\\n2025-05-22,Bicep Curl,Biceps,55,lbs,8,,,0:00:00,`;

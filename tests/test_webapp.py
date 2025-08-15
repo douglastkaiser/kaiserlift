@@ -39,4 +39,5 @@ def test_upload_csv() -> None:
     assert "exercise-figure" in response.text
     # ``upload`` should return a standalone HTML page with embedded assets.
     assert "<script" in response.text
+    assert 'jquery-3.5.1.js" defer></script>' in response.text
     assert response.text.count('id="result"') == 1

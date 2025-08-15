@@ -104,6 +104,7 @@ await micropip.install('kaiserlift')
 
     const fileInput = doc.getElementById("csvFile");
     const uploadButton = doc.getElementById("uploadButton");
+    const progressBar = doc.getElementById("uploadProgress");
 
     uploadButton.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
@@ -112,23 +113,33 @@ await micropip.install('kaiserlift')
         return;
       }
 
+      if (progressBar) {
+        progressBar.style.display = "block";
+        progressBar.value = 0;
+      }
+
       try {
         const text = await file.text();
+        if (progressBar) progressBar.value = 25;
         pyodide.globals.set("csv_text", text);
+        if (progressBar) progressBar.value = 50;
         const html = await pyodide.runPythonAsync(`
 import io
 from kaiserlift.pipeline import pipeline
 buffer = io.StringIO(csv_text)
 pipeline([buffer], embed_assets=False)
 `);
+        if (progressBar) progressBar.value = 90;
         result.innerHTML = "";
         result.innerHTML = html;
         initializeUI(result);
+        if (progressBar) progressBar.value = 100;
       } catch (err) {
         console.error(err);
         result.textContent = "Failed to process CSV: " + err;
       } finally {
         pyodide.globals.delete("csv_text");
+        if (progressBar) progressBar.style.display = "none";
       }
     });
   } catch (err) {

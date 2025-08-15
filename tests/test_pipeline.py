@@ -13,6 +13,7 @@ def test_pipeline_generates_html() -> None:
     assert "<table" in html
     assert html.count('id="result"') == 1
     assert 'id="uploadButton"' in html
+    assert 'id="uploadProgress"' in html
 
 
 def test_pipeline_fragment_without_assets() -> None:
@@ -25,3 +26,4 @@ def test_pipeline_fragment_without_assets() -> None:
     assert 'id="uploadButton"' not in html
     assert 'id="csvFile"' not in html
     assert 'id="result"' not in html
+    assert 'id="uploadProgress"' not in html

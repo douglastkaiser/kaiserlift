@@ -1,4 +1,4 @@
-const VERSION = "0.1.27";
+import { VERSION } from "./version.js";
 
 export function initializeUI(root = document) {
   if (typeof $ === "undefined") {

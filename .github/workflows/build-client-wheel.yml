@@ -14,6 +14,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
 
+      - name: Inject version into client
+        run: uv run --no-project python scripts/inject_version.py
+
       - name: Build wheel
         run: |
           uv build

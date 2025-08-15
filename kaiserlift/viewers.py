@@ -273,35 +273,6 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         }
     }
     </style>
-
-    <script>
-    $(document).ready(function() {
-        // Initialize DataTable
-        var table = $('#exerciseTable').DataTable({
-            responsive: true
-        });
-
-        // Initialize Select2 for searchable dropdown
-        $('#exerciseDropdown').select2({
-            placeholder: "Filter by Exercise",
-            allowClear: true
-        });
-
-        $('#exerciseDropdown').on('change', function() {
-            var val = $.fn.dataTable.util.escapeRegex($(this).val());
-            table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
-
-            // Hide all figures
-            $('.exercise-figure').hide();
-
-            // Show the matching figure
-            var figId = $(this).find('option:selected').data('fig');
-            if (figId) {
-                $('#fig-' + figId).show();
-            }
-        });
-    });
-    </script>
     """
 
     scripts = """

@@ -35,3 +35,5 @@ def test_upload_csv() -> None:
 
     assert response.status_code == 200
     assert "exercise-figure" in response.text
+    # ``upload`` should return a standalone HTML page with embedded assets.
+    assert "<script" in response.text

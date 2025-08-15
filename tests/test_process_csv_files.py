@@ -46,3 +46,17 @@ def test_process_csv_files_weight_lbs_column(tmp_path):
     assert "Weight" in df.columns
     assert df.loc[0, "Weight"] == 100
     assert df.loc[0, "Reps"] == 5
+
+
+def test_process_csv_files_weight_column_with_whitespace(tmp_path):
+    csv_content = "\n".join(
+        [
+            "Date,Exercise,Category, Weight (lbs),Weight Unit,Reps,Distance,Distance Unit,Time,Comment",
+            "2024-01-01,Bench Press,Chest,100,lbs,5,,,,",
+        ]
+    )
+    csv_path = tmp_path / "weight_lbs_spaced.csv"
+    csv_path.write_text(csv_content, encoding="utf-8")
+    df = process_csv_files([csv_path])
+    assert "Weight" in df.columns
+    assert df.loc[0, "Weight"] == 100

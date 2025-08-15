@@ -38,23 +38,23 @@ def process_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
 
     df = pd.read_csv(data_source)
 
-    # FitNotes labels the weight column as "Weight (lbs)" by default; normalize it
-    # so downstream code can always rely on a plain "Weight" header.
-    if "Weight (lbs)" in df.columns and "Weight" not in df.columns:
-        df = df.rename(columns={"Weight (lbs)": "Weight"})
+    # Normalize column headers to avoid mismatches caused by extra whitespace
+    # or alternative weight units.
+    df.columns = df.columns.str.strip()
+
+    # FitNotes labels the weight column as "Weight (lbs)" (or other units) by
+    # default; normalize it so downstream code can always rely on a plain
+    # "Weight" header. Handle any "Weight (<unit>)" variant.
+    weight_like = next((c for c in df.columns if c.startswith("Weight (")), None)
+    if weight_like and "Weight" not in df.columns:
+        df = df.rename(columns={weight_like: "Weight"})
 
     df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d")
     df_sorted = df.sort_values(by="Date", ascending=True)
 
-    weight_series = (
-        df_sorted["Weight"]
-        if "Weight" in df_sorted.columns
-        else pd.Series(np.nan, index=df_sorted.index)
-    )
-    distance_series = (
-        df_sorted["Distance"]
-        if "Distance" in df_sorted.columns
-        else pd.Series(np.nan, index=df_sorted.index)
+    weight_series = df_sorted.get("Weight", pd.Series(np.nan, index=df_sorted.index))
+    distance_series = df_sorted.get(
+        "Distance", pd.Series(np.nan, index=df_sorted.index)
     )
     df_sorted["Weight"] = weight_series.combine_first(distance_series)
 

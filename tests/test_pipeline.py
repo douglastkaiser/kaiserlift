@@ -11,6 +11,8 @@ def test_pipeline_generates_html() -> None:
     with csv_path.open("rb") as fh:
         html = pipeline([fh])
     assert "<table" in html
+    assert html.count('id="result"') == 1
+    assert 'id="uploadButton"' in html
 
 
 def test_pipeline_fragment_without_assets() -> None:
@@ -20,3 +22,6 @@ def test_pipeline_fragment_without_assets() -> None:
     assert "<table" in html
     assert "<script" not in html
     assert "<link" not in html
+    assert 'id="uploadButton"' not in html
+    assert 'id="csvFile"' not in html
+    assert 'id="result"' not in html

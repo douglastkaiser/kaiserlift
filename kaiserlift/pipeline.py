@@ -26,9 +26,11 @@ def pipeline(files: Iterable[IO], *, embed_assets: bool = True) -> str:
         Iterable of file paths or file-like objects containing FitNotes CSV
         data.
     embed_assets:
-        If ``True`` (default) the returned HTML includes the required CSS and
-        JavaScript assets. Set to ``False`` when the caller already embeds these
-        assets, such as the in-browser client.
+        If ``True`` (default) the returned HTML includes the upload controls and
+        required CSS/JavaScript for a standalone page. Set to ``False`` to
+        obtain only the table/dropdown/figure fragment suitable for insertion
+        into an existing ``<div id="result">`` where the surrounding page
+        already provides the necessary assets.
 
     Returns
     -------

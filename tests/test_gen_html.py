@@ -26,6 +26,10 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     assert "<table" in html
     # ensure at least one exercise figure is present
     assert 'class="exercise-figure"' in html
+    # upload controls should be present once and content wrapped in a single result div
+    assert html.count('id="result"') == 1
+    assert 'id="uploadButton"' in html
+    assert 'id="csvFile"' in html
 
 
 def test_gen_html_viewer_without_scripts(tmp_path: Path) -> None:
@@ -37,3 +41,7 @@ def test_gen_html_viewer_without_scripts(tmp_path: Path) -> None:
     df = process_csv_files([str(csv_file)])
     html = gen_html_viewer(df, embed_assets=False)
     assert "<script" not in html
+    assert "<link" not in html
+    assert 'id="uploadButton"' not in html
+    assert 'id="csvFile"' not in html
+    assert 'id="result"' not in html

@@ -200,18 +200,11 @@ def render_table_fragment(df) -> str:
     <br><br>
     """
 
-    upload_html = """
-    <input type="file" id="csvFile">
-    <button id="uploadButton">Upload</button>
-    <div id="result"></div>
-    <br><br>
-    """
-
     table_html = df_targets.to_html(
         classes="display compact cell-border", table_id="exerciseTable", index=False
     )
 
-    return dropdown_html + upload_html + table_html + all_figures_html
+    return dropdown_html + table_html + all_figures_html
 
 
 def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
@@ -275,9 +268,14 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     </style>
     """
 
+    upload_html = """
+    <input type="file" id="csvFile">
+    <button id="uploadButton">Upload</button>
+    """
+
     scripts = """
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script type="module" src="main.js"></script>
     """
 
-    return js_and_css + fragment + scripts
+    return js_and_css + upload_html + f'<div id="result">{fragment}</div>' + scripts

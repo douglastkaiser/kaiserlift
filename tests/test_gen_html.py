@@ -23,6 +23,12 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     out_file = tmp_path / "out.html"
     out_file.write_text(html, encoding="utf-8")
     assert out_file.exists()
+    assert html.startswith("<!DOCTYPE html>")
+    assert '<html lang="en">' in html
+    assert '<meta charset="utf-8">' in html
+    assert (
+        '<meta name="viewport" content="width=device-width, initial-scale=1">' in html
+    )
     assert "<table" in html
     # ensure at least one exercise figure is present
     assert 'class="exercise-figure"' in html

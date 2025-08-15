@@ -208,23 +208,23 @@ def render_table_fragment(df) -> str:
 
 
 def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
-    """Generate the full viewer HTML.
+    """Generate HTML for viewing KaiserLift data.
 
     Parameters
     ----------
     df:
         Source DataFrame.
     embed_assets:
-        If ``True`` (default), include ``<script>`` and ``<link>`` tags for a
-        standalone page. When ``False`` only the HTML fragment from
-        :func:`render_table_fragment` is returned.
+        When ``True`` (default) a complete HTML document is returned including
+        required ``<link>`` and ``<script>`` tags.  Set to ``False`` to obtain
+        only the fragment produced by :func:`render_table_fragment`.
     """
 
     fragment = render_table_fragment(df)
     if not embed_assets:
         return fragment
 
-    js_and_css = """
+    assets = """
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
     <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
@@ -233,6 +233,10 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     <!-- Select2 for searchable dropdown -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <!-- Pyodide and main script -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <script type="module" src="main.js"></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
@@ -274,9 +278,17 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
     """
 
-    scripts = """
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
-    <script type="module" src="main.js"></script>
-    """
+    body_content = f'{upload_html}<div id="result">{fragment}</div>'
 
-    return js_and_css + upload_html + f'<div id="result">{fragment}</div>' + scripts
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{assets}
+</head>
+<body>
+{body_content}
+</body>
+</html>
+"""

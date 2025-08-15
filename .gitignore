@@ -195,3 +195,4 @@ cython_debug/
 
 # Client wheel artifact
 client/*.whl
+client/version.js

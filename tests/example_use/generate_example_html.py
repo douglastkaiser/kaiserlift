@@ -16,8 +16,9 @@ def main() -> None:
     for name in ("example.html", "index.html"):
         (out_dir / name).write_text(html, encoding="utf-8")
 
-    client_js = here.parent.parent / "client" / "main.js"
-    shutil.copy(client_js, out_dir / "main.js")
+    client_dir = here.parent.parent / "client"
+    for name in ("main.js", "version.js"):
+        shutil.copy(client_dir / name, out_dir / name)
 
 
 if __name__ == "__main__":

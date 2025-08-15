@@ -37,6 +37,9 @@ jobs:
           uv venv
           uv pip install -e . pytest
 
+      - name: Inject version into client
+        run: uv run --no-project python scripts/inject_version.py
+
       - name: Run tests
         run: uv run --no-project python -m pytest tests
 
@@ -61,6 +64,9 @@ jobs:
           uv build
           uv pip install dist/*.whl pytest
 
+      - name: Inject version into client
+        run: uv run --no-project python scripts/inject_version.py
+
       - name: Run tests using installed package
         run: uv run --no-project pytest tests
 
@@ -83,6 +89,9 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync
+
+      - name: Inject version into client
+        run: uv run --no-project python scripts/inject_version.py
 
       - name: Generate example HTML
         run: uv run python tests/example_use/generate_example_html.py

@@ -26,3 +26,14 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     assert "<table" in html
     # ensure at least one exercise figure is present
     assert 'class="exercise-figure"' in html
+
+
+def test_gen_html_viewer_without_scripts(tmp_path: Path) -> None:
+    csv_file = (
+        Path(__file__).parent
+        / "example_use"
+        / "FitNotes_Export_2025_05_21_08_39_11.csv"
+    )
+    df = process_csv_files([str(csv_file)])
+    html = gen_html_viewer(df, embed_assets=False)
+    assert "<script" not in html

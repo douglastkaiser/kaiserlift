@@ -149,9 +149,9 @@ def print_oldest_exercise(
 def render_table_fragment(df) -> str:
     """Render the viewer fragment without external assets.
 
-    The returned HTML contains the dropdown, upload controls, table and all
-    figures but omits any ``<script>`` or ``<link>`` tags so that assets can be
-    injected separately.
+    The returned HTML contains only the dropdown, table, and figures while
+    omitting any ``<script>`` or ``<link>`` tags so that assets can be injected
+    separately.
     """
 
     df_records = highest_weight_per_rep(df)

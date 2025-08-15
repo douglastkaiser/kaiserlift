@@ -38,6 +38,11 @@ def process_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
 
     df = pd.read_csv(data_source)
 
+    # FitNotes labels the weight column as "Weight (lbs)" by default; normalize it
+    # so downstream code can always rely on a plain "Weight" header.
+    if "Weight (lbs)" in df.columns and "Weight" not in df.columns:
+        df = df.rename(columns={"Weight (lbs)": "Weight"})
+
     df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d")
     df_sorted = df.sort_values(by="Date", ascending=True)
 

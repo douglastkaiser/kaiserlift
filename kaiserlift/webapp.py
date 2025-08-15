@@ -57,7 +57,10 @@ async def upload(file: UploadFile = File(...)) -> HTMLResponse:
     interface and performs no calculations.
     """
 
-    html = pipeline([file.file])
+    # ``pipeline`` no longer embeds required JavaScript and CSS assets by
+    # default.  Explicitly enable ``embed_assets`` so the returned HTML is a
+    # standalone page suitable for direct rendering by the browser.
+    html = pipeline([file.file], embed_assets=True)
     return HTMLResponse(html)
 
 

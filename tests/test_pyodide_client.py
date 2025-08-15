@@ -32,6 +32,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
                 addEventListener: (event, cb) => {{ elements.uploadButton._cb = cb; }},
                 click: async () => {{ await elements.uploadButton._cb(); }}
               }},
+              uploadProgress: {{ style: {{ display: 'none' }}, value: 0 }},
               result: {{ textContent: '', innerHTML: '<tr><td>Old Exercise</td></tr>' }}
             }};
             const doc = {{
@@ -69,6 +70,8 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             console.log((elements.result.innerHTML.match(/id=\"uploadButton\"/g) || []).length === 1);
             console.log(elements.result.innerHTML.includes('Bicep Curl'));
             console.log(elements.result.innerHTML.includes('exercise-figure'));
+            console.log(elements.uploadProgress.value === 100);
+            console.log(elements.uploadProgress.style.display === 'none');
 
             elements.csvFile.files = [{{ text: async () => csv2 }}];
             await elements.uploadButton.click();
@@ -77,6 +80,8 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             console.log(elements.result.innerHTML.includes('Tricep Pushdown'));
             console.log(!elements.result.innerHTML.includes('Bicep Curl'));
             console.log(elements.result.innerHTML.includes('exercise-figure'));
+            console.log(elements.uploadProgress.value === 100);
+            console.log(elements.uploadProgress.style.display === 'none');
             """
         )
     )
@@ -85,4 +90,4 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
         ["node", script.as_posix()], capture_output=True, text=True, check=True
     )
     lines = [line for line in result.stdout.splitlines() if line]
-    assert lines[-10:] == ["true"] * 10
+    assert lines[-14:] == ["true"] * 14

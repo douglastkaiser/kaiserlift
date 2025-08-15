@@ -271,6 +271,7 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     upload_html = """
     <input type="file" id="csvFile">
     <button id="uploadButton">Upload</button>
+    <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
     """
 
     scripts = """

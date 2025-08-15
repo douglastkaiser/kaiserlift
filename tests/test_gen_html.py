@@ -30,6 +30,7 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     assert html.count('id="result"') == 1
     assert 'id="uploadButton"' in html
     assert 'id="csvFile"' in html
+    assert 'id="uploadProgress"' in html
 
 
 def test_gen_html_viewer_without_scripts(tmp_path: Path) -> None:
@@ -45,3 +46,4 @@ def test_gen_html_viewer_without_scripts(tmp_path: Path) -> None:
     assert 'id="uploadButton"' not in html
     assert 'id="csvFile"' not in html
     assert 'id="result"' not in html
+    assert 'id="uploadProgress"' not in html

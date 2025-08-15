@@ -17,7 +17,10 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             f"""
             import {{ init }} from 'file://{Path("client/main.js").resolve().as_posix()}';
             import {{ spawnSync }} from 'child_process';
-            globalThis.fetch = async (url) => new Response(null, {{ status: 404 }});
+            globalThis.fetch = async (url) => {{
+              console.log(url.href.endsWith('/client/kaiserlift.whl'));
+              return new Response(new Uint8Array(), {{ status: 200 }});
+            }};
 
             const csv = `Date,Exercise,Category,Weight,Weight Unit,Reps,Distance,Distance Unit,Time,Comment\\n2025-05-21,Bicep Curl,Biceps,50,lbs,10,,,0:00:00,\\n2025-05-22,Bicep Curl,Biceps,55,lbs,8,,,0:00:00,`;
             const elements = {{
@@ -26,7 +29,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
                 addEventListener: (event, cb) => {{ elements.uploadButton._cb = cb; }},
                 click: async () => {{ await elements.uploadButton._cb(); }}
               }},
-              result: {{ textContent: '', innerHTML: '' }}
+              result: {{ textContent: '', innerHTML: '<tr><td>Old Exercise</td></tr>' }}
             }};
             const doc = {{
               getElementById: id => elements[id],
@@ -35,7 +38,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
 
             const pyodide = {{
               installed: null,
-              FS: {{ writeFile: () => {{ throw new Error('unexpected writeFile'); }} }},
+              FS: {{ writeFile: () => {{}} }},
               globals: new Map(),
               loadPackage: async () => {{}},
               runPythonAsync: async code => {{
@@ -56,9 +59,10 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             }};
 
             await init(() => pyodide, doc);
-            console.log(pyodide.installed === 'kaiserlift');
+            console.log(pyodide.installed.endsWith('kaiserlift.whl'));
             await elements.uploadButton.click();
             console.log(elements.result.innerHTML.includes('exercise-figure'));
+            console.log(!elements.result.innerHTML.includes('Old Exercise'));
             """
         )
     )
@@ -67,4 +71,4 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
         ["node", script.as_posix()], capture_output=True, text=True, check=True
     )
     lines = [line for line in result.stdout.splitlines() if line]
-    assert lines[-2:] == ["true", "true"]
+    assert lines[-4:] == ["true", "true", "true", "true"]

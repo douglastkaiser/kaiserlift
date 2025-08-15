@@ -31,3 +31,18 @@ def test_import_fitnotes_csv_wrapper():
     df_new = process_csv_files([csv_path])
     df_old = import_fitnotes_csv([csv_path])
     assert_frame_equal(df_new, df_old)
+
+
+def test_process_csv_files_without_weight(tmp_path):
+    csv_content = "\n".join(
+        [
+            "Date,Exercise,Category,Reps,Distance,Distance Unit,Time,Comment",
+            "2024-01-01,Row,Back,10,500,m,00:10:00,",
+        ]
+    )
+    csv_path = tmp_path / "no_weight.csv"
+    csv_path.write_text(csv_content, encoding="utf-8")
+    df = process_csv_files([csv_path])
+    assert "Weight" in df.columns
+    assert df.loc[0, "Weight"] == 500
+    assert df.loc[0, "Reps"] == 10

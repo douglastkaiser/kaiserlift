@@ -41,12 +41,31 @@ def process_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
     df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d")
     df_sorted = df.sort_values(by="Date", ascending=True)
 
-    df_sorted["Weight"] = df_sorted["Weight"].combine_first(df_sorted["Distance"])
-    df_sorted["Time"] = pd.to_timedelta(df_sorted["Time"]).dt.total_seconds() / 60
+    weight_series = (
+        df_sorted["Weight"]
+        if "Weight" in df_sorted.columns
+        else pd.Series(np.nan, index=df_sorted.index)
+    )
+    distance_series = (
+        df_sorted["Distance"]
+        if "Distance" in df_sorted.columns
+        else pd.Series(np.nan, index=df_sorted.index)
+    )
+    df_sorted["Weight"] = weight_series.combine_first(distance_series)
+
+    if "Time" in df_sorted.columns:
+        df_sorted["Time"] = pd.to_timedelta(df_sorted["Time"]).dt.total_seconds() / 60
+    else:
+        df_sorted["Time"] = np.nan
+
+    if "Reps" not in df_sorted.columns:
+        df_sorted["Reps"] = np.nan
     df_sorted["Reps"] = df_sorted["Reps"].combine_first(df_sorted["Time"])
 
     df_sorted = df_sorted.drop(
-        ["Distance", "Weight Unit", "Distance Unit", "Comment", "Time"], axis=1
+        ["Distance", "Weight Unit", "Distance Unit", "Comment", "Time"],
+        axis=1,
+        errors="ignore",
     )
     df_sorted = df_sorted[df_sorted["Category"] != "Cardio"]
     df_sorted = df_sorted[df_sorted["Exercise"] != "Climbing"]

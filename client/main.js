@@ -42,8 +42,9 @@ export async function init(createWorker, doc = document) {
           `worker.js HEAD status ${response.status}, content-type ${ct}`,
         );
         if (!response.ok || !ct?.includes("javascript")) {
-          result.textContent =
-            `Worker script unavailable: status ${response.status}, content-type ${ct}`;
+          const msg = `Worker script unavailable: status ${response.status}, content-type ${ct}`;
+          console.error(msg);
+          result.textContent = msg;
           return;
         }
       } catch (err) {

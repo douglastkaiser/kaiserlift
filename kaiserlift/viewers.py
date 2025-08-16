@@ -224,7 +224,7 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     if not embed_assets:
         return fragment
 
-    assets = """
+    head_assets = """
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
     <script src="https://code.jquery.com/jquery-3.5.1.js" defer></script>
@@ -234,9 +234,8 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" defer></script>
 
-    <!-- Pyodide and main script -->
+    <!-- Pyodide runtime -->
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js" defer></script>
-    <script type="module" src="main.js"></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
@@ -280,15 +279,20 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     body_content = f'{upload_html}<div id="result">{fragment}</div>'
 
+    tail_assets = """
+    <script type="module" src="/main.js"></script>
+    """
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-{assets}
+{head_assets}
 </head>
 <body>
 {body_content}
+{tail_assets}
 </body>
 </html>
 """

@@ -34,7 +34,11 @@ def test_upload_csv() -> None:
         )
 
     assert response.status_code == 200
+    assert response.text.startswith("<!DOCTYPE html>")
+    assert '<html lang="en">' in response.text
     assert "exercise-figure" in response.text
     # ``upload`` should return a standalone HTML page with embedded assets.
     assert "<script" in response.text
+    assert 'jquery-3.5.1.js" defer></script>' in response.text
+    assert '<script type="module" src="/main.js"></script>' in response.text
     assert response.text.count('id="result"') == 1

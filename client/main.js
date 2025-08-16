@@ -29,10 +29,14 @@ export async function init(createWorker, doc = document) {
   initializeUI(doc);
 
   let worker;
+  let workerUrl;
   try {
-    worker =
-      createWorker?.() ??
-      new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
+    if (createWorker) {
+      worker = createWorker();
+    } else {
+      workerUrl = new URL("./worker.js", import.meta.url);
+      worker = new Worker(workerUrl, { type: "module" });
+    }
   } catch (err) {
     console.error(err);
     result.textContent = "Failed to initialize worker: " + err;
@@ -63,7 +67,7 @@ export async function init(createWorker, doc = document) {
       event.message ||
       event.error?.message ||
       event.error?.toString() ||
-      "unknown error";
+      (workerUrl ? `failed to load ${workerUrl}` : "unknown error");
     result.textContent = "Worker error: " + msg;
   });
 

@@ -47,3 +47,20 @@ def test_gen_html_viewer_without_scripts(tmp_path: Path) -> None:
     assert 'id="csvFile"' not in html
     assert 'id="result"' not in html
     assert 'id="uploadProgress"' not in html
+
+
+def test_gen_html_viewer_renders_non_ascii(tmp_path: Path) -> None:
+    csv_file = (
+        Path(__file__).parent
+        / "example_use"
+        / "FitNotes_Export_2025_05_21_08_39_11.csv"
+    )
+    df = process_csv_files([str(csv_file)])
+    df.loc[len(df)] = df.iloc[0]
+    df.at[len(df) - 1, "Exercise"] = "Café del Mar"
+    html = gen_html_viewer(df)
+    out_file = tmp_path / "non_ascii.html"
+    out_file.write_text(html, encoding="utf-8")
+    contents = out_file.read_text(encoding="utf-8")
+    assert '<meta charset="utf-8">' in html
+    assert "Café del Mar" in contents

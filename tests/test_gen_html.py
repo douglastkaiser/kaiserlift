@@ -31,6 +31,9 @@ def test_gen_html_viewer_creates_html(tmp_path: Path) -> None:
     assert 'id="uploadButton"' in html
     assert 'id="csvFile"' in html
     assert 'id="uploadProgress"' in html
+    assert (
+        '<meta name="viewport" content="width=device-width, initial-scale=1">' in html
+    )
 
 
 def test_gen_html_viewer_without_scripts(tmp_path: Path) -> None:
@@ -47,3 +50,4 @@ def test_gen_html_viewer_without_scripts(tmp_path: Path) -> None:
     assert 'id="csvFile"' not in html
     assert 'id="result"' not in html
     assert 'id="uploadProgress"' not in html
+    assert '<meta name="viewport"' not in html

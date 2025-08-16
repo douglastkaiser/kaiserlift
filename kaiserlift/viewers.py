@@ -306,5 +306,6 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script type="module" src="main.js"></script>
     """
-
-    return js_and_css + upload_html + f'<div id="result">{fragment}</div>' + scripts
+    head_html = js_and_css + scripts
+    body_html = upload_html + f'<div id="result">{fragment}</div>'
+    return f"<html><head>{head_html}</head><body>{body_html}</body></html>"

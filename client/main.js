@@ -1,4 +1,4 @@
-import { VERSION } from "./version.js";
+import { workerThread } from './worker.js';
 
 export function initializeUI(root = document) {
   if (typeof $ === "undefined") {
@@ -24,89 +24,36 @@ export function initializeUI(root = document) {
     });
 }
 
-async function fetchWheel(doc) {
-  const bases = [];
-  try {
-    bases.push(new URL(import.meta.url));
-  } catch (_) {}
-  if (doc?.baseURI) {
-    bases.push(new URL(doc.baseURI));
-  }
-
-  const names = [
-    "kaiserlift.whl",
-    `kaiserlift-${VERSION}-py3-none-any.whl`,
-    "dist/kaiserlift.whl",
-    `dist/kaiserlift-${VERSION}-py3-none-any.whl`,
-  ];
-
-  const candidates = [];
-  for (const base of bases) {
-    for (const name of names) {
-      candidates.push(new URL(name, base));
-    }
-  }
-
-  for (const url of candidates) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        return { response, url: url.href };
-      }
-      console.error(`Wheel fetch returned ${response.status} at ${url.href}`);
-    } catch (err) {
-      console.error("Failed to fetch Pyodide wheel", url.href, err);
-    }
-  }
-  console.error(
-    "Failed to fetch wheel from known locations: " +
-      candidates.map((u) => u.href).join(", "),
-  );
-  return null;
-}
-
-export async function init(loadPyodide, doc = document) {
+export async function init(createWorker, doc = document) {
   const result = doc.getElementById("result");
 
-  // Ensure the initial UI is usable even if Pyodide fails to load.
+  // Ensure the initial UI is usable even if the worker fails to load.
   initializeUI(doc);
 
+  let worker;
   try {
-    const loader =
-      loadPyodide ??
-      (await import(
-        "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.mjs"
-      )).loadPyodide;
-    const pyodide = await loader();
-    await pyodide.loadPackage(["pandas", "numpy", "matplotlib", "micropip"]);
-
-    const wheel = await fetchWheel(doc);
-    try {
-      if (wheel) {
-        const data = new Uint8Array(await wheel.response.arrayBuffer());
-        const wheelName = wheel.url.split("/").pop();
-        pyodide.FS.writeFile(wheelName, data);
-        await pyodide.runPythonAsync(`
-import micropip
-await micropip.install('${wheelName}')
-`);
-      } else {
-        console.warn("Falling back to installing kaiserlift from PyPI");
-        await pyodide.runPythonAsync(`
-import micropip
-await micropip.install('kaiserlift')
-`);
-      }
-    } catch (err) {
-      console.error("Failed to install kaiserlift", err);
-      throw err;
+    if (createWorker) {
+      worker = createWorker();
+    } else {
+      const blob = new Blob([`(${workerThread.toString()})();`], {
+        type: "text/javascript",
+      });
+      worker = new Worker(URL.createObjectURL(blob), { type: "module" });
     }
+  } catch (err) {
+    console.error(err);
+    result.textContent = "Failed to initialize worker: " + err;
+    return;
+  }
 
+  const bindUpload = () => {
     const fileInput = doc.getElementById("csvFile");
     const uploadButton = doc.getElementById("uploadButton");
     const progressBar = doc.getElementById("uploadProgress");
-
-    uploadButton.addEventListener("click", async () => {
+    if (!uploadButton || !fileInput) {
+      return;
+    }
+    uploadButton.onclick = async () => {
       const file = fileInput.files?.[0];
       if (!file) {
         result.textContent = "Please select a CSV file.";
@@ -120,32 +67,50 @@ await micropip.install('kaiserlift')
 
       try {
         const text = await file.text();
-        if (progressBar) progressBar.value = 25;
-        pyodide.globals.set("csv_text", text);
         if (progressBar) progressBar.value = 50;
-        const html = await pyodide.runPythonAsync(`
-import io
-from kaiserlift.pipeline import pipeline
-buffer = io.StringIO(csv_text)
-pipeline([buffer], embed_assets=False)
-`);
-        if (progressBar) progressBar.value = 90;
-        result.innerHTML = "";
-        result.innerHTML = html;
-        initializeUI(result);
-        if (progressBar) progressBar.value = 100;
+        worker.postMessage({ csv: text });
       } catch (err) {
         console.error(err);
-        result.textContent = "Failed to process CSV: " + err;
-      } finally {
-        pyodide.globals.delete("csv_text");
         if (progressBar) progressBar.style.display = "none";
+        result.textContent = "Failed to read file: " + err;
       }
-    });
-  } catch (err) {
-    console.error(err);
-    result.textContent = "Failed to initialize Pyodide: " + err;
-  }
+    };
+  };
+
+  bindUpload();
+
+  worker.addEventListener("message", (event) => {
+    const progressBar = doc.getElementById("uploadProgress");
+    if (progressBar) {
+      progressBar.value = 100;
+      progressBar.style.display = "none";
+    }
+    if (event.data?.type === "result") {
+      result.innerHTML = event.data.html;
+      initializeUI(doc);
+      bindUpload();
+    } else if (event.data?.type === "error") {
+      result.textContent = "Failed to process CSV: " + event.data.error;
+    }
+  });
+
+  worker.addEventListener("error", (event) => {
+    console.error("worker error event", event);
+    const progressBar = doc.getElementById("uploadProgress");
+    if (progressBar) progressBar.style.display = "none";
+    const details = [];
+    if (event.message) details.push(event.message);
+    if (event.filename) details.push(event.filename);
+    if (event.lineno) details.push(`line ${event.lineno}`);
+    if (event.colno) details.push(`col ${event.colno}`);
+    if (event.error?.message) {
+      details.push(event.error.message);
+    } else if (event.error) {
+      details.push(event.error.toString());
+    }
+    const msg = details.join(" | ") || "unknown error";
+    result.textContent = "Worker error: " + msg;
+  });
 }
 
 if (typeof window !== "undefined") {

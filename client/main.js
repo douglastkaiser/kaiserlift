@@ -1,3 +1,5 @@
+import { workerThread } from './worker.js';
+
 export function initializeUI(root = document) {
   if (typeof $ === "undefined") {
     return;
@@ -29,44 +31,14 @@ export async function init(createWorker, doc = document) {
   initializeUI(doc);
 
   let worker;
-  let workerUrl;
   try {
     if (createWorker) {
       worker = createWorker();
     } else {
-      const tryUrls = [
-        new URL("./worker.js", import.meta.url),
-        new URL("./client/worker.js", import.meta.url),
-      ];
-      let found = false;
-      let lastStatus;
-      let lastCt;
-      for (const url of tryUrls) {
-        try {
-          const response = await fetch(url, { method: "HEAD" });
-          const ct = response.headers.get("content-type");
-          console.log(
-            `${url} HEAD status ${response.status}, content-type ${ct}`,
-          );
-          if (response.ok && ct?.includes("javascript")) {
-            workerUrl = url;
-            found = true;
-            break;
-          } else {
-            lastStatus = response.status;
-            lastCt = ct;
-          }
-        } catch (err) {
-          console.warn("Failed to fetch", url.toString(), err);
-        }
-      }
-      if (!found) {
-        const msg = `Worker script unavailable: status ${lastStatus}, content-type ${lastCt}`;
-        console.error(msg);
-        result.textContent = msg;
-        return;
-      }
-      worker = new Worker(workerUrl, { type: "module" });
+      const blob = new Blob([`(${workerThread.toString()})();`], {
+        type: "text/javascript",
+      });
+      worker = new Worker(URL.createObjectURL(blob), { type: "module" });
     }
   } catch (err) {
     console.error(err);
@@ -104,7 +76,6 @@ export async function init(createWorker, doc = document) {
     } else if (event.error) {
       details.push(event.error.toString());
     }
-    if (workerUrl) details.push(`script: ${workerUrl}`);
     const msg = details.join(" | ") || "unknown error";
     result.textContent = "Worker error: " + msg;
   });

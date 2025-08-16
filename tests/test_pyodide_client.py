@@ -12,7 +12,6 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
     """Execute the pipeline through the browser client using a worker stub."""
 
     script = tmp_path / "run.mjs"
-    (Path("client/version.js")).write_text("export const VERSION = '0.0.0';\n")
     script.write_text(
         textwrap.dedent(
             f"""

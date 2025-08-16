@@ -35,6 +35,20 @@ export async function init(createWorker, doc = document) {
       worker = createWorker();
     } else {
       workerUrl = new URL("./worker.js", import.meta.url);
+      try {
+        const response = await fetch(workerUrl, { method: "HEAD" });
+        const ct = response.headers.get("content-type");
+        console.log(
+          `worker.js HEAD status ${response.status}, content-type ${ct}`,
+        );
+        if (!response.ok || !ct?.includes("javascript")) {
+          console.warn(
+            `Unexpected worker.js response: status ${response.status}, content-type ${ct}`,
+          );
+        }
+      } catch (err) {
+        console.error("Failed to fetch worker.js", err);
+      }
       worker = new Worker(workerUrl, { type: "module" });
     }
   } catch (err) {
@@ -61,13 +75,20 @@ export async function init(createWorker, doc = document) {
   });
 
   worker.addEventListener("error", (event) => {
-    console.error(event);
+    console.error("worker error event", event);
     if (progressBar) progressBar.style.display = "none";
-    const msg =
-      event.message ||
-      event.error?.message ||
-      event.error?.toString() ||
-      (workerUrl ? `failed to load ${workerUrl}` : "unknown error");
+    const details = [];
+    if (event.message) details.push(event.message);
+    if (event.filename) details.push(event.filename);
+    if (event.lineno) details.push(`line ${event.lineno}`);
+    if (event.colno) details.push(`col ${event.colno}`);
+    if (event.error?.message) {
+      details.push(event.error.message);
+    } else if (event.error) {
+      details.push(event.error.toString());
+    }
+    if (workerUrl) details.push(`script: ${workerUrl}`);
+    const msg = details.join(" | ") || "unknown error";
     result.textContent = "Worker error: " + msg;
   });
 

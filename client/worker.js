@@ -1,5 +1,7 @@
 import { VERSION } from './version.js';
 
+console.log('client worker: starting');
+
 async function fetchWheel() {
   const bases = [];
   try {
@@ -42,15 +44,18 @@ async function fetchWheel() {
 }
 
 const pyodideReady = (async () => {
+  console.log('client worker: loading pyodide');
   const { loadPyodide } = await import(
     'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.mjs'
   );
   const pyodide = await loadPyodide();
+  console.log('client worker: pyodide loaded');
   await pyodide.loadPackage(['pandas', 'numpy', 'matplotlib', 'micropip']);
 
   const wheel = await fetchWheel();
   try {
     if (wheel) {
+      console.log('client worker: installing wheel from', wheel.url);
       const data = new Uint8Array(await wheel.response.arrayBuffer());
       const wheelName = wheel.url.split('/').pop();
       pyodide.FS.writeFile(wheelName, data);
@@ -78,6 +83,7 @@ self.addEventListener('message', async (event) => {
   if (typeof csv !== 'string') {
     return;
   }
+  console.log('client worker: received CSV');
   try {
     const pyodide = await pyodideReady;
     pyodide.globals.set('csv_text', csv);
@@ -88,6 +94,7 @@ buffer = io.StringIO(csv_text)
 pipeline([buffer], embed_assets=False)
 `);
     pyodide.globals.delete('csv_text');
+    console.log('client worker: pipeline completed');
     self.postMessage({ type: 'result', html });
   } catch (err) {
     console.error(err);

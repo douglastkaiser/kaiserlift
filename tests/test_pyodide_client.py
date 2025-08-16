@@ -40,8 +40,8 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             const elements = {{
               csvFile: {{ files: [{{ text: async () => csv1 }}] }},
               uploadButton: {{
-                addEventListener: (event, cb) => {{ elements.uploadButton._cb = cb; }},
-                click: async () => {{ await elements.uploadButton._cb(); }}
+                onclick: null,
+                click: async () => {{ await elements.uploadButton.onclick(); }}
               }},
               uploadProgress: {{ style: {{ display: 'none' }}, value: 0 }},
               result: {{ textContent: '', innerHTML: '<tr><td>Old Exercise</td></tr>' }}

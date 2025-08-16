@@ -46,18 +46,49 @@ export async function init(createWorker, doc = document) {
     return;
   }
 
-  const fileInput = doc.getElementById("csvFile");
-  const uploadButton = doc.getElementById("uploadButton");
-  const progressBar = doc.getElementById("uploadProgress");
+  const bindUpload = () => {
+    const fileInput = doc.getElementById("csvFile");
+    const uploadButton = doc.getElementById("uploadButton");
+    const progressBar = doc.getElementById("uploadProgress");
+    if (!uploadButton || !fileInput) {
+      return;
+    }
+    uploadButton.onclick = async () => {
+      const file = fileInput.files?.[0];
+      if (!file) {
+        result.textContent = "Please select a CSV file.";
+        return;
+      }
+
+      if (progressBar) {
+        progressBar.style.display = "block";
+        progressBar.value = 0;
+      }
+
+      try {
+        const text = await file.text();
+        if (progressBar) progressBar.value = 50;
+        worker.postMessage({ csv: text });
+      } catch (err) {
+        console.error(err);
+        if (progressBar) progressBar.style.display = "none";
+        result.textContent = "Failed to read file: " + err;
+      }
+    };
+  };
+
+  bindUpload();
 
   worker.addEventListener("message", (event) => {
+    const progressBar = doc.getElementById("uploadProgress");
     if (progressBar) {
       progressBar.value = 100;
       progressBar.style.display = "none";
     }
     if (event.data?.type === "result") {
       result.innerHTML = event.data.html;
-      initializeUI(result);
+      initializeUI(doc);
+      bindUpload();
     } else if (event.data?.type === "error") {
       result.textContent = "Failed to process CSV: " + event.data.error;
     }
@@ -65,6 +96,7 @@ export async function init(createWorker, doc = document) {
 
   worker.addEventListener("error", (event) => {
     console.error("worker error event", event);
+    const progressBar = doc.getElementById("uploadProgress");
     if (progressBar) progressBar.style.display = "none";
     const details = [];
     if (event.message) details.push(event.message);
@@ -78,29 +110,6 @@ export async function init(createWorker, doc = document) {
     }
     const msg = details.join(" | ") || "unknown error";
     result.textContent = "Worker error: " + msg;
-  });
-
-  uploadButton.addEventListener("click", async () => {
-    const file = fileInput.files?.[0];
-    if (!file) {
-      result.textContent = "Please select a CSV file.";
-      return;
-    }
-
-    if (progressBar) {
-      progressBar.style.display = "block";
-      progressBar.value = 0;
-    }
-
-    try {
-      const text = await file.text();
-      if (progressBar) progressBar.value = 50;
-      worker.postMessage({ csv: text });
-    } catch (err) {
-      console.error(err);
-      if (progressBar) progressBar.style.display = "none";
-      result.textContent = "Failed to read file: " + err;
-    }
   });
 }
 

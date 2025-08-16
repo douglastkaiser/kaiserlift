@@ -59,7 +59,12 @@ export async function init(createWorker, doc = document) {
   worker.addEventListener("error", (event) => {
     console.error(event);
     if (progressBar) progressBar.style.display = "none";
-    result.textContent = "Worker error: " + event.message;
+    const msg =
+      event.message ||
+      event.error?.message ||
+      event.error?.toString() ||
+      "unknown error";
+    result.textContent = "Worker error: " + msg;
   });
 
   uploadButton.addEventListener("click", async () => {

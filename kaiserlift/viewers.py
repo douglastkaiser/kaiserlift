@@ -224,6 +224,10 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     if not embed_assets:
         return fragment
 
+    viewport_meta = (
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+    )
+
     js_and_css = """
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
@@ -306,6 +310,6 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script type="module" src="main.js"></script>
     """
-    head_html = js_and_css + scripts
+    head_html = viewport_meta + js_and_css + scripts
     body_html = upload_html + f'<div id="result">{fragment}</div>'
     return f"<html><head>{head_html}</head><body>{body_html}</body></html>"

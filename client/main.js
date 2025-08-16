@@ -34,22 +34,36 @@ export async function init(createWorker, doc = document) {
     if (createWorker) {
       worker = createWorker();
     } else {
-      workerUrl = new URL("./worker.js", import.meta.url);
-      try {
-        const response = await fetch(workerUrl, { method: "HEAD" });
-        const ct = response.headers.get("content-type");
-        console.log(
-          `worker.js HEAD status ${response.status}, content-type ${ct}`,
-        );
-        if (!response.ok || !ct?.includes("javascript")) {
-          const msg = `Worker script unavailable: status ${response.status}, content-type ${ct}`;
-          console.error(msg);
-          result.textContent = msg;
-          return;
+      const tryUrls = [
+        new URL("./worker.js", import.meta.url),
+        new URL("./client/worker.js", import.meta.url),
+      ];
+      let found = false;
+      let lastStatus;
+      let lastCt;
+      for (const url of tryUrls) {
+        try {
+          const response = await fetch(url, { method: "HEAD" });
+          const ct = response.headers.get("content-type");
+          console.log(
+            `${url} HEAD status ${response.status}, content-type ${ct}`,
+          );
+          if (response.ok && ct?.includes("javascript")) {
+            workerUrl = url;
+            found = true;
+            break;
+          } else {
+            lastStatus = response.status;
+            lastCt = ct;
+          }
+        } catch (err) {
+          console.warn("Failed to fetch", url.toString(), err);
         }
-      } catch (err) {
-        console.error("Failed to fetch worker.js", err);
-        result.textContent = "Failed to fetch worker.js: " + err;
+      }
+      if (!found) {
+        const msg = `Worker script unavailable: status ${lastStatus}, content-type ${lastCt}`;
+        console.error(msg);
+        result.textContent = msg;
         return;
       }
       worker = new Worker(workerUrl, { type: "module" });

@@ -257,6 +257,32 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         max-width: 400px;
     }
 
+    .upload-controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+    }
+
+    #uploadButton {
+        padding: 8px 16px;
+        border: none;
+        border-radius: 6px;
+        background-color: #007bff;
+        color: white;
+        cursor: pointer;
+    }
+
+    #uploadButton:hover {
+        background-color: #0056b3;
+    }
+
+    #csvFile {
+        padding: 6px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+
     @media only screen and (max-width: 600px) {
         table, thead, tbody, th, td, tr {
         display: block;
@@ -269,9 +295,11 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     """
 
     upload_html = """
-    <input type="file" id="csvFile">
-    <button id="uploadButton">Upload</button>
-    <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
+    <div class="upload-controls">
+        <input type="file" id="csvFile">
+        <button id="uploadButton">Upload ⬆️</button>
+        <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
+    </div>
     """
 
     scripts = """

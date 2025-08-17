@@ -113,31 +113,56 @@ await micropip.install('kaiserlift')
         return;
       }
 
+      let progressInterval;
+      let advance = () => {};
       if (progressBar) {
         progressBar.style.display = "block";
         progressBar.value = 0;
+        let targetProgress = 0;
+        advance = (val) => {
+          if (val > targetProgress) targetProgress = val;
+        };
+        progressInterval = setInterval(() => {
+          if (progressBar.value < Math.min(targetProgress, 90)) {
+            progressBar.value += 1;
+          }
+        }, 100);
+        advance(10);
       }
 
       try {
         const text = await file.text();
-        if (progressBar) progressBar.value = 25;
+        advance(25);
         pyodide.globals.set("csv_text", text);
-        if (progressBar) progressBar.value = 50;
+        advance(50);
+        advance(75);
         const html = await pyodide.runPythonAsync(`
-import io
-from kaiserlift.pipeline import pipeline
-buffer = io.StringIO(csv_text)
-pipeline([buffer], embed_assets=False)
-`);
-        if (progressBar) progressBar.value = 90;
+          import io
+          from kaiserlift.pipeline import pipeline
+          buffer = io.StringIO(csv_text)
+          pipeline([buffer], embed_assets=False)
+        `);
         result.innerHTML = "";
         result.innerHTML = html;
         initializeUI(result);
-        if (progressBar) progressBar.value = 100;
+        if (progressBar) {
+          advance(90);
+          await new Promise((resolve) => {
+            const wait = setInterval(() => {
+              if (progressBar.value >= 90) {
+                clearInterval(wait);
+                resolve();
+              }
+            }, 50);
+          });
+          if (progressInterval) clearInterval(progressInterval);
+          progressBar.value = 100;
+        }
       } catch (err) {
         console.error(err);
         result.textContent = "Failed to process CSV: " + err;
       } finally {
+        if (progressInterval) clearInterval(progressInterval);
         pyodide.globals.delete("csv_text");
         if (progressBar) progressBar.style.display = "none";
       }

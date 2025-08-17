@@ -118,18 +118,28 @@ await micropip.install('kaiserlift')
         progressBar.value = 0;
       }
 
+      let progressInterval;
       try {
         const text = await file.text();
         if (progressBar) progressBar.value = 25;
         pyodide.globals.set("csv_text", text);
-        if (progressBar) progressBar.value = 50;
+        if (progressBar) {
+          progressBar.value = 50;
+          progressInterval = setInterval(() => {
+            if (progressBar.value < 90) {
+              progressBar.value = Math.min(progressBar.value + 1, 90);
+            } else {
+              clearInterval(progressInterval);
+            }
+          }, 100);
+        }
         const html = await pyodide.runPythonAsync(`
 import io
 from kaiserlift.pipeline import pipeline
 buffer = io.StringIO(csv_text)
 pipeline([buffer], embed_assets=False)
 `);
-        if (progressBar) progressBar.value = 90;
+        if (progressInterval) clearInterval(progressInterval);
         result.innerHTML = "";
         result.innerHTML = html;
         initializeUI(result);
@@ -138,6 +148,7 @@ pipeline([buffer], embed_assets=False)
         console.error(err);
         result.textContent = "Failed to process CSV: " + err;
       } finally {
+        if (progressInterval) clearInterval(progressInterval);
         pyodide.globals.delete("csv_text");
         if (progressBar) progressBar.style.display = "none";
       }

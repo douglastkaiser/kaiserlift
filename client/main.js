@@ -116,7 +116,7 @@ await micropip.install('kaiserlift')
       let progressInterval;
       if (progressBar) {
         progressBar.style.display = "block";
-        progressBar.value = 0;
+        progressBar.value = 10;
         progressInterval = setInterval(() => {
           if (progressBar.value < 90) {
             progressBar.value = Math.min(progressBar.value + 1, 90);
@@ -128,18 +128,24 @@ await micropip.install('kaiserlift')
 
       try {
         const text = await file.text();
+        if (progressBar) progressBar.value = 25;
         pyodide.globals.set("csv_text", text);
+        if (progressBar) progressBar.value = 50;
         const html = await pyodide.runPythonAsync(`
-import io
-from kaiserlift.pipeline import pipeline
-buffer = io.StringIO(csv_text)
-pipeline([buffer], embed_assets=False)
-`);
-        if (progressInterval) clearInterval(progressInterval);
+          import io
+          from kaiserlift.pipeline import pipeline
+          buffer = io.StringIO(csv_text)
+          pipeline([buffer], embed_assets=False)
+        `);
+        if (progressBar) progressBar.value = 75;
         result.innerHTML = "";
         result.innerHTML = html;
         initializeUI(result);
-        if (progressBar) progressBar.value = 100;
+        if (progressBar) {
+          progressBar.value = 90;
+          if (progressInterval) clearInterval(progressInterval);
+          progressBar.value = 100;
+        }
       } catch (err) {
         console.error(err);
         result.textContent = "Failed to process CSV: " + err;

@@ -113,26 +113,22 @@ await micropip.install('kaiserlift')
         return;
       }
 
+      let progressInterval;
       if (progressBar) {
         progressBar.style.display = "block";
         progressBar.value = 0;
+        progressInterval = setInterval(() => {
+          if (progressBar.value < 90) {
+            progressBar.value = Math.min(progressBar.value + 1, 90);
+          } else {
+            clearInterval(progressInterval);
+          }
+        }, 100);
       }
 
-      let progressInterval;
       try {
         const text = await file.text();
-        if (progressBar) progressBar.value = 25;
         pyodide.globals.set("csv_text", text);
-        if (progressBar) {
-          progressBar.value = 50;
-          progressInterval = setInterval(() => {
-            if (progressBar.value < 90) {
-              progressBar.value = Math.min(progressBar.value + 1, 90);
-            } else {
-              clearInterval(progressInterval);
-            }
-          }, 100);
-        }
         const html = await pyodide.runPythonAsync(`
 import io
 from kaiserlift.pipeline import pipeline

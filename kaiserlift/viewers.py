@@ -236,33 +236,59 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     <!-- Custom Styling for Mobile -->
     <style>
+    :root {
+        --bg: #ffffff;
+        --fg: #000000;
+        --bg-alt: #f5f5f5;
+        --border: #ccc;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #121212;
+            --fg: #e0e0e0;
+            --bg-alt: #1e1e1e;
+            --border: #333;
+        }
+    }
+    [data-theme="dark"] {
+        --bg: #121212;
+        --fg: #e0e0e0;
+        --bg-alt: #1e1e1e;
+        --border: #333;
+    }
+    [data-theme="light"] {
+        --bg: #ffffff;
+        --fg: #000000;
+        --bg-alt: #f5f5f5;
+        --border: #ccc;
+    }
     body {
         font-family: Arial, sans-serif;
         font-size: 34px;
         padding: 28px;
-        background-color: #121212;
-        color: #e0e0e0;
+        background-color: var(--bg);
+        color: var(--fg);
     }
 
     table.dataTable {
         font-size: 32px;
         width: 100% !important;
         word-wrap: break-word;
-        background-color: #1e1e1e;
-        color: #e0e0e0;
-        border: 1px solid #333;
+        background-color: var(--bg-alt);
+        color: var(--fg);
+        border: 1px solid var(--border);
     }
 
     label {
         font-size: 34px;
-        color: #e0e0e0;
+        color: var(--fg);
     }
 
     select {
         font-size: 34px;
-        color: #e0e0e0;
-        background-color: #1e1e1e;
-        border: 1px solid #333;
+        color: var(--fg);
+        background-color: var(--bg-alt);
+        border: 1px solid var(--border);
     }
 
     #exerciseDropdown {
@@ -282,7 +308,7 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         border: none;
         border-radius: 6px;
         background-color: #007bff;
-        color: white;
+        color: #fff;
         cursor: pointer;
     }
 
@@ -292,16 +318,18 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     #csvFile {
         padding: 6px;
-        border: 1px solid #ccc;
+        border: 1px solid var(--border);
         border-radius: 4px;
+        background-color: var(--bg);
+        color: var(--fg);
     }
 
     @media only screen and (max-width: 600px) {
         table, thead, tbody, th, td, tr {
-        display: block;
+            display: block;
         }
         th {
-        text-align: left;
+            text-align: left;
         }
     }
     </style>
@@ -321,5 +349,22 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     """
     meta = '<meta charset="utf-8">'
     head_html = meta + js_and_css + scripts
-    body_html = upload_html + f'<div id="result">{fragment}</div>'
+    toggle_html = (
+        '<button id="themeToggle" '
+        'style="position:fixed;top:10px;right:10px;padding:4px;'
+        "background:var(--bg-alt);color:var(--fg);"
+        'border:1px solid var(--border);border-radius:4px;">🌓</button>'
+    )
+    theme_script = """
+    <script>
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const root = document.documentElement;
+      const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      root.setAttribute('data-theme', current);
+    });
+    </script>
+    """
+    body_html = (
+        toggle_html + upload_html + f'<div id="result">{fragment}</div>' + theme_script
+    )
     return f"<html><head>{head_html}</head><body>{body_html}</body></html>"

@@ -291,39 +291,72 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         border: 1px solid var(--border);
     }
 
-    /* DataTables dark theme overrides */
-    .dataTables_wrapper .dataTables_filter input,
-    .dataTables_wrapper .dataTables_length select {
+    /* Dark mode overrides for DataTables and Select2 */
+    @media (prefers-color-scheme: dark) {
+        .dataTables_wrapper .dataTables_filter input,
+        .dataTables_wrapper .dataTables_length select {
+            background-color: var(--bg);
+            color: var(--fg);
+            border: 1px solid var(--border);
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            background-color: var(--bg);
+            color: var(--fg) !important;
+            border: 1px solid var(--border);
+        }
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background-color: var(--bg-alt) !important;
+            color: var(--fg) !important;
+        }
+        .select2-container--default .select2-selection--single {
+            background-color: var(--bg-alt);
+            color: var(--fg);
+            border: 1px solid var(--border);
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: var(--fg);
+        }
+        .select2-dropdown {
+            background-color: var(--bg-alt);
+            color: var(--fg);
+            border: 1px solid var(--border);
+        }
+        .select2-results__option--highlighted {
+            background-color: var(--bg);
+            color: var(--fg);
+        }
+    }
+    html[data-theme="dark"] .dataTables_wrapper .dataTables_filter input,
+    html[data-theme="dark"] .dataTables_wrapper .dataTables_length select {
         background-color: var(--bg);
         color: var(--fg);
         border: 1px solid var(--border);
     }
-    .dataTables_wrapper .dataTables_paginate .paginate_button {
+    html[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button {
         background-color: var(--bg);
         color: var(--fg) !important;
         border: 1px solid var(--border);
     }
-    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
-    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+    html[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+    html[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
         background-color: var(--bg-alt) !important;
         color: var(--fg) !important;
     }
-
-    /* Select2 dark theme overrides */
-    .select2-container--default .select2-selection--single {
+    html[data-theme="dark"] .select2-container--default .select2-selection--single {
         background-color: var(--bg-alt);
         color: var(--fg);
         border: 1px solid var(--border);
     }
-    .select2-container--default .select2-selection--single .select2-selection__rendered {
+    html[data-theme="dark"] .select2-container--default .select2-selection--single .select2-selection__rendered {
         color: var(--fg);
     }
-    .select2-dropdown {
+    html[data-theme="dark"] .select2-dropdown {
         background-color: var(--bg-alt);
         color: var(--fg);
         border: 1px solid var(--border);
     }
-    .select2-results__option--highlighted {
+    html[data-theme="dark"] .select2-results__option--highlighted {
         background-color: var(--bg);
         color: var(--fg);
     }

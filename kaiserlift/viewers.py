@@ -240,16 +240,29 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         font-family: Arial, sans-serif;
         font-size: 34px;
         padding: 28px;
+        background-color: #121212;
+        color: #e0e0e0;
     }
 
     table.dataTable {
         font-size: 32px;
         width: 100% !important;
         word-wrap: break-word;
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+        border: 1px solid #333;
     }
 
-    label, select {
+    label {
         font-size: 34px;
+        color: #e0e0e0;
+    }
+
+    select {
+        font-size: 34px;
+        color: #e0e0e0;
+        background-color: #1e1e1e;
+        border: 1px solid #333;
     }
 
     #exerciseDropdown {

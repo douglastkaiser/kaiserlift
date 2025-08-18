@@ -23,6 +23,28 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
               return new Response(new Uint8Array(), {{ status: 200 }});
             }};
 
+            const localStorage = {{
+              _map: new Map(),
+              getItem(key) {{ return this._map.has(key) ? this._map.get(key) : null; }},
+              setItem(key, val) {{ this._map.set(key, val); }},
+              removeItem(key) {{ this._map.delete(key); }}
+            }};
+            globalThis.localStorage = localStorage;
+
+            const initCalls = [];
+            globalThis.$ = (el) => ({{
+              DataTable: () => {{
+                initCalls.push(el);
+                return {{
+                  column: () => ({{
+                    search: () => ({{ draw: () => {{}} }})
+                  }})
+                }};
+              }},
+              select2: () => ({{ on: () => {{}} }})
+            }});
+            $.fn = {{ dataTable: {{ util: {{ escapeRegex: (val) => val }} }} }};
+
             const csv1 = `Date,Exercise,Category,Weight,Weight Unit,Reps,Distance,Distance Unit,Time,Comment\\n2025-05-21,Bicep Curl,Biceps,50,lbs,10,,,0:00:00,\\n2025-05-22,Bicep Curl,Biceps,55,lbs,8,,,0:00:00,`;
             const csv2 = `Date,Exercise,Category,Weight,Weight Unit,Reps,Distance,Distance Unit,Time,Comment\\n2025-05-23,Tricep Pushdown,Triceps,40,lbs,12,,,0:00:00,\\n2025-05-24,Tricep Pushdown,Triceps,45,lbs,10,,,0:00:00,`;
 
@@ -33,11 +55,21 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
                 click: async () => {{ await elements.uploadButton._cb(); }}
               }},
               uploadProgress: {{ style: {{ display: 'none' }}, value: 0 }},
+              clearButton: {{
+                addEventListener: (event, cb) => {{ elements.clearButton._cb = cb; }},
+                click: () => {{ elements.clearButton._cb(); }}
+              }},
               result: {{ textContent: '', innerHTML: '<tr><td>Old Exercise</td></tr>' }}
+            }};
+            elements.result.querySelector = (sel) => {{
+              if (sel === '#exerciseTable' && elements.result.innerHTML.includes('id="exerciseTable"')) return {{}};
+              if (sel === '#exerciseDropdown' && elements.result.innerHTML.includes('id="exerciseDropdown"')) return {{}};
+              return null;
             }};
             const doc = {{
               getElementById: id => elements[id],
               baseURI: 'https://example.test/',
+              querySelector: (sel) => elements.result.querySelector(sel)
             }};
 
             const pyodide = {{
@@ -47,7 +79,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
               loadPackage: async () => {{}},
               runPythonAsync: async code => {{
                 if (code.includes("micropip.install")) {{
-                  const match = code.match(/micropip.install\\(['"]([^'"]+)['"]\\)/);
+                  const match = code.match(/micropip.install\\(['"]([^'\"]+)['"]\\)/);
                   if (!match) throw new Error('missing package');
                   pyodide.installed = match[1];
                   return;
@@ -66,22 +98,37 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             console.log(pyodide.installed.endsWith('kaiserlift.whl'));
 
             await elements.uploadButton.click();
-            console.log((elements.result.innerHTML.match(/id=\"csvFile\"/g) || []).length === 1);
-            console.log((elements.result.innerHTML.match(/id=\"uploadButton\"/g) || []).length === 1);
+            console.log(initCalls.length === 1);
+            console.log((elements.result.innerHTML.match(/id=\\"csvFile\\"/g) || []).length === 1);
+            console.log((elements.result.innerHTML.match(/id=\\"uploadButton\\"/g) || []).length === 1);
             console.log(elements.result.innerHTML.includes('Bicep Curl'));
             console.log(elements.result.innerHTML.includes('exercise-figure'));
+            console.log(localStorage.getItem('kaiserliftCsv') === csv1);
+            console.log(localStorage.getItem('kaiserliftHtml').includes('Bicep Curl'));
             console.log(elements.uploadProgress.value === 100);
             console.log(elements.uploadProgress.style.display === 'none');
 
+            elements.result.innerHTML = '<tr><td>Old Exercise</td></tr>';
+            await init(() => pyodide, doc);
+            console.log(elements.result.innerHTML.includes('Bicep Curl'));
+            console.log(initCalls.length === 2);
+
             elements.csvFile.files = [{{ text: async () => csv2 }}];
             await elements.uploadButton.click();
-            console.log((elements.result.innerHTML.match(/id=\"csvFile\"/g) || []).length === 1);
-            console.log((elements.result.innerHTML.match(/id=\"uploadButton\"/g) || []).length === 1);
+            console.log(initCalls.length === 3);
+            console.log((elements.result.innerHTML.match(/id=\\"csvFile\\"/g) || []).length === 1);
+            console.log((elements.result.innerHTML.match(/id=\\"uploadButton\\"/g) || []).length === 1);
             console.log(elements.result.innerHTML.includes('Tricep Pushdown'));
             console.log(!elements.result.innerHTML.includes('Bicep Curl'));
             console.log(elements.result.innerHTML.includes('exercise-figure'));
+            console.log(localStorage.getItem('kaiserliftCsv') === csv2);
+            console.log(localStorage.getItem('kaiserliftHtml').includes('Tricep Pushdown'));
             console.log(elements.uploadProgress.value === 100);
             console.log(elements.uploadProgress.style.display === 'none');
+
+            elements.clearButton.click();
+            console.log(localStorage.getItem('kaiserliftCsv') === null);
+            console.log(localStorage.getItem('kaiserliftHtml') === null);
             """
         )
     )
@@ -90,4 +137,4 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
         ["node", script.as_posix()], capture_output=True, text=True, check=True
     )
     lines = [line for line in result.stdout.splitlines() if line]
-    assert lines[-14:] == ["true"] * 14
+    assert lines[-24:] == ["true"] * 24

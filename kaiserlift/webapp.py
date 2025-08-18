@@ -34,6 +34,69 @@ async def index() -> HTMLResponse:
         <html>
             <head>
                 <title>KaiserLift</title>
+                <style>
+                    :root {
+                        --bg: #ffffff;
+                        --fg: #000000;
+                        --bg-alt: #f5f5f5;
+                        --border: #ccc;
+                    }
+                    @media (prefers-color-scheme: dark) {
+                        :root {
+                            --bg: #121212;
+                            --fg: #e0e0e0;
+                            --bg-alt: #1e1e1e;
+                            --border: #333;
+                        }
+                    }
+                    [data-theme="dark"] {
+                        --bg: #121212;
+                        --fg: #e0e0e0;
+                        --bg-alt: #1e1e1e;
+                        --border: #333;
+                    }
+                    [data-theme="light"] {
+                        --bg: #ffffff;
+                        --fg: #000000;
+                        --bg-alt: #f5f5f5;
+                        --border: #ccc;
+                    }
+                    body {
+                        font-family: Arial, sans-serif;
+                        background-color: var(--bg);
+                        color: var(--fg);
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        min-height: 100vh;
+                        padding: 20px;
+                        text-align: center;
+                    }
+                    form {
+                        display: flex;
+                        flex-direction: column;
+                        gap: 12px;
+                        padding: 20px;
+                        background-color: var(--bg-alt);
+                        border: 1px solid var(--border);
+                        border-radius: 8px;
+                    }
+                    input[type="file"] {
+                        color: var(--fg);
+                    }
+                    input[type="submit"] {
+                        padding: 8px 16px;
+                        background-color: var(--bg-alt);
+                        color: var(--fg);
+                        border: 1px solid var(--border);
+                        border-radius: 4px;
+                        cursor: pointer;
+                    }
+                    input[type="submit"]:hover {
+                        background-color: var(--bg);
+                    }
+                </style>
             </head>
             <body>
                 <h1>KaiserLift</h1>

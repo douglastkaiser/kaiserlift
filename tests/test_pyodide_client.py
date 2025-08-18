@@ -31,6 +31,20 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             }};
             globalThis.localStorage = localStorage;
 
+            const initCalls = [];
+            globalThis.$ = (el) => ({{
+              DataTable: () => {{
+                initCalls.push(el);
+                return {{
+                  column: () => ({{
+                    search: () => ({{ draw: () => {{}} }})
+                  }})
+                }};
+              }},
+              select2: () => ({{ on: () => {{}} }})
+            }});
+            $.fn = {{ dataTable: {{ util: {{ escapeRegex: (val) => val }} }} }};
+
             const csv1 = `Date,Exercise,Category,Weight,Weight Unit,Reps,Distance,Distance Unit,Time,Comment\\n2025-05-21,Bicep Curl,Biceps,50,lbs,10,,,0:00:00,\\n2025-05-22,Bicep Curl,Biceps,55,lbs,8,,,0:00:00,`;
             const csv2 = `Date,Exercise,Category,Weight,Weight Unit,Reps,Distance,Distance Unit,Time,Comment\\n2025-05-23,Tricep Pushdown,Triceps,40,lbs,12,,,0:00:00,\\n2025-05-24,Tricep Pushdown,Triceps,45,lbs,10,,,0:00:00,`;
 
@@ -47,9 +61,15 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
               }},
               result: {{ textContent: '', innerHTML: '<tr><td>Old Exercise</td></tr>' }}
             }};
+            elements.result.querySelector = (sel) => {{
+              if (sel === '#exerciseTable' && elements.result.innerHTML.includes('id="exerciseTable"')) return {{}};
+              if (sel === '#exerciseDropdown' && elements.result.innerHTML.includes('id="exerciseDropdown"')) return {{}};
+              return null;
+            }};
             const doc = {{
               getElementById: id => elements[id],
               baseURI: 'https://example.test/',
+              querySelector: (sel) => elements.result.querySelector(sel)
             }};
 
             const pyodide = {{
@@ -78,6 +98,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             console.log(pyodide.installed.endsWith('kaiserlift.whl'));
 
             await elements.uploadButton.click();
+            console.log(initCalls.length === 1);
             console.log((elements.result.innerHTML.match(/id=\\"csvFile\\"/g) || []).length === 1);
             console.log((elements.result.innerHTML.match(/id=\\"uploadButton\\"/g) || []).length === 1);
             console.log(elements.result.innerHTML.includes('Bicep Curl'));
@@ -90,9 +111,11 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             elements.result.innerHTML = '<tr><td>Old Exercise</td></tr>';
             await init(() => pyodide, doc);
             console.log(elements.result.innerHTML.includes('Bicep Curl'));
+            console.log(initCalls.length === 2);
 
             elements.csvFile.files = [{{ text: async () => csv2 }}];
             await elements.uploadButton.click();
+            console.log(initCalls.length === 3);
             console.log((elements.result.innerHTML.match(/id=\\"csvFile\\"/g) || []).length === 1);
             console.log((elements.result.innerHTML.match(/id=\\"uploadButton\\"/g) || []).length === 1);
             console.log(elements.result.innerHTML.includes('Tricep Pushdown'));
@@ -114,4 +137,4 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
         ["node", script.as_posix()], capture_output=True, text=True, check=True
     )
     lines = [line for line in result.stdout.splitlines() if line]
-    assert lines[-21:] == ["true"] * 21
+    assert lines[-24:] == ["true"] * 24

@@ -68,14 +68,14 @@ async function fetchWheel(doc) {
 export async function init(loadPyodide, doc = document) {
   const result = doc.getElementById("result");
 
+  // Ensure the initial UI is usable even if Pyodide fails to load.
+  initializeUI(doc);
+
   const cachedHtml = localStorage.getItem("kaiserliftHtml");
   if (cachedHtml) {
     result.innerHTML = cachedHtml;
     initializeUI(result);
   }
-
-  // Ensure the initial UI is usable even if Pyodide fails to load.
-  initializeUI(doc);
 
   try {
     const loader =

@@ -68,6 +68,12 @@ async function fetchWheel(doc) {
 export async function init(loadPyodide, doc = document) {
   const result = doc.getElementById("result");
 
+  const cachedHtml = localStorage.getItem("kaiserliftHtml");
+  if (cachedHtml) {
+    result.innerHTML = cachedHtml;
+    initializeUI(result);
+  }
+
   // Ensure the initial UI is usable even if Pyodide fails to load.
   initializeUI(doc);
 
@@ -105,6 +111,15 @@ await micropip.install('kaiserlift')
     const fileInput = doc.getElementById("csvFile");
     const uploadButton = doc.getElementById("uploadButton");
     const progressBar = doc.getElementById("uploadProgress");
+    const clearButton = doc.getElementById("clearButton");
+
+    if (clearButton) {
+      clearButton.addEventListener("click", () => {
+        localStorage.removeItem("kaiserliftCsv");
+        localStorage.removeItem("kaiserliftHtml");
+        result.innerHTML = "";
+      });
+    }
 
     uploadButton.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
@@ -144,6 +159,8 @@ await micropip.install('kaiserlift')
         `);
         result.innerHTML = "";
         result.innerHTML = html;
+        localStorage.setItem("kaiserliftCsv", text);
+        localStorage.setItem("kaiserliftHtml", html);
         initializeUI(result);
         if (progressBar) {
           advance(90);

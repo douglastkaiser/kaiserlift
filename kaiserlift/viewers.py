@@ -54,6 +54,7 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     min_rep = min(series.min() for series in rep_series)
     max_rep = max(series.max() for series in rep_series)
+    plot_max_rep = max_rep + max(1, 0.05 * max_rep)
 
     fig, ax = plt.subplots()
 
@@ -62,17 +63,18 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         pareto_reps, pareto_weights = zip(*sorted(pareto_points, key=lambda x: x[0]))
         pareto_reps = list(pareto_reps)
         pareto_weights = list(pareto_weights)
-        # Extend Pareto front horizontally to cover all target reps
-        last_weight = pareto_weights[-1]
-        pareto_reps.append(max_rep)
-        pareto_weights.append(last_weight)
 
         # Compute best 1RM from Pareto front
         one_rms = [calculate_1rm(w, r) for w, r in zip(pareto_weights, pareto_reps)]
         max_1rm = max(one_rms)
 
+        # Extend Pareto front horizontally to cover all target reps
+        last_weight = pareto_weights[-1]
+        pareto_reps.append(plot_max_rep)
+        pareto_weights.append(last_weight)
+
         # Generate dotted Epley decay line
-        x_vals = np.linspace(min_rep, max_rep, 10)
+        x_vals = np.linspace(min_rep, plot_max_rep, 10)
         y_vals = [estimate_weight_from_1rm(max_1rm, r) for r in x_vals]
         ax.plot(x_vals, y_vals, "k--", label="Max Achieved 1RM", alpha=0.7)
 
@@ -89,7 +91,7 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         min_1rm = min(one_rms)
 
         # Generate dotted Epley decay line
-        x_vals = np.linspace(min_rep, max_rep, 10)
+        x_vals = np.linspace(min_rep, plot_max_rep, 10)
         y_vals = [estimate_weight_from_1rm(min_1rm, r) for r in x_vals]
         ax.plot(x_vals, y_vals, "g-.", label="Min Target 1RM", alpha=0.7)
 
@@ -106,7 +108,7 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     ax.set_title(f"Weight vs. Reps for {closest_match}")
     ax.set_xlabel("Reps")
-    ax.set_xlim(left=0, right=max_rep)
+    ax.set_xlim(left=0, right=plot_max_rep)
     ax.set_ylabel("Weight")
     ax.legend()
 

@@ -45,18 +45,27 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         df_pareto = df_pareto[df_pareto["Exercise"] == closest_match]
     if df_targets is not None:
         df_targets = df_targets[df_targets["Exercise"] == closest_match]
+
+    rep_series = [df["Reps"]]
+    if df_pareto is not None and not df_pareto.empty:
+        rep_series.append(df_pareto["Reps"])
     if df_targets is not None and not df_targets.empty:
-        min_rep = df_targets["Reps"].min()
-        max_rep = df_targets["Reps"].max()
-    else:
-        min_rep = df["Reps"].min()
-        max_rep = df["Reps"].max()
+        rep_series.append(df_targets["Reps"])
+
+    min_rep = min(series.min() for series in rep_series)
+    max_rep = max(series.max() for series in rep_series)
 
     fig, ax = plt.subplots()
 
     if df_pareto is not None:
         pareto_points = list(zip(df_pareto["Reps"], df_pareto["Weight"]))
         pareto_reps, pareto_weights = zip(*sorted(pareto_points, key=lambda x: x[0]))
+        pareto_reps = list(pareto_reps)
+        pareto_weights = list(pareto_weights)
+        # Extend Pareto front horizontally to cover all target reps
+        last_weight = pareto_weights[-1]
+        pareto_reps.append(max_rep)
+        pareto_weights.append(last_weight)
 
         # Compute best 1RM from Pareto front
         one_rms = [calculate_1rm(w, r) for w, r in zip(pareto_weights, pareto_reps)]

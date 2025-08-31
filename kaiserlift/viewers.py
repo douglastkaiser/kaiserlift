@@ -69,10 +69,11 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         max_1rm = max(one_rms)
 
         # Extend Pareto front horizontally to cover all target reps
-        # up to the furthest rep among data and targets
+        # up to the furthest rep among data and targets while keeping the
+        # extra point out of the plotted markers
         last_weight = pareto_weights[-1]
-        pareto_reps.append(max_rep)
-        pareto_weights.append(last_weight)
+        pareto_reps_ext = pareto_reps + [max_rep]
+        pareto_weights_ext = pareto_weights + [last_weight]
 
         # Generate dotted Epley decay line
         x_vals = np.linspace(min_rep, plot_max_rep, 10)
@@ -80,7 +81,17 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         ax.plot(x_vals, y_vals, "k--", label="Max Achieved 1RM", alpha=0.7)
 
         ax.step(
-            pareto_reps, pareto_weights, color="red", marker="o", label="Pareto Front"
+            pareto_reps_ext,
+            pareto_weights_ext,
+            color="red",
+            label="Pareto Front",
+        )
+        ax.scatter(
+            pareto_reps,
+            pareto_weights,
+            color="red",
+            marker="o",
+            label="_nolegend_",
         )
 
     if df_targets is not None:

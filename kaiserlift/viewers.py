@@ -54,7 +54,7 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     min_rep = min(series.min() for series in rep_series)
     max_rep = max(series.max() for series in rep_series)
-    plot_max_rep = max_rep + max(1, 0.05 * max_rep)
+    plot_max_rep = max_rep + 1
 
     fig, ax = plt.subplots()
 

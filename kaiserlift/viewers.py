@@ -69,8 +69,9 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         max_1rm = max(one_rms)
 
         # Extend Pareto front horizontally to cover all target reps
+        # up to the furthest rep among data and targets
         last_weight = pareto_weights[-1]
-        pareto_reps.append(plot_max_rep)
+        pareto_reps.append(max_rep)
         pareto_weights.append(last_weight)
 
         # Generate dotted Epley decay line

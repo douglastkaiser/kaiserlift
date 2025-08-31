@@ -45,6 +45,12 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         df_pareto = df_pareto[df_pareto["Exercise"] == closest_match]
     if df_targets is not None:
         df_targets = df_targets[df_targets["Exercise"] == closest_match]
+    if df_targets is not None and not df_targets.empty:
+        min_rep = df_targets["Reps"].min()
+        max_rep = df_targets["Reps"].max()
+    else:
+        min_rep = df["Reps"].min()
+        max_rep = df["Reps"].max()
 
     fig, ax = plt.subplots()
 
@@ -57,7 +63,7 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         max_1rm = max(one_rms)
 
         # Generate dotted Epley decay line
-        x_vals = np.linspace(min(df["Reps"]), max(df["Reps"]), 10)
+        x_vals = np.linspace(min_rep, max_rep, 10)
         y_vals = [estimate_weight_from_1rm(max_1rm, r) for r in x_vals]
         ax.plot(x_vals, y_vals, "k--", label="Max Achieved 1RM", alpha=0.7)
 
@@ -74,7 +80,7 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         min_1rm = min(one_rms)
 
         # Generate dotted Epley decay line
-        x_vals = np.linspace(min(df["Reps"]), max(df["Reps"]), 10)
+        x_vals = np.linspace(min_rep, max_rep, 10)
         y_vals = [estimate_weight_from_1rm(min_1rm, r) for r in x_vals]
         ax.plot(x_vals, y_vals, "g-.", label="Min Target 1RM", alpha=0.7)
 
@@ -91,7 +97,7 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     ax.set_title(f"Weight vs. Reps for {closest_match}")
     ax.set_xlabel("Reps")
-    ax.set_xlim(left=0)
+    ax.set_xlim(left=0, right=max_rep)
     ax.set_ylabel("Weight")
     ax.legend()
 

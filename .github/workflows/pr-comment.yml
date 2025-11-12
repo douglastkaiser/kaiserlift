@@ -1,0 +1,149 @@
+name: PR Evaluation Comment
+
+on:
+  workflow_run:
+    workflows: ["Branch Evaluation"]
+    types:
+      - completed
+
+permissions:
+  pull-requests: write
+  actions: read
+
+jobs:
+  comment:
+    name: Post Evaluation Comment
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Download evaluation artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: evaluation-bundle-${{ github.event.workflow_run.head_sha }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Extract evaluation data
+        id: eval_data
+        run: |
+          # Extract coverage percentage
+          if [ -f coverage.json ]; then
+            COVERAGE=$(python3 -c "import json; print(f\"{json.load(open('coverage.json'))['totals']['percent_covered']:.2f}\")")
+            echo "coverage=$COVERAGE" >> "$GITHUB_OUTPUT"
+          else
+            echo "coverage=N/A" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Extract wheel size
+          if ls *.whl 1> /dev/null 2>&1; then
+            WHEEL_SIZE=$(stat -f%z *.whl 2>/dev/null || stat -c%s *.whl)
+            WHEEL_SIZE_KB=$((WHEEL_SIZE / 1024))
+            echo "wheel_size_kb=$WHEEL_SIZE_KB" >> "$GITHUB_OUTPUT"
+          else
+            echo "wheel_size_kb=N/A" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Count test results
+          if [ -f test_results.txt ]; then
+            PASSED=$(grep -c "PASSED" test_results.txt || echo "0")
+            FAILED=$(grep -c "FAILED" test_results.txt || echo "0")
+            echo "tests_passed=$PASSED" >> "$GITHUB_OUTPUT"
+            echo "tests_failed=$FAILED" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests_passed=N/A" >> "$GITHUB_OUTPUT"
+            echo "tests_failed=N/A" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Extract benchmark summary (if available)
+          if [ -f benchmark_output.txt ]; then
+            echo "benchmarks_available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "benchmarks_available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Find PR number
+        id: pr
+        run: |
+          PR_NUMBER=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/commits/${{ github.event.workflow_run.head_sha }}/pulls \
+            --jq '.[0].number')
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or update comment
+        if: steps.pr.outputs.number != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = ${{ steps.pr.outputs.number }};
+            const runId = ${{ github.event.workflow_run.id }};
+            const sha = '${{ github.event.workflow_run.head_sha }}';
+
+            const coverage = '${{ steps.eval_data.outputs.coverage }}';
+            const wheelSize = '${{ steps.eval_data.outputs.wheel_size_kb }}';
+            const testsPassed = '${{ steps.eval_data.outputs.tests_passed }}';
+            const testsFailed = '${{ steps.eval_data.outputs.tests_failed }}';
+            const hasBenchmarks = '${{ steps.eval_data.outputs.benchmarks_available }}' === 'true';
+
+            const coverageEmoji = parseFloat(coverage) >= 90 ? '🟢' : parseFloat(coverage) >= 75 ? '🟡' : '🔴';
+            const testsEmoji = testsFailed === '0' ? '✅' : '❌';
+
+            const body = `## 🎯 Branch Evaluation Results
+
+            ### 📊 Test Results
+            ${testsEmoji} **Tests:** ${testsPassed} passed, ${testsFailed} failed
+            ${coverageEmoji} **Coverage:** ${coverage}%
+
+            ### 📦 Build
+            **Wheel Size:** ${wheelSize} KB
+
+            ${hasBenchmarks ? '### ⚡ Performance\nBenchmarks completed - see evaluation bundle for details\n' : ''}
+
+            ### 📥 Evaluation Bundle
+            Download the complete evaluation bundle with:
+            - Interactive coverage reports
+            - HTML examples (lifting & running)
+            - Performance benchmarks
+            - Code quality metrics
+            - Comparison with main branch
+
+            [Download Evaluation Bundle](https://github.com/${{ github.repository }}/actions/runs/${runId})
+
+            ---
+            <sub>Commit: ${sha.substring(0, 7)} | [Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${runId})</sub>`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Branch Evaluation Results')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+            }

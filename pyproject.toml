@@ -22,9 +22,30 @@ server = [
     "python-multipart",
     "httpx",
 ]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-benchmark>=4.0",
+]
 
 [project.scripts]
 kaiserlift-cli = "kaiserlift.main:main"
 
 [tool.setuptools.packages.find]
 include = ["kaiserlift*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --tb=short"
+
+[tool.coverage.run]
+source = ["kaiserlift"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.coverage.html]
+directory = "htmlcov"

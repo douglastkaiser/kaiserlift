@@ -1,0 +1,215 @@
+name: Branch Evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: 'Python version to test'
+        required: false
+        default: '3.12'
+        type: string
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches-ignore:
+      - main
+
+jobs:
+  comprehensive-evaluation:
+    name: Comprehensive Branch Evaluation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for comparisons
+
+      - uses: astral-sh/setup-uv@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version || '3.12' }}
+
+      - name: Create evaluation directory
+        run: mkdir -p evaluation_bundle
+
+      # ===== Build Phase =====
+      - name: Install dependencies and build
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+          uv build
+
+      - name: Inject version into client
+        run: uv run --no-project python scripts/inject_version.py
+
+      - name: Copy wheel to evaluation bundle
+        run: cp dist/*.whl evaluation_bundle/
+
+      # ===== Testing Phase =====
+      - name: Run tests with coverage
+        run: |
+          uv run pytest tests \
+            --cov=kaiserlift \
+            --cov-report=html:evaluation_bundle/coverage_html \
+            --cov-report=json:evaluation_bundle/coverage.json \
+            --cov-report=term \
+            --benchmark-skip \
+            -v | tee evaluation_bundle/test_results.txt
+
+      - name: Run performance benchmarks
+        run: |
+          uv run pytest tests/test_benchmarks.py \
+            --benchmark-only \
+            --benchmark-json=evaluation_bundle/benchmark_results.json \
+            -v | tee evaluation_bundle/benchmark_output.txt
+
+      # ===== Code Quality Phase =====
+      - name: Run linting
+        run: |
+          uvx ruff check --output-format=json . > evaluation_bundle/ruff_check.json || true
+          uvx ruff check --statistics . > evaluation_bundle/ruff_stats.txt || true
+
+      - name: Generate code metrics
+        run: |
+          echo "# Code Metrics" > evaluation_bundle/metrics.md
+          echo "" >> evaluation_bundle/metrics.md
+          echo "## Lines of Code" >> evaluation_bundle/metrics.md
+          find kaiserlift -name "*.py" -exec wc -l {} + | tail -1 >> evaluation_bundle/metrics.md
+          echo "" >> evaluation_bundle/metrics.md
+          echo "## Test Lines of Code" >> evaluation_bundle/metrics.md
+          find tests -name "*.py" -exec wc -l {} + | tail -1 >> evaluation_bundle/metrics.md
+
+      # ===== HTML Examples Phase =====
+      - name: Generate HTML examples
+        run: |
+          uv run python tests/example_use/generate_example_html.py
+          cp -r tests/example_use/build evaluation_bundle/html_examples
+
+      # ===== Comparison Phase =====
+      - name: Compare with main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "# Branch Comparison" > evaluation_bundle/comparison.md
+          echo "" >> evaluation_bundle/comparison.md
+          echo "## Changes Summary" >> evaluation_bundle/comparison.md
+          git diff --stat origin/main...HEAD >> evaluation_bundle/comparison.md || echo "Could not compare with main" >> evaluation_bundle/comparison.md
+          echo "" >> evaluation_bundle/comparison.md
+          echo "## Modified Files" >> evaluation_bundle/comparison.md
+          git diff --name-only origin/main...HEAD >> evaluation_bundle/comparison.md || echo "Could not list files" >> evaluation_bundle/comparison.md
+
+          # Wheel size comparison
+          echo "" >> evaluation_bundle/comparison.md
+          echo "## Wheel Size" >> evaluation_bundle/comparison.md
+          CURRENT_SIZE=$(stat -f%z evaluation_bundle/*.whl 2>/dev/null || stat -c%s evaluation_bundle/*.whl)
+          echo "Current: $CURRENT_SIZE bytes" >> evaluation_bundle/comparison.md
+
+      # ===== Summary Generation =====
+      - name: Generate evaluation summary
+        run: |
+          cat > evaluation_bundle/README.md << 'EOL'
+          # Branch Evaluation Bundle
+
+          This bundle contains a comprehensive evaluation of the branch for easy review.
+
+          ## Contents
+
+          ### 📦 Build Artifacts
+          - `*.whl` - Built Python wheel, ready to install
+
+          ### 🧪 Test Results
+          - `test_results.txt` - Full test output
+          - `coverage_html/` - Interactive HTML coverage report (open `index.html`)
+          - `coverage.json` - Coverage data in JSON format
+
+          ### ⚡ Performance
+          - `benchmark_results.json` - Detailed benchmark results
+          - `benchmark_output.txt` - Human-readable benchmark output
+
+          ### 📊 Code Quality
+          - `ruff_check.json` - Linting results (JSON)
+          - `ruff_stats.txt` - Linting statistics
+          - `metrics.md` - Code metrics (LOC, etc.)
+
+          ### 🌐 HTML Examples
+          - `html_examples/` - Generated example HTML files
+            - `index.html` - Lifting data example
+            - `running/index.html` - Running data example
+
+          ### 📈 Comparison
+          - `comparison.md` - Comparison with main branch (if applicable)
+
+          ## Quick Start
+
+          1. **Install the wheel:**
+             ```bash
+             pip install *.whl
+             ```
+
+          2. **View coverage:**
+             Open `coverage_html/index.html` in a browser
+
+          3. **View examples:**
+             Open `html_examples/index.html` in a browser
+
+          4. **Review benchmarks:**
+             ```bash
+             cat benchmark_output.txt
+             ```
+
+          ## CI Information
+          - **Branch:** ${{ github.ref_name }}
+          - **Commit:** ${{ github.sha }}
+          - **Run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          - **Python Version:** ${{ inputs.python_version || '3.12' }}
+          EOL
+
+      # ===== Upload Artifacts =====
+      - name: Upload evaluation bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-bundle-${{ github.sha }}
+          path: evaluation_bundle/
+          retention-days: 30
+
+      # ===== Generate Summary =====
+      - name: Parse coverage percentage
+        id: coverage
+        run: |
+          COVERAGE=$(python -c "import json; print(json.load(open('evaluation_bundle/coverage.json'))['totals']['percent_covered'])")
+          echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Add evaluation summary to job
+        run: |
+          WHEEL_SIZE=$(stat -f%z evaluation_bundle/*.whl 2>/dev/null || stat -c%s evaluation_bundle/*.whl)
+          WHEEL_SIZE_KB=$((WHEEL_SIZE / 1024))
+
+          cat >> "$GITHUB_STEP_SUMMARY" << EOL
+          # 🎯 Branch Evaluation Complete
+
+          ## 📊 Key Metrics
+          - **Test Coverage:** ${{ steps.coverage.outputs.percentage }}%
+          - **Wheel Size:** ${WHEEL_SIZE_KB} KB
+          - **Python Version:** ${{ inputs.python_version || '3.12' }}
+
+          ## 📦 Artifacts
+          Download the **evaluation-bundle** artifact for:
+          - ✅ Test results and coverage reports
+          - ⚡ Performance benchmarks
+          - 📊 Code quality metrics
+          - 🌐 Interactive HTML examples
+          - 🔍 Comparison with main branch
+
+          ## 🔗 Quick Links
+          - [Download Evaluation Bundle](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          EOL

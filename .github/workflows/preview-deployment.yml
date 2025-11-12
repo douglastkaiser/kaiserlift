@@ -1,0 +1,196 @@
+name: Preview Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: write
+  id-token: write
+
+jobs:
+  deploy-preview:
+    name: Deploy Preview
+    runs-on: ubuntu-latest
+    concurrency:
+      group: preview-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e .
+
+      - name: Inject version into client
+        run: uv run --no-project python scripts/inject_version.py
+
+      - name: Generate HTML examples
+        run: uv run python tests/example_use/generate_example_html.py
+
+      - name: Prepare preview deployment
+        run: |
+          mkdir -p preview
+          mkdir -p preview/pr-${{ github.event.pull_request.number }}
+          cp -r tests/example_use/build/* preview/pr-${{ github.event.pull_request.number }}/
+
+          # Create index page for preview
+          cat > preview/pr-${{ github.event.pull_request.number }}/PREVIEW.md << 'EOL'
+          # Preview Deployment
+
+          This is a preview deployment for PR #${{ github.event.pull_request.number }}
+
+          ## Available Examples
+          - [Lifting Example](index.html)
+          - [Running Example](running/index.html)
+
+          ## PR Information
+          - **Title:** ${{ github.event.pull_request.title }}
+          - **Branch:** ${{ github.head_ref }}
+          - **Commit:** ${{ github.event.pull_request.head.sha }}
+
+          [View PR](${{ github.event.pull_request.html_url }})
+          EOL
+
+      # Upload as artifact (always available)
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-pr-${{ github.event.pull_request.number }}
+          path: preview/pr-${{ github.event.pull_request.number }}
+          retention-days: 30
+
+      # Option 1: Deploy to GitHub Pages (if enabled)
+      - name: Check if Pages is enabled
+        id: pages_check
+        continue-on-error: true
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/pages)
+          if [[ "$status" == "200" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Deploy to gh-pages branch with PR-specific directory
+      - name: Deploy to gh-pages branch
+        if: steps.pages_check.outputs.enabled == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Fetch gh-pages branch or create it
+          git fetch origin gh-pages || true
+          git checkout gh-pages || git checkout --orphan gh-pages
+
+          # Create PR directory
+          mkdir -p pr-${{ github.event.pull_request.number }}
+          cp -r preview/pr-${{ github.event.pull_request.number }}/* pr-${{ github.event.pull_request.number }}/
+
+          # Create or update index
+          if [ ! -f index.html ]; then
+            cat > index.html << 'INDEXEOF'
+            <!DOCTYPE html>
+            <html>
+            <head><title>KaiserLift Previews</title></head>
+            <body>
+              <h1>KaiserLift Preview Deployments</h1>
+              <p>Preview deployments are organized by PR number.</p>
+              <ul id="pr-list"></ul>
+              <script>
+                // List PR directories
+                fetch('.')
+                  .then(r => r.text())
+                  .then(html => {
+                    const dirs = [...html.matchAll(/pr-(\d+)/g)].map(m => m[1]);
+                    const list = document.getElementById('pr-list');
+                    [...new Set(dirs)].sort((a,b) => b-a).forEach(pr => {
+                      const li = document.createElement('li');
+                      li.innerHTML = `<a href="pr-${pr}/">PR #${pr}</a>`;
+                      list.appendChild(li);
+                    });
+                  });
+              </script>
+            </body>
+            </html>
+            INDEXEOF
+          fi
+
+          git add .
+          git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
+          git push origin gh-pages
+
+          # Switch back to original branch
+          git checkout ${{ github.head_ref }}
+
+      # Comment on PR with preview link
+      - name: Comment preview link
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = ${{ github.event.pull_request.number }};
+            const runId = ${{ github.run_id }};
+            const pagesEnabled = '${{ steps.pages_check.outputs.enabled }}' === 'true';
+
+            let previewUrl = '';
+            if (pagesEnabled) {
+              // Construct GitHub Pages URL
+              const repo = context.repo.repo;
+              const owner = context.repo.owner;
+              previewUrl = `https://${owner}.github.io/${repo}/pr-${prNumber}/`;
+            }
+
+            const body = `## 🌐 Preview Deployment
+
+            ${pagesEnabled ?
+              `### Live Preview
+              - 🏋️ [Lifting Example](${previewUrl}index.html)
+              - 🏃 [Running Example](${previewUrl}running/index.html)` :
+              `### Artifact Preview
+              GitHub Pages is not enabled. Download the preview artifact to view locally.`
+            }
+
+            ### 📥 Download Preview
+            [Download Preview Artifact](https://github.com/${{ github.repository }}/actions/runs/${runId})
+
+            ---
+            <sub>Updated: ${new Date().toISOString()} | [Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${runId})</sub>`;
+
+            // Find existing preview comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+
+            const previewComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Preview Deployment')
+            );
+
+            if (previewComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: previewComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+            }

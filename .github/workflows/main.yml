@@ -21,12 +21,20 @@ jobs:
   test:
     name: Run Pytest on Local Checkout
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.13']
+      fail-fast: false
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v6
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - uses: actions/setup-node@v4
         with:
@@ -35,13 +43,26 @@ jobs:
       - name: Create venv and install package
         run: |
           uv venv
-          uv pip install -e . pytest
+          uv pip install -e ".[dev]"
 
       - name: Inject version into client
         run: uv run --no-project python scripts/inject_version.py
 
-      - name: Run tests
-        run: uv run --no-project python -m pytest tests
+      - name: Run tests with coverage
+        run: |
+          uv run pytest tests \
+            --cov=kaiserlift \
+            --cov-report=xml \
+            --cov-report=term \
+            --benchmark-skip \
+            -v
+
+      - name: Upload coverage to artifact
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
 
   # Test from pypi
   install-from-pypi:
@@ -62,13 +83,13 @@ jobs:
         run: |
           uv venv
           uv build
-          uv pip install dist/*.whl pytest
+          uv pip install "dist/*.whl[dev]"
 
       - name: Inject version into client
         run: uv run --no-project python scripts/inject_version.py
 
       - name: Run tests using installed package
-        run: uv run --no-project pytest tests
+        run: uv run --no-project pytest tests --benchmark-skip
 
   generate-example-html:
     name: Generate example HTML

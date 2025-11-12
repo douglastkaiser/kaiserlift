@@ -196,3 +196,10 @@ cython_debug/
 # Client wheel artifact
 client/*.whl
 client/version.js
+
+# CI evaluation artifacts
+evaluation_bundle/
+preview/
+.benchmarks/
+benchmark_results.json
+coverage.json

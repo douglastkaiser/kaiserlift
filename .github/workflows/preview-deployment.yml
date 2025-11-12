@@ -99,6 +99,9 @@ jobs:
           # Clean working directory if orphan
           if [ -z "$(git log --oneline -1 2>/dev/null)" ]; then
             git rm -rf . 2>/dev/null || true
+          else
+            # Pull latest changes to avoid non-fast-forward errors
+            git pull origin gh-pages || true
           fi
 
           # Create PR directory

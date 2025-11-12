@@ -193,6 +193,10 @@ cython_debug/
 # From the actual data source as a test
 *.csv
 
+# Allow personal data CSVs in data/ directory (for pre-processed website data)
+# Comment out the line below if you want to keep your data private
+!data/*.csv
+
 # Client wheel artifact
 client/*.whl
 client/version.js

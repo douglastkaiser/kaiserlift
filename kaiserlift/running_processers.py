@@ -301,9 +301,12 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     """Generate next achievable running targets based on Pareto front.
 
     For each exercise, generates three types of targets:
-    1. Shortest distance target: 5% faster at minimum distance
+    1. Shortest distance target: 2% faster at minimum distance
     2. Gap fillers: distances between existing Pareto points (0.5 mi increments)
-    3. Longest distance target: +0.5 miles at longest distance pace
+    3. Longest distance target: variable increment based on distance
+       - Under 5 miles: +0.5 miles
+       - 5-13 miles: +1 mile
+       - 13+ miles: +10%
 
     Parameters
     ----------
@@ -318,10 +321,10 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     Examples
     --------
     Given PRs at 5.0 mi @ 9:30 and 10.0 mi @ 10:00, generates:
-    - 5.0 mi @ 9:01 (5% faster at short distance)
+    - 5.0 mi @ 9:18 (2% faster at short distance)
     - 5.5 mi @ estimated pace (gap filler)
     - ... more gap fillers up to 10.0 mi
-    - 10.5 mi @ 10:00 (extend longest distance)
+    - 11.0 mi @ 10:00 (extend longest distance by 1 mile)
     """
 
     rows = []
@@ -335,21 +338,28 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
         distances = ed["Distance"].tolist()
         paces = ed["Pace"].tolist()
 
-        # Type 1: Shortest distance target (5% faster pace)
-        min_pace_improved = paces[0] * 0.95
+        # Type 1: Shortest distance target (2% faster pace)
+        min_pace_improved = paces[0] * 0.98
         rows.append((ex, distances[0], min_pace_improved))
 
         # Type 2: Gap fillers (between consecutive distances)
         for i in range(len(distances) - 1):
             if distances[i + 1] > distances[i] + 0.5:  # Gap of 0.5+ miles
                 new_dist = distances[i] + 0.5
-                # Estimate pace at new distance using degradation model
+                # Estimate pace at new distance using Riegel's formula
                 new_pace = estimate_pace_at_distance(paces[i], distances[i], new_dist)
                 if not pd.isna(new_pace):
                     rows.append((ex, new_dist, new_pace))
 
-        # Type 3: Longest distance target (+0.5 miles at same pace)
-        rows.append((ex, distances[-1] + 0.5, paces[-1]))
+        # Type 3: Longest distance target (variable increment)
+        max_distance = distances[-1]
+        if max_distance < 5:
+            new_distance = max_distance + 0.5
+        elif max_distance < 13:
+            new_distance = max_distance + 1.0
+        else:
+            new_distance = max_distance * 1.10
+        rows.append((ex, new_distance, paces[-1]))
 
     target_df = pd.DataFrame(rows, columns=["Exercise", "Distance", "Pace"])
     return add_speed_metric_column(target_df)

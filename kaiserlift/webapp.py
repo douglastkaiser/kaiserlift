@@ -34,36 +34,45 @@ async def index() -> HTMLResponse:
         <!DOCTYPE html>
         <html>
             <head>
-                <title>KaiserLift</title>
+                <title>KaiserLift - Data-Driven Workout Optimization</title>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
                     :root {
-                        --bg: #ffffff;
-                        --fg: #000000;
-                        --bg-alt: #f5f5f5;
-                        --border: #ccc;
+                        --bg: #fafafa;
+                        --fg: #1a1a1a;
+                        --bg-alt: #ffffff;
+                        --border: #e5e7eb;
+                        --primary: #3b82f6;
+                        --primary-hover: #2563eb;
                     }
                     @media (prefers-color-scheme: dark) {
                         :root {
-                            --bg: #121212;
-                            --fg: #e0e0e0;
-                            --bg-alt: #1e1e1e;
-                            --border: #333;
+                            --bg: #0f0f0f;
+                            --fg: #e5e5e5;
+                            --bg-alt: #1a1a1a;
+                            --border: #2a2a2a;
+                            --primary: #60a5fa;
+                            --primary-hover: #3b82f6;
                         }
                     }
                     [data-theme="dark"] {
-                        --bg: #121212;
-                        --fg: #e0e0e0;
-                        --bg-alt: #1e1e1e;
-                        --border: #333;
+                        --bg: #0f0f0f;
+                        --fg: #e5e5e5;
+                        --bg-alt: #1a1a1a;
+                        --border: #2a2a2a;
+                        --primary: #60a5fa;
+                        --primary-hover: #3b82f6;
                     }
                     [data-theme="light"] {
-                        --bg: #ffffff;
-                        --fg: #000000;
-                        --bg-alt: #f5f5f5;
-                        --border: #ccc;
+                        --bg: #fafafa;
+                        --fg: #1a1a1a;
+                        --bg-alt: #ffffff;
+                        --border: #e5e7eb;
+                        --primary: #3b82f6;
+                        --primary-hover: #2563eb;
                     }
                     body {
-                        font-family: Arial, sans-serif;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
                         background-color: var(--bg);
                         color: var(--fg);
                         display: flex;
@@ -73,6 +82,43 @@ async def index() -> HTMLResponse:
                         min-height: 100vh;
                         padding: 20px;
                         text-align: center;
+                        transition: background-color 0.3s ease, color 0.3s ease;
+                    }
+                    .hero {
+                        margin-bottom: 40px;
+                    }
+                    .hero h1 {
+                        font-size: 2.5em;
+                        margin-bottom: 10px;
+                    }
+                    .tagline {
+                        font-size: 1.2em;
+                        opacity: 0.8;
+                        margin-bottom: 20px;
+                    }
+                    .demo-button {
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        padding: 14px 28px;
+                        border: none;
+                        border-radius: 8px;
+                        font-size: 1.1em;
+                        cursor: pointer;
+                        margin: 10px;
+                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                        transition: all 0.2s ease;
+                        font-weight: 600;
+                    }
+                    .demo-button:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+                    }
+                    .upload-section {
+                        margin-top: 40px;
+                    }
+                    .upload-section h2 {
+                        font-size: 1.5em;
+                        margin-bottom: 10px;
                     }
                     form {
                         display: flex;
@@ -82,40 +128,93 @@ async def index() -> HTMLResponse:
                         background-color: var(--bg-alt);
                         border: 1px solid var(--border);
                         border-radius: 8px;
+                        margin: 10px;
+                        max-width: 400px;
                     }
                     input[type="file"] {
                         color: var(--fg);
+                        padding: 8px;
                     }
                     input[type="submit"] {
-                        padding: 8px 16px;
-                        background-color: var(--bg-alt);
-                        color: var(--fg);
-                        border: 1px solid var(--border);
+                        padding: 10px 20px;
+                        background-color: var(--primary);
+                        color: white;
+                        border: none;
                         border-radius: 4px;
                         cursor: pointer;
+                        font-weight: 500;
+                        transition: background-color 0.2s ease;
                     }
                     input[type="submit"]:hover {
-                        background-color: var(--bg);
+                        background-color: var(--primary-hover);
+                    }
+                    .loading {
+                        display: none;
+                        margin: 20px;
+                    }
+                    .spinner {
+                        border: 4px solid var(--border);
+                        border-top: 4px solid var(--primary);
+                        border-radius: 50%;
+                        width: 40px;
+                        height: 40px;
+                        animation: spin 1s linear infinite;
+                        margin: 0 auto;
+                    }
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
                     }
                 </style>
             </head>
             <body>
-                <h1>KaiserLift</h1>
-                <p>Upload FitNotes CSV data for analysis</p>
+                <div class="hero">
+                    <h1>🏋️ KaiserLift</h1>
+                    <p class="tagline">Never guess your next workout again</p>
+                    <button class="demo-button" onclick="loadDemo()">
+                        ✨ Try Demo with Sample Data
+                    </button>
+                </div>
 
-                <h2>Lifting Data</h2>
-                <form action="/upload" method="post" enctype="multipart/form-data">
-                    <input type="file" name="file" accept=".csv" />
-                    <input type="submit" value="Upload Lifting Data" />
-                </form>
+                <div class="upload-section">
+                    <h2>Or Upload Your Own Data</h2>
 
-                <h2>Running Data</h2>
-                <form action="/upload-running" method="post" enctype="multipart/form-data">
-                    <input type="file" name="file" accept=".csv" />
-                    <input type="submit" value="Upload Running Data" />
-                </form>
+                    <h3>Lifting Data</h3>
+                    <form action="/upload" method="post" enctype="multipart/form-data">
+                        <input type="file" name="file" accept=".csv" />
+                        <input type="submit" value="Upload Lifting Data" />
+                    </form>
+
+                    <h3>Running Data</h3>
+                    <form action="/upload-running" method="post" enctype="multipart/form-data">
+                        <input type="file" name="file" accept=".csv" />
+                        <input type="submit" value="Upload Running Data" />
+                    </form>
+                </div>
+
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Loading demo data...</p>
+                </div>
 
                 <div id="result"></div>
+
+                <script>
+                async function loadDemo() {
+                    const loading = document.getElementById('loading');
+                    loading.style.display = 'block';
+
+                    try {
+                        const response = await fetch('/demo-data');
+                        const html = await response.text();
+                        document.body.innerHTML = html;
+                    } catch (error) {
+                        alert('Failed to load demo data: ' + error.message);
+                    } finally {
+                        loading.style.display = 'none';
+                    }
+                }
+                </script>
             </body>
         </html>
         """,
@@ -146,6 +245,37 @@ async def upload_running(file: UploadFile = File(...)) -> str:
     """
 
     return running_pipeline([file.file], embed_assets=True)
+
+
+@app.get("/demo-data", response_class=HTMLResponse)
+async def demo_data() -> str:
+    """Serve pre-generated demo HTML with sample lifting data.
+
+    This endpoint loads the example FitNotes CSV file from the test fixtures
+    and processes it through the lifting pipeline to generate an interactive
+    HTML demo that users can explore without uploading their own data.
+    """
+
+    import io
+    from pathlib import Path
+
+    # Load example CSV from test fixtures
+    example_csv = (
+        Path(__file__).parent.parent
+        / "tests/example_use/FitNotes_Export_2025_05_21_08_39_11.csv"
+    )
+
+    if not example_csv.exists():
+        return HTMLResponse(
+            "<html><body><h1>Demo data not found</h1>"
+            "<p>The example CSV file is not available in this deployment.</p></body></html>",
+            status_code=404,
+        )
+
+    with open(example_csv, encoding="utf-8") as f:
+        csv_content = f.read()
+
+    return pipeline([io.StringIO(csv_content)], embed_assets=True)
 
 
 def main() -> None:

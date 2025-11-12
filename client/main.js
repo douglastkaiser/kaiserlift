@@ -124,7 +124,13 @@ await micropip.install('kaiserlift')
     uploadButton.addEventListener("click", async () => {
       const file = fileInput.files?.[0];
       if (!file) {
-        result.textContent = "Please select a CSV file.";
+        showError("No file selected", "Please select a CSV file to upload.");
+        return;
+      }
+
+      // Validate file type
+      if (!file.name.endsWith('.csv')) {
+        showError("Invalid file type", "Please upload a CSV file. Selected file: " + file.name);
         return;
       }
 
@@ -148,6 +154,12 @@ await micropip.install('kaiserlift')
       try {
         const text = await file.text();
         advance(25);
+
+        // Validate CSV format
+        if (!text.includes('Date') || !text.includes('Exercise')) {
+          throw new Error('Invalid CSV format. Please ensure your CSV contains "Date" and "Exercise" columns. Use FitNotes export format.');
+        }
+
         pyodide.globals.set("csv_text", text);
         advance(50);
         advance(75);
@@ -177,13 +189,68 @@ await micropip.install('kaiserlift')
         }
       } catch (err) {
         console.error(err);
-        result.textContent = "Failed to process CSV: " + err;
+        showError("Processing Failed", getErrorMessage(err));
       } finally {
         if (progressInterval) clearInterval(progressInterval);
         pyodide.globals.delete("csv_text");
         if (progressBar) progressBar.style.display = "none";
       }
     });
+
+    function getErrorMessage(err) {
+      const errorStr = err.toString();
+
+      if (errorStr.includes('KeyError') || errorStr.includes('columns')) {
+        return `Missing required columns in CSV. Please ensure your CSV has these columns: Date, Exercise, Category, Weight, Reps.
+
+Expected format:
+Date,Exercise,Category,Weight,Reps
+2022-09-14,Bench Press,Chest,135.0,10
+
+Error details: ${errorStr}`;
+      }
+
+      if (errorStr.includes('Invalid CSV format')) {
+        return err.message + `
+
+Expected CSV format:
+Date,Exercise,Category,Weight,Reps
+2022-09-14,Flat Barbell Bench Press,Chest,45.0,10
+2022-09-14,Dumbbell Curl,Biceps,35.0,10`;
+      }
+
+      return `Failed to process CSV: ${errorStr}
+
+Common issues:
+• CSV is missing required columns (Date, Exercise, Category, Weight, Reps)
+• Data format is incorrect
+• File is corrupted or empty
+
+Please check your CSV file and try again.`;
+    }
+
+    function showError(title, message) {
+      result.innerHTML = `
+        <div style="
+          background: #fee;
+          border: 2px solid #fcc;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+          text-align: left;
+          max-width: 600px;
+        ">
+          <h3 style="color: #c00; margin-top: 0;">❌ ${title}</h3>
+          <pre style="
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: monospace;
+            font-size: 0.9em;
+            color: #333;
+          ">${message}</pre>
+        </div>
+      `;
+    }
   } catch (err) {
     console.error(err);
     result.textContent = "Failed to initialize Pyodide: " + err;

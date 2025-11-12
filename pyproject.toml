@@ -5,15 +5,41 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "kaiserlift"
 version = "0.1.50"
-description = "Data-driven progressive overload"
+description = "Science-based progressive overload system for weightlifting and running with Pareto optimization"
 readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+keywords = ["fitness", "weightlifting", "progressive-overload", "workout-optimization", "running", "pareto", "1rm", "strength-training", "data-analysis"]
 authors = [{ name = "Douglas Kaiser", email = "douglastkaiser@gmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "pandas",
     "numpy",
     "matplotlib",
     "ipython",
 ]
+
+[project.urls]
+Homepage = "https://www.douglastkaiser.com/projects/#workoutPlanner"
+Documentation = "https://github.com/douglastkaiser/kaiserlift#readme"
+Repository = "https://github.com/douglastkaiser/kaiserlift"
+"Bug Tracker" = "https://github.com/douglastkaiser/kaiserlift/issues"
 
 [project.optional-dependencies]
 server = [

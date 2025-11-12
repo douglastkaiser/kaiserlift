@@ -50,9 +50,13 @@ def test_highest_pace_per_distance():
 
     result = highest_pace_per_distance(df)
 
-    # Should keep fastest at 5.0 (570) and the 10.0 (600)
-    # 3.0 @ 540 is dominated by 5.0 @ 570 (longer distance, faster pace)
-    assert len(result) == 2
+    # All three distances are on the Pareto front:
+    # 3.0 @ 540 (9:00) - fastest pace
+    # 5.0 @ 570 (9:30) - middle distance
+    # 10.0 @ 600 (10:00) - longest distance
+    # None is dominated because no record has both longer distance AND faster pace
+    assert len(result) == 3
+    assert result.loc[result["Distance"] == 3.0, "Pace"].values[0] == 540
     assert result.loc[result["Distance"] == 5.0, "Pace"].values[0] == 570
     assert result.loc[result["Distance"] == 10.0, "Pace"].values[0] == 600
 

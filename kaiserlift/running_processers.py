@@ -13,7 +13,9 @@ import numpy as np
 import pandas as pd
 
 
-def calculate_pace_from_duration(duration_minutes: float, distance_miles: float) -> float:
+def calculate_pace_from_duration(
+    duration_minutes: float, distance_miles: float
+) -> float:
     """Calculate pace in seconds per mile from duration and distance.
 
     Parameters
@@ -125,8 +127,10 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
 
     # Calculate pace from Duration (minutes) and Distance (miles)
     df_sorted["Pace"] = df_sorted.apply(
-        lambda row: calculate_pace_from_duration(row.get("Duration", np.nan), row.get("Distance", np.nan)),
-        axis=1
+        lambda row: calculate_pace_from_duration(
+            row.get("Duration", np.nan), row.get("Distance", np.nan)
+        ),
+        axis=1,
     )
 
     # Filter to only Cardio category

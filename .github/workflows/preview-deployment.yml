@@ -181,30 +181,9 @@ jobs:
                     # Re-apply our changes from temp directory
                     mkdir -p pr-${{ github.event.pull_request.number }}
                     rsync -av "$TEMP_PREVIEW/" pr-${{ github.event.pull_request.number }}/
-                    # Ensure index exists
+                    # Ensure index exists (create minimal version if needed)
                     if [ ! -f index.html ]; then
-                      cat > index.html <<'INNEREOF'
-<!DOCTYPE html>
-<html>
-<head><title>KaiserLift Previews</title></head>
-<body>
-  <h1>KaiserLift Preview Deployments</h1>
-  <p>Preview deployments are organized by PR number.</p>
-  <ul id="pr-list"></ul>
-  <script>
-    fetch('.').then(r => r.text()).then(html => {
-      const dirs = [...html.matchAll(/pr-(\d+)/g)].map(m => m[1]);
-      const list = document.getElementById('pr-list');
-      [...new Set(dirs)].sort((a,b) => b-a).forEach(pr => {
-        const li = document.createElement('li');
-        li.innerHTML = '<a href="pr-' + pr + '/">PR #' + pr + '</a>';
-        list.appendChild(li);
-      });
-    });
-  </script>
-</body>
-</html>
-INNEREOF
+                      echo '<!DOCTYPE html><html><head><title>KaiserLift Previews</title></head><body><h1>KaiserLift Preview Deployments</h1><p>Preview deployments are organized by PR number.</p></body></html>' > index.html
                     fi
                     git add pr-${{ github.event.pull_request.number }}/ index.html
                     git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || true

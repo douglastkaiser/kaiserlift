@@ -1,0 +1,2 @@
+[console_scripts]
+kaiserlift-cli = kaiserlift.main:main

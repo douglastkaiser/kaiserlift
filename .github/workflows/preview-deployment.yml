@@ -139,7 +139,35 @@ jobs:
 
           git add .
           git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
-          git push origin gh-pages || git push -u origin gh-pages
+
+          # Push with retry logic to handle concurrent deployments
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          PUSH_SUCCESS=false
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if git push origin gh-pages 2>&1; then
+              PUSH_SUCCESS=true
+              break
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Push failed, attempting to rebase and retry ($RETRY_COUNT/$MAX_RETRIES)..."
+                sleep $((RETRY_COUNT * 2))  # Exponential backoff: 2s, 4s, 6s, 8s
+                git fetch origin gh-pages
+                git rebase origin/gh-pages || {
+                  echo "Rebase failed, trying pull..."
+                  git rebase --abort 2>/dev/null || true
+                  git pull --rebase origin gh-pages
+                }
+              fi
+            fi
+          done
+
+          if [ "$PUSH_SUCCESS" = false ]; then
+            echo "Failed to push after $MAX_RETRIES attempts"
+            exit 1
+          fi
 
           # Switch back to original branch
           git checkout "$CURRENT_BRANCH" || git checkout -

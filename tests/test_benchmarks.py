@@ -9,8 +9,8 @@ from kaiserlift import (
     highest_weight_per_rep,
 )
 from kaiserlift.running_processers import (
-    calculate_pareto_front,
-    find_weakest_distance,
+    highest_pace_per_distance,
+    df_next_running_targets,
 )
 
 
@@ -35,14 +35,17 @@ def large_lifting_dataset():
 def large_running_dataset():
     """Generate a large dataset for running benchmarks."""
     import numpy as np
+    from datetime import datetime
 
     np.random.seed(42)
     n = 500
     return pd.DataFrame(
         {
-            "Distance (km)": np.random.uniform(1, 42.195, n),
-            "Duration (min)": np.random.uniform(5, 300, n),
-            "Date": pd.date_range("2020-01-01", periods=n, freq="D"),
+            "Date": [datetime(2020, 1, 1)] * n,
+            "Exercise": ["Running"] * n,
+            "Category": ["Cardio"] * n,
+            "Distance": np.random.uniform(1, 26.2, n),  # Up to marathon distance
+            "Pace": np.random.uniform(360, 720, n),  # 6:00 to 12:00 min/mile in seconds
         }
     )
 
@@ -78,13 +81,13 @@ def test_benchmark_df_next_pareto(benchmark, large_lifting_dataset):
 def test_benchmark_running_pareto_front(benchmark, large_running_dataset):
     """Benchmark Pareto front calculation for running."""
     df = large_running_dataset.copy()
-    result = benchmark(calculate_pareto_front, df)
+    result = benchmark(highest_pace_per_distance, df)
     assert len(result) > 0
 
 
-def test_benchmark_find_weakest_distance(benchmark, large_running_dataset):
-    """Benchmark finding weakest distance for running."""
+def test_benchmark_running_targets(benchmark, large_running_dataset):
+    """Benchmark generating running targets."""
     df = large_running_dataset.copy()
-    pareto_df = calculate_pareto_front(df)
-    result = benchmark(find_weakest_distance, pareto_df)
-    assert result is not None
+    pareto_df = highest_pace_per_distance(df)
+    result = benchmark(df_next_running_targets, pareto_df)
+    assert len(result) > 0

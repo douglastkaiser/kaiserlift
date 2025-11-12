@@ -12,19 +12,37 @@ from kaiserlift import (
 
 
 def main() -> None:
-    """Generate example HTML viewers from bundled sample data."""
+    """Generate example HTML viewers from bundled sample data or personal data."""
     here = Path(__file__).parent
+    repo_root = here.parent.parent
+    data_dir = repo_root / "data"
     out_dir = here / "build"
     out_dir.mkdir(exist_ok=True)
 
-    # Generate lifting example (keep as example.html for backwards compatibility)
-    csv_files = glob.glob(str(here / "FitNotes_Export_*.csv"))
+    # Generate lifting example
+    # Priority: use personal data from data/lifting.csv if available, else use example CSVs
+    personal_lifting_csv = data_dir / "lifting.csv"
+    if personal_lifting_csv.exists():
+        print(f"Using personal lifting data from {personal_lifting_csv}")
+        csv_files = [str(personal_lifting_csv)]
+    else:
+        print("Using example lifting data")
+        csv_files = glob.glob(str(here / "FitNotes_Export_*.csv"))
+
     df = process_csv_files(csv_files)
     lifting_html = gen_html_viewer(df)
     (out_dir / "example.html").write_text(lifting_html, encoding="utf-8")
 
     # Generate running example with clean URL (running/index.html -> /running)
-    running_csv = here / "running_sample.csv"
+    # Priority: use personal data from data/running.csv if available, else use example CSV
+    personal_running_csv = data_dir / "running.csv"
+    if personal_running_csv.exists():
+        print(f"Using personal running data from {personal_running_csv}")
+        running_csv = personal_running_csv
+    else:
+        print("Using example running data")
+        running_csv = here / "running_sample.csv"
+
     if running_csv.exists():
         df_running = process_running_csv_files([running_csv])
         running_html = gen_running_html_viewer(df_running)

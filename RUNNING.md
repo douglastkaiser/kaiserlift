@@ -33,12 +33,14 @@ Date,Exercise,Category,Distance (miles),Duration (minutes)
 ### 1. Pareto Front Analysis
 
 The system identifies your **Pareto-optimal performances** - runs that aren't dominated by any other run. A run is dominated if there exists another run that is:
-- **Longer distance** with **same or faster pace**
+- **Longer distance** with **same or faster pace** (equivalently: same or higher speed)
 
 For example:
-- 5 miles @ 9:30 pace ✅ (Pareto optimal)
-- 10 miles @ 10:00 pace ✅ (Pareto optimal - longer but slower is OK)
-- 3 miles @ 10:00 pace ❌ (Dominated by 5 @ 9:30 - shorter and slower)
+- 5 miles @ 9:30 pace (6.32 mph) ✅ (Pareto optimal)
+- 10 miles @ 10:00 pace (6.00 mph) ✅ (Pareto optimal - longer but slower is OK)
+- 3 miles @ 10:00 pace (6.00 mph) ❌ (Dominated by 5 @ 9:30 - shorter and slower)
+
+The Pareto front is visualized on a Distance vs Speed plot, where better performances are toward the **upper-right** (longer distance + faster speed), matching the lifting visualization.
 
 ### 2. Pace Prediction Model
 
@@ -161,11 +163,12 @@ The system will:
 The HTML output includes:
 
 - **Interactive table** of training targets (sortable, searchable)
-- **Pareto front plot** showing Distance vs Pace
+- **Pareto front plot** showing Distance vs Speed
   - Blue dots: All your runs
-  - Red line: Your Pareto front (best paces)
-  - Black dashed line: Predicted pace degradation curve
+  - Red line: Your Pareto front (best speeds)
+  - Black dashed line: Predicted speed curve
   - Green X markers: Recommended training targets
+  - **Better performance is upper-right**: longer distance + faster speed
 - **Dropdown filter** to view specific exercises
 - **Dark mode support**
 
@@ -174,10 +177,11 @@ The HTML output includes:
 | Aspect | Lifting | Running |
 |--------|---------|---------|
 | Primary Metric | Weight (↑ better) | Distance (↑ better) |
-| Secondary Metric | Reps (↑ better) | Pace (↓ better) |
+| Secondary Metric | Reps (↑ better) | Speed (↑ better) |
 | Formula | Epley 1RM | Aerobic degradation |
-| Pareto Logic | Higher weight + reps | Longer distance + faster pace |
-| Target Increment | +5 lbs, +1 rep | +0.5 miles, -5% pace |
+| Pareto Logic | Higher weight + reps | Longer distance + faster speed |
+| Pareto Direction | Upper-right is better | Upper-right is better |
+| Target Increment | +5 lbs, +1 rep | +0.5 miles, +5% speed |
 
 ## Sample Data
 

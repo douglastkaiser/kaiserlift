@@ -18,13 +18,13 @@ from .running_processers import (
 
 
 def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
-    """Plot running performance: Distance vs Pace.
+    """Plot running performance: Distance vs Speed.
 
     Similar to plot_df for lifting but with running metrics:
     - X-axis: Distance (miles)
-    - Y-axis: Pace (seconds/mile, lower is better)
-    - Red line: Pareto front of best paces
-    - Green X: Target paces to achieve
+    - Y-axis: Speed (mph, higher is better)
+    - Red line: Pareto front of best speeds
+    - Green X: Target speeds to achieve
 
     Parameters
     ----------
@@ -43,7 +43,11 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         The generated figure
     """
 
-    df = df[df["Distance"] > 0]
+    df = df[df["Distance"] > 0].copy()
+
+    # Add Speed column if not present (Speed = 3600 / Pace)
+    if "Speed" not in df.columns and "Pace" in df.columns:
+        df["Speed"] = df["Pace"].apply(lambda p: 3600 / p if p > 0 else np.nan)
 
     if Exercise is None:
         # Plot all exercises normalized
@@ -53,13 +57,13 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
             ex_df = df[df["Exercise"] == exercise]
             ax.scatter(
                 ex_df["Distance"] / max(ex_df["Distance"]),
-                ex_df["Pace"] / max(ex_df["Pace"]),
+                ex_df["Speed"] / max(ex_df["Speed"]),
                 label=exercise,
                 alpha=0.6,
             )
-        ax.set_title("Pace vs. Distance for All Running Exercises")
+        ax.set_title("Speed vs. Distance for All Running Exercises")
         ax.set_xlabel("Distance (normalized)")
-        ax.set_ylabel("Pace (normalized, lower=faster)")
+        ax.set_ylabel("Speed (normalized, higher=faster)")
         ax.legend()
         return fig
 
@@ -70,10 +74,16 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         ax.text(0.5, 0.5, f"No data for {Exercise}", ha="center")
         return fig
 
+    # Add Speed to pareto and targets if needed
     if df_pareto is not None:
-        df_pareto = df_pareto[df_pareto["Exercise"] == Exercise]
+        df_pareto = df_pareto[df_pareto["Exercise"] == Exercise].copy()
+        if "Speed" not in df_pareto.columns and "Pace" in df_pareto.columns:
+            df_pareto["Speed"] = df_pareto["Pace"].apply(lambda p: 3600 / p if p > 0 else np.nan)
+
     if df_targets is not None:
-        df_targets = df_targets[df_targets["Exercise"] == Exercise]
+        df_targets = df_targets[df_targets["Exercise"] == Exercise].copy()
+        if "Speed" not in df_targets.columns and "Pace" in df_targets.columns:
+            df_targets["Speed"] = df_targets["Pace"].apply(lambda p: 3600 / p if p > 0 else np.nan)
 
     # Calculate axis limits
     distance_series = [df["Distance"]]
@@ -90,29 +100,37 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
-        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Pace"]))
-        pareto_dists, pareto_paces = zip(*sorted(pareto_points, key=lambda x: x[0]))
+        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Speed"]))
+        pareto_dists, pareto_speeds = zip(*sorted(pareto_points, key=lambda x: x[0]))
 
-        # Compute best pace overall
-        min_pace = min(pareto_paces)
+        # Compute best speed overall (maximum)
+        max_speed = max(pareto_speeds)
 
-        # Generate pace degradation curve
+        # Get the pace corresponding to max_speed for curve estimation
+        max_speed_idx = pareto_speeds.index(max_speed)
+        best_pace = 3600 / max_speed  # Convert back to pace for estimation
+        best_distance = pareto_dists[max_speed_idx]
+
+        # Generate speed curve (convert pace estimates to speed)
         x_vals = np.linspace(min_dist, plot_max_dist, 100)
         y_vals = [
-            estimate_pace_at_distance(min_pace, pareto_dists[0], d) for d in x_vals
+            3600 / estimate_pace_at_distance(best_pace, best_distance, d)
+            if estimate_pace_at_distance(best_pace, best_distance, d) > 0
+            else np.nan
+            for d in x_vals
         ]
-        ax.plot(x_vals, y_vals, "k--", label="Best Pace Curve", alpha=0.7)
+        ax.plot(x_vals, y_vals, "k--", label="Best Speed Curve", alpha=0.7)
 
         # Plot step line and markers
         ax.step(
             pareto_dists,
-            pareto_paces,
+            pareto_speeds,
             color="red",
-            label="Pareto Front (Best Paces)",
+            label="Pareto Front (Best Speeds)",
         )
         ax.scatter(
             pareto_dists,
-            pareto_paces,
+            pareto_speeds,
             color="red",
             marker="o",
             label="_nolegend_",
@@ -120,23 +138,28 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     # Plot targets (green X)
     if df_targets is not None and not df_targets.empty:
-        target_points = list(zip(df_targets["Distance"], df_targets["Pace"]))
-        target_dists, target_paces = zip(*sorted(target_points, key=lambda x: x[0]))
+        target_points = list(zip(df_targets["Distance"], df_targets["Speed"]))
+        target_dists, target_speeds = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Get min pace from targets
-        min_target_pace = min(target_paces)
+        # Get max speed from targets
+        max_target_speed = max(target_speeds)
+        max_target_idx = target_speeds.index(max_target_speed)
+        target_pace = 3600 / max_target_speed
+        target_distance = target_dists[max_target_idx]
 
-        # Generate dotted target pace curve
+        # Generate dotted target speed curve
         x_vals = np.linspace(min_dist, plot_max_dist, 100)
         y_vals = [
-            estimate_pace_at_distance(min_target_pace, target_dists[0], d)
+            3600 / estimate_pace_at_distance(target_pace, target_distance, d)
+            if estimate_pace_at_distance(target_pace, target_distance, d) > 0
+            else np.nan
             for d in x_vals
         ]
-        ax.plot(x_vals, y_vals, "g-.", label="Min Target Pace", alpha=0.7)
+        ax.plot(x_vals, y_vals, "g-.", label="Max Target Speed", alpha=0.7)
 
         ax.scatter(
             target_dists,
-            target_paces,
+            target_speeds,
             color="green",
             marker="x",
             s=100,
@@ -144,11 +167,11 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         )
 
     # Plot raw data (blue dots)
-    ax.scatter(df["Distance"], df["Pace"], label="All Runs", alpha=0.6)
+    ax.scatter(df["Distance"], df["Speed"], label="All Runs", alpha=0.6)
 
-    ax.set_title(f"Pace vs. Distance for {Exercise}")
+    ax.set_title(f"Speed vs. Distance for {Exercise}")
     ax.set_xlabel("Distance (miles)")
-    ax.set_ylabel("Pace (seconds/mile, lower=faster)")
+    ax.set_ylabel("Speed (mph, higher=faster)")
     ax.set_xlim(left=0, right=plot_max_dist)
     ax.legend()
 

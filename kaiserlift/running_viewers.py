@@ -245,7 +245,7 @@ def render_running_table_fragment(df) -> str:
             plt.close(fig)
         except Exception:
             # If plot generation fails, skip this exercise and continue
-            plt.close('all')  # Clean up any partial figures
+            plt.close("all")  # Clean up any partial figures
 
     all_figures_html = "\n".join(figures_html.values())
 

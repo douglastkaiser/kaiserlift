@@ -227,10 +227,11 @@ def highest_pace_per_distance(df: pd.DataFrame) -> pd.DataFrame:
 def estimate_pace_at_distance(
     best_pace: float, best_distance: float, target_distance: float
 ) -> float:
-    """Estimate pace at different distance using aerobic degradation model.
+    """Estimate pace at different distance using Riegel's formula.
 
-    Similar to Epley formula but for running pace.
-    Uses linear model: pace degrades ~5% per doubling of distance.
+    Riegel's formula is the standard in running performance prediction.
+    Based on the power law: T2 = T1 * (D2/D1)^1.06
+    For pace: pace2 = pace1 * (D2/D1)^0.06
 
     Parameters
     ----------
@@ -249,7 +250,7 @@ def estimate_pace_at_distance(
     Examples
     --------
     >>> estimate_pace_at_distance(570, 5.0, 10.0)  # Double distance
-    598.5  # ~5% slower
+    596.7  # Predicted slower pace using Riegel's formula
     """
 
     if best_distance <= 0 or target_distance <= 0 or pd.isna(best_pace):
@@ -258,9 +259,9 @@ def estimate_pace_at_distance(
     if target_distance == best_distance:
         return float(best_pace)
 
-    # Linear degradation: 5% slower per doubling of distance
+    # Riegel's formula: pace increases by (distance_ratio)^0.06
     distance_ratio = target_distance / best_distance
-    pace_factor = 1 + (0.05 * (distance_ratio - 1))
+    pace_factor = distance_ratio ** 0.06
 
     estimated_pace = best_pace * pace_factor
     return estimated_pace

@@ -196,14 +196,16 @@ def render_running_table_fragment(df) -> str:
     for exercise, slug in exercise_slug.items():
         fig = plot_running_df(df, df_records, df_targets, Exercise=exercise)
         buf = BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight")
+        # Use SVG format instead of PNG for smaller file size and scalability
+        fig.savefig(buf, format="svg", bbox_inches="tight")
         buf.seek(0)
-        base64_img = base64.b64encode(buf.read()).decode("utf-8")
-
+        svg_data = buf.read().decode("utf-8")
+        # Embed SVG directly (smaller than base64-encoded PNG)
         img_html = (
-            f'<img src="data:image/png;base64,{base64_img}" '
-            f'id="fig-{slug}" class="exercise-figure" '
+            f'<div id="fig-{slug}" class="running-figure" '
             f'style="display:none; max-width:100%; height:auto;">'
+            f'{svg_data}'
+            f'</div>'
         )
         figures_html[exercise] = img_html
         plt.close(fig)
@@ -537,6 +539,25 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         border-radius: 8px;
         box-shadow: var(--shadow);
         margin: 20px 0;
+        opacity: 0;
+        animation: fadeIn 0.3s ease-in forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .running-figure svg {
+        max-width: 100%;
+        height: auto;
+        display: block;
     }
 
     @media only screen and (max-width: 600px) {
@@ -638,5 +659,10 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     </script>
     """
 
+    meta = '''
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="description" content="KaiserLift running analysis - Data-driven pace optimization with Pareto front">
+    '''
     body_html = upload_html + f'<div id="result">{fragment}</div>'
-    return f"<html><head>{js_and_css}</head><body>{body_html}{scripts}</body></html>"
+    return f"<html><head>{meta}{js_and_css}</head><body>{body_html}{scripts}</body></html>"

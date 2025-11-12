@@ -12,24 +12,21 @@ KaiserLift now supports running/cardio data analysis with the same Pareto front 
 
 ## CSV Format
 
-The running data CSV should follow the FitNotes export format with these columns:
+The running data CSV should have these columns:
 
 ```csv
-Date,Exercise,Category,Distance (miles),Pace,Duration,Cadence,Comment
-2024-01-15,Running,Cardio,5.0,9:30,47.5,170,Easy run
+Date,Exercise,Category,Distance (miles),Duration (minutes)
+2024-01-15,Running,Cardio,5.0,47.5
 ```
 
 ### Required Columns:
 - **Date**: YYYY-MM-DD format
 - **Exercise**: Exercise name (e.g., "Running", "Cycling")
 - **Category**: Must be "Cardio"
-- **Distance**: Distance in miles (or kilometers if your CSV uses "Distance (km)")
-- **Pace**: Pace in M:SS format (e.g., "9:30" for 9 minutes 30 seconds per mile)
+- **Distance (miles)**: Distance in miles
+- **Duration (minutes)**: Total time in minutes
 
-### Optional Columns:
-- Duration: Total time in minutes
-- Cadence: Steps per minute
-- Comment: Any notes about the run
+**Note**: Pace (seconds/mile) is automatically calculated from Duration and Distance. You don't need to provide Pace, Cadence, or Comments - just the essential data: distance and total time.
 
 ## How It Works
 
@@ -189,7 +186,7 @@ See `tests/example_use/running_sample.csv` for a complete example with 15 runs s
 ## Tips
 
 - **Consistent units**: Make sure all distances are in the same unit (miles or km)
-- **Pace format**: Use "M:SS" format (e.g., "9:30", not "9.5")
+- **Duration format**: Use decimal minutes (e.g., 47.5 for 47 minutes 30 seconds)
 - **Track progression**: Upload data regularly to see your Pareto front expand
 - **Mix distances**: Run various distances to build a complete Pareto front
 - **Use predictions**: Before a race, check your predicted pace to set realistic goals

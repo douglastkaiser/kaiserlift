@@ -5,7 +5,7 @@ import numpy as np
 from datetime import datetime
 
 from kaiserlift.running_processers import (
-    parse_pace_string,
+    calculate_pace_from_duration,
     seconds_to_pace_string,
     highest_pace_per_distance,
     estimate_pace_at_distance,
@@ -15,14 +15,18 @@ from kaiserlift.running_processers import (
 )
 
 
-def test_parse_pace_string():
-    """Test pace string parsing."""
-    assert parse_pace_string("9:30") == 570  # 9*60 + 30
-    assert parse_pace_string("8:45") == 525  # 8*60 + 45
-    assert parse_pace_string("10:00") == 600  # 10*60
-    assert parse_pace_string("7:15") == 435  # 7*60 + 15
-    assert np.isnan(parse_pace_string(""))
-    assert np.isnan(parse_pace_string(np.nan))
+def test_calculate_pace_from_duration():
+    """Test pace calculation from duration and distance."""
+    # 27.0 minutes for 3.0 miles = 9:00 per mile = 540 seconds/mile
+    assert calculate_pace_from_duration(27.0, 3.0) == 540.0
+    # 47.5 minutes for 5.0 miles = 9:30 per mile = 570 seconds/mile
+    assert calculate_pace_from_duration(47.5, 5.0) == 570.0
+    # 60.0 minutes for 6.0 miles = 10:00 per mile = 600 seconds/mile
+    assert calculate_pace_from_duration(60.0, 6.0) == 600.0
+    # Edge cases
+    assert np.isnan(calculate_pace_from_duration(np.nan, 5.0))
+    assert np.isnan(calculate_pace_from_duration(30.0, np.nan))
+    assert np.isnan(calculate_pace_from_duration(30.0, 0))  # Zero distance
 
 
 def test_seconds_to_pace_string():

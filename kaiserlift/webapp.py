@@ -19,6 +19,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse
 
 from .pipeline import pipeline
+from .running_pipeline import running_pipeline
 
 
 app = FastAPI()
@@ -100,10 +101,20 @@ async def index() -> HTMLResponse:
             </head>
             <body>
                 <h1>KaiserLift</h1>
+                <p>Upload FitNotes CSV data for analysis</p>
+
+                <h2>Lifting Data</h2>
                 <form action="/upload" method="post" enctype="multipart/form-data">
-                    <input type="file" name="file" />
-                    <input type="submit" value="Upload" />
+                    <input type="file" name="file" accept=".csv" />
+                    <input type="submit" value="Upload Lifting Data" />
                 </form>
+
+                <h2>Running Data</h2>
+                <form action="/upload-running" method="post" enctype="multipart/form-data">
+                    <input type="file" name="file" accept=".csv" />
+                    <input type="submit" value="Upload Running Data" />
+                </form>
+
                 <div id="result"></div>
             </body>
         </html>
@@ -124,6 +135,17 @@ async def upload(file: UploadFile = File(...)) -> str:
     # default.  Explicitly enable ``embed_assets`` so the returned HTML is a
     # standalone page suitable for direct rendering by the browser.
     return pipeline([file.file], embed_assets=True)
+
+
+@app.post("/upload-running", response_class=HTMLResponse)
+async def upload_running(file: UploadFile = File(...)) -> str:
+    """Process the uploaded running CSV via the running pipeline and return HTML.
+
+    Processes running/cardio data with distance and pace metrics.
+    Returns interactive HTML with Pareto front analysis and target recommendations.
+    """
+
+    return running_pipeline([file.file], embed_assets=True)
 
 
 def main() -> None:

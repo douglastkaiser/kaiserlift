@@ -22,7 +22,6 @@ def test_running_pipeline_with_sample_data():
 
     # Verify key components are present
     assert "runningTable" in html_output
-    assert "runningDropdown" in html_output
     assert "<svg" in html_output  # SVG plot embedded
     assert "running-figure" in html_output  # Plot container div
 
@@ -33,8 +32,7 @@ def test_running_pipeline_fragment_mode():
 
     html_fragment = running_pipeline([sample_file], embed_assets=False)
 
-    # Should have table and dropdown but no full HTML structure
+    # Should have table but no full HTML structure
     assert "<table" in html_fragment
-    assert "runningDropdown" in html_fragment
     assert "<html>" not in html_fragment
     assert "<head>" not in html_fragment

@@ -257,49 +257,81 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     # Include same CSS/JS as lifting viewer
     js_and_css = """
+    <!-- Preconnect to CDNs for faster loading -->
+    <link rel="preconnect" href="https://code.jquery.com">
+    <link rel="preconnect" href="https://cdn.datatables.net">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js" defer></script>
 
     <!-- Select2 for searchable dropdown -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" defer></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
     :root {
-        --bg: #ffffff;
-        --fg: #000000;
-        --bg-alt: #f5f5f5;
-        --border: #ccc;
+        --bg: #fafafa;
+        --fg: #1a1a1a;
+        --bg-alt: #ffffff;
+        --border: #e5e7eb;
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
     }
     @media (prefers-color-scheme: dark) {
         :root {
-            --bg: #121212;
-            --fg: #e0e0e0;
-            --bg-alt: #1e1e1e;
-            --border: #333;
+            --bg: #0f0f0f;
+            --fg: #e5e5e5;
+            --bg-alt: #1a1a1a;
+            --border: #2a2a2a;
+            --primary: #60a5fa;
+            --primary-hover: #3b82f6;
+            --success: #34d399;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
         }
     }
     [data-theme="dark"] {
-        --bg: #121212;
-        --fg: #e0e0e0;
-        --bg-alt: #1e1e1e;
-        --border: #333;
+        --bg: #0f0f0f;
+        --fg: #e5e5e5;
+        --bg-alt: #1a1a1a;
+        --border: #2a2a2a;
+        --primary: #60a5fa;
+        --primary-hover: #3b82f6;
+        --success: #34d399;
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
     }
     [data-theme="light"] {
-        --bg: #ffffff;
-        --fg: #000000;
-        --bg-alt: #f5f5f5;
-        --border: #ccc;
+        --bg: #fafafa;
+        --fg: #1a1a1a;
+        --bg-alt: #ffffff;
+        --border: #e5e7eb;
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
     }
+
+    * {
+        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+
     body {
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         font-size: 34px;
         padding: 28px;
         background-color: var(--bg);
         color: var(--fg);
+        line-height: 1.5;
+    }
+
+    h1 {
+        font-weight: 700;
+        margin-bottom: 24px;
     }
 
     table.dataTable {
@@ -309,18 +341,51 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         background-color: var(--bg-alt);
         color: var(--fg);
         border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+    table.dataTable thead th {
+        background-color: var(--bg);
+        font-weight: 600;
+        padding: 12px;
+        border-bottom: 2px solid var(--border);
+    }
+
+    table.dataTable tbody td {
+        padding: 10px 12px;
+    }
+
+    table.dataTable tbody tr {
+        border-bottom: 1px solid var(--border);
+    }
+
+    table.dataTable tbody tr:hover {
+        background-color: var(--bg);
     }
 
     label {
         font-size: 34px;
         color: var(--fg);
+        font-weight: 500;
+        margin-bottom: 8px;
+        display: inline-block;
     }
 
     select {
         font-size: 34px;
         color: var(--fg);
         background-color: var(--bg-alt);
-        border: 1px solid var(--border);
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 12px;
+    }
+
+    select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
     /* Dark mode overrides for DataTables and Select2 */
@@ -406,12 +471,41 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
 
     #uploadButton {
-        padding: 8px 16px;
-        font-size: 34px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        background-color: var(--primary);
+        color: #ffffff;
         cursor: pointer;
+        font-weight: 600;
+        font-size: 28px;
+        box-shadow: var(--shadow);
+        transition: all 0.2s ease;
+    }
+
+    #uploadButton:hover {
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    #uploadButton:active {
+        transform: translateY(0);
+    }
+
+    #csvFile {
+        padding: 10px;
+        border: 2px solid var(--border);
+        border-radius: 6px;
         background-color: var(--bg-alt);
         color: var(--fg);
-        border: 1px solid var(--border);
+        font-size: 28px;
+    }
+
+    #csvFile:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
     #uploadProgress {
@@ -422,12 +516,63 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         position: fixed;
         top: 16px;
         right: 16px;
-        padding: 8px 16px;
-        font-size: 34px;
+        padding: 10px 14px;
+        font-size: 24px;
         cursor: pointer;
         background-color: var(--bg-alt);
         color: var(--fg);
-        border: 1px solid var(--border);
+        border: 2px solid var(--border);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        transition: all 0.2s ease;
+        z-index: 1000;
+    }
+
+    .theme-toggle:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    .running-figure {
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        margin: 20px 0;
+    }
+
+    @media only screen and (max-width: 600px) {
+        body {
+            padding: 16px;
+        }
+
+        h1 {
+            font-size: 2em;
+        }
+
+        table.dataTable {
+            font-size: 28px;
+        }
+
+        label {
+            font-size: 30px;
+        }
+
+        select {
+            font-size: 30px;
+        }
+
+        #uploadButton {
+            font-size: 26px;
+            padding: 12px 20px;
+        }
+
+        #csvFile {
+            font-size: 26px;
+        }
+
+        .upload-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
     }
     </style>
     """

@@ -108,10 +108,14 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
     df = pd.read_csv(data_source)
     df.columns = df.columns.str.strip()
 
-    # Handle distance column variants (e.g., "Distance (miles)")
+    # Handle distance and duration column variants (e.g., "Distance (miles)", "Duration (minutes)")
     distance_like = next((c for c in df.columns if c.startswith("Distance (")), None)
     if distance_like and "Distance" not in df.columns:
         df = df.rename(columns={distance_like: "Distance"})
+
+    duration_like = next((c for c in df.columns if c.startswith("Duration (")), None)
+    if duration_like and "Duration" not in df.columns:
+        df = df.rename(columns={duration_like: "Duration"})
 
     # Parse date
     df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d")

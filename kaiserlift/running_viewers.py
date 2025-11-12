@@ -237,7 +237,7 @@ def render_running_table_fragment(df) -> str:
             # Embed SVG directly (smaller than base64-encoded PNG)
             img_html = (
                 f'<div id="fig-{slug}" class="running-figure" '
-                f'style="display:none; max-width:100%; height:auto;">'
+                f'style="display:block; max-width:100%; height:auto;">'
                 f"{svg_data}"
                 f"</div>"
             )
@@ -249,28 +249,12 @@ def render_running_table_fragment(df) -> str:
 
     all_figures_html = "\n".join(figures_html.values())
 
-    # Create dropdown
-    exercise_options = sorted(df["Exercise"].dropna().unique())
-    dropdown_html = """
-    <label for="runningDropdown">Filter by Running Activity:</label>
-    <select id="runningDropdown">
-    <option value="">All</option>
-    """
-    dropdown_html += "".join(
-        f'<option value="{x}" data-fig="{exercise_slug.get(x, "")}">{x}</option>'
-        for x in exercise_options
-    )
-    dropdown_html += """
-    </select>
-    <br><br>
-    """
-
     # Convert targets to table
     table_html = df_targets_display.to_html(
         classes="display compact cell-border", table_id="runningTable", index=False
     )
 
-    return dropdown_html + table_html + all_figures_html
+    return table_html + all_figures_html
 
 
 def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
@@ -305,10 +289,6 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js" defer></script>
-
-    <!-- Select2 for searchable dropdown -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" defer></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
@@ -445,23 +425,6 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
             background-color: var(--bg-alt) !important;
             color: var(--fg) !important;
         }
-        .select2-container--default .select2-selection--single {
-            background-color: var(--bg-alt);
-            color: var(--fg);
-            border: 1px solid var(--border);
-        }
-        .select2-container--default .select2-selection--single .select2-selection__rendered {
-            color: var(--fg);
-        }
-        .select2-dropdown {
-            background-color: var(--bg-alt);
-            color: var(--fg);
-            border: 1px solid var(--border);
-        }
-        .select2-results__option--highlighted {
-            background-color: var(--bg);
-            color: var(--fg);
-        }
     }
     html[data-theme="dark"] .dataTables_wrapper .dataTables_filter input,
     html[data-theme="dark"] .dataTables_wrapper .dataTables_length select {
@@ -478,28 +441,6 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     html[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
         background-color: var(--bg-alt) !important;
         color: var(--fg) !important;
-    }
-    html[data-theme="dark"] .select2-container--default .select2-selection--single {
-        background-color: var(--bg-alt);
-        color: var(--fg);
-        border: 1px solid var(--border);
-    }
-    html[data-theme="dark"] .select2-container--default .select2-selection--single .select2-selection__rendered {
-        color: var(--fg);
-    }
-    html[data-theme="dark"] .select2-dropdown {
-        background-color: var(--bg-alt);
-        color: var(--fg);
-        border: 1px solid var(--border);
-    }
-    html[data-theme="dark"] .select2-results__option--highlighted {
-        background-color: var(--bg);
-        color: var(--fg);
-    }
-
-    #runningDropdown {
-        width: 100%;
-        max-width: 400px;
     }
 
     .upload-controls {
@@ -653,30 +594,6 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         $('#runningTable').DataTable({
             pageLength: 25,
             order: [[0, 'asc']]
-        });
-
-        // Initialize Select2 for dropdown
-        $('#runningDropdown').select2();
-
-        // Handle dropdown change to show/hide figures
-        $('#runningDropdown').on('change', function() {
-            const selectedExercise = $(this).val();
-            const selectedFigSlug = $(this).find(':selected').data('fig');
-
-            // Hide all figures
-            $('.exercise-figure').hide();
-
-            // Show selected figure (if any)
-            if (selectedFigSlug) {
-                $(`#fig-${selectedFigSlug}`).show();
-            }
-
-            // Filter table rows
-            if (selectedExercise) {
-                $('#runningTable').DataTable().column(0).search('^' + selectedExercise + '$', true, false).draw();
-            } else {
-                $('#runningTable').DataTable().column(0).search('').draw();
-            }
         });
 
         // Theme toggle

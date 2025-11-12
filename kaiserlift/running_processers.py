@@ -5,7 +5,6 @@ calculating pace metrics, and generating training targets based on
 Pareto front analysis.
 """
 
-import math
 import os
 from pathlib import Path
 from typing import IO, Iterable
@@ -34,10 +33,10 @@ def parse_pace_string(pace_str: str) -> float:
     >>> parse_pace_string("8:45")
     525.0
     """
-    if pd.isna(pace_str) or pace_str == '':
+    if pd.isna(pace_str) or pace_str == "":
         return np.nan
     try:
-        parts = str(pace_str).split(':')
+        parts = str(pace_str).split(":")
         minutes = float(parts[0])
         seconds = float(parts[1]) if len(parts) > 1 else 0
         return minutes * 60 + seconds
@@ -115,7 +114,9 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
     df_sorted = df.sort_values(by="Date", ascending=True)
 
     # Ensure numeric types for Distance
-    df_sorted["Distance"] = pd.to_numeric(df_sorted.get("Distance", np.nan), errors="coerce")
+    df_sorted["Distance"] = pd.to_numeric(
+        df_sorted.get("Distance", np.nan), errors="coerce"
+    )
 
     # Parse pace (min:sec format to seconds/mile)
     if "Pace" in df_sorted.columns:
@@ -128,7 +129,17 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
 
     # Drop unused columns
     df_sorted = df_sorted.drop(
-        ["Distance Unit", "Pace Unit", "Comment", "Duration", "Cadence", "Time", "Weight", "Reps", "Weight Unit"],
+        [
+            "Distance Unit",
+            "Pace Unit",
+            "Comment",
+            "Duration",
+            "Cadence",
+            "Time",
+            "Weight",
+            "Reps",
+            "Weight Unit",
+        ],
         axis=1,
         errors="ignore",
     )
@@ -138,7 +149,9 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
         if col not in df_sorted.columns:
             df_sorted[col] = np.nan
 
-    return df_sorted[["Date", "Exercise", "Category", "Distance", "Pace"]].dropna(subset=["Distance", "Pace"])
+    return df_sorted[["Date", "Exercise", "Category", "Distance", "Pace"]].dropna(
+        subset=["Distance", "Pace"]
+    )
 
 
 def highest_pace_per_distance(df: pd.DataFrame) -> pd.DataFrame:
@@ -186,23 +199,23 @@ def highest_pace_per_distance(df: pd.DataFrame) -> pd.DataFrame:
         - P' <= P (at least as fast)
         """
         dominating = group_df[
-            (group_df["Distance"] >= row["Distance"]) &
-            (group_df["Pace"] <= row["Pace"])
+            (group_df["Distance"] >= row["Distance"])
+            & (group_df["Pace"] <= row["Pace"])
         ]
         # More than just itself means it's dominated
         return len(dominating) > 1
 
     final_indices = []
     for exercise_name, group in best_pace_sets.groupby("Exercise"):
-        rows_to_keep = group[
-            ~group.apply(lambda row: is_dominated(row, group), axis=1)
-        ]
+        rows_to_keep = group[~group.apply(lambda row: is_dominated(row, group), axis=1)]
         final_indices.extend(rows_to_keep.index.tolist())
 
     return best_pace_sets.loc[final_indices].sort_values(["Exercise", "Distance"])
 
 
-def estimate_pace_at_distance(best_pace: float, best_distance: float, target_distance: float) -> float:
+def estimate_pace_at_distance(
+    best_pace: float, best_distance: float, target_distance: float
+) -> float:
     """Estimate pace at different distance using aerobic degradation model.
 
     Similar to Epley formula but for running pace.
@@ -330,7 +343,9 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     return add_speed_metric_column(target_df)
 
 
-def predict_race_pace(df_records: pd.DataFrame, exercise: str, target_distance: float) -> dict:
+def predict_race_pace(
+    df_records: pd.DataFrame, exercise: str, target_distance: float
+) -> dict:
     """Predict target pace for a specific race distance.
 
     Uses Pareto front records to estimate achievable pace at target distance.
@@ -369,10 +384,10 @@ def predict_race_pace(df_records: pd.DataFrame, exercise: str, target_distance: 
 
     if ex_records.empty:
         return {
-            'optimistic_pace': np.nan,
-            'conservative_pace': np.nan,
-            'optimistic_time': 'N/A',
-            'conservative_time': 'N/A',
+            "optimistic_pace": np.nan,
+            "conservative_pace": np.nan,
+            "optimistic_time": "N/A",
+            "conservative_time": "N/A",
         }
 
     # Find closest Pareto points
@@ -386,24 +401,16 @@ def predict_race_pace(df_records: pd.DataFrame, exercise: str, target_distance: 
     if len(shorter_idx) > 0:
         best_shorter = ex_records[ex_records["Distance"] == shorter_idx[-1]].iloc[0]
         optimistic = estimate_pace_at_distance(
-            best_shorter["Pace"],
-            best_shorter["Distance"],
-            target_distance
+            best_shorter["Pace"], best_shorter["Distance"], target_distance
         )
     else:
         # Extrapolate from shortest available
-        optimistic = estimate_pace_at_distance(
-            paces[0],
-            distances[0],
-            target_distance
-        )
+        optimistic = estimate_pace_at_distance(paces[0], distances[0], target_distance)
 
     if len(longer_idx) > 0:
         best_longer = ex_records[ex_records["Distance"] == longer_idx[0]].iloc[0]
         conservative = estimate_pace_at_distance(
-            best_longer["Pace"],
-            best_longer["Distance"],
-            target_distance
+            best_longer["Pace"], best_longer["Distance"], target_distance
         )
     else:
         # Use optimistic + 10% buffer
@@ -412,17 +419,17 @@ def predict_race_pace(df_records: pd.DataFrame, exercise: str, target_distance: 
     def total_time_str(pace_sec_per_mi: float, distance_mi: float) -> str:
         """Convert pace and distance to total time string."""
         if pd.isna(pace_sec_per_mi):
-            return 'N/A'
+            return "N/A"
         total_seconds = pace_sec_per_mi * distance_mi
         minutes = int(total_seconds // 60)
         seconds = int(total_seconds % 60)
         return f"{minutes}:{seconds:02d}"
 
     return {
-        'optimistic_pace': optimistic,
-        'conservative_pace': conservative,
-        'optimistic_pace_str': seconds_to_pace_string(optimistic),
-        'conservative_pace_str': seconds_to_pace_string(conservative),
-        'optimistic_time': total_time_str(optimistic, target_distance),
-        'conservative_time': total_time_str(conservative, target_distance),
+        "optimistic_pace": optimistic,
+        "conservative_pace": conservative,
+        "optimistic_pace_str": seconds_to_pace_string(optimistic),
+        "conservative_pace_str": seconds_to_pace_string(conservative),
+        "optimistic_time": total_time_str(optimistic, target_distance),
+        "conservative_time": total_time_str(conservative, target_distance),
     }

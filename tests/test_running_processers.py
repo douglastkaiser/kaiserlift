@@ -1,6 +1,5 @@
 """Tests for running data processing functions."""
 
-import pytest
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -39,13 +38,15 @@ def test_seconds_to_pace_string():
 
 def test_highest_pace_per_distance():
     """Test Pareto front extraction for running data."""
-    df = pd.DataFrame({
-        "Date": [datetime(2024, 1, 15)] * 4,
-        "Exercise": ["Running"] * 4,
-        "Category": ["Cardio"] * 4,
-        "Distance": [5.0, 5.0, 10.0, 3.0],
-        "Pace": [600, 570, 600, 540],  # 10:00, 9:30, 10:00, 9:00
-    })
+    df = pd.DataFrame(
+        {
+            "Date": [datetime(2024, 1, 15)] * 4,
+            "Exercise": ["Running"] * 4,
+            "Category": ["Cardio"] * 4,
+            "Distance": [5.0, 5.0, 10.0, 3.0],
+            "Pace": [600, 570, 600, 540],  # 10:00, 9:30, 10:00, 9:00
+        }
+    )
 
     result = highest_pace_per_distance(df)
 
@@ -59,13 +60,15 @@ def test_highest_pace_per_distance():
 def test_highest_pace_per_distance_pareto_dominance():
     """Test that Pareto dominance is correctly applied."""
     # Create a scenario where we have clear dominance
-    df = pd.DataFrame({
-        "Date": [datetime(2024, 1, i) for i in range(1, 6)],
-        "Exercise": ["Running"] * 5,
-        "Category": ["Cardio"] * 5,
-        "Distance": [3.0, 5.0, 7.0, 10.0, 13.1],
-        "Pace": [540, 570, 600, 630, 660],  # Pace getting slower with distance
-    })
+    df = pd.DataFrame(
+        {
+            "Date": [datetime(2024, 1, i) for i in range(1, 6)],
+            "Exercise": ["Running"] * 5,
+            "Category": ["Cardio"] * 5,
+            "Distance": [3.0, 5.0, 7.0, 10.0, 13.1],
+            "Pace": [540, 570, 600, 630, 660],  # Pace getting slower with distance
+        }
+    )
 
     result = highest_pace_per_distance(df)
 
@@ -75,13 +78,15 @@ def test_highest_pace_per_distance_pareto_dominance():
 
 def test_highest_pace_per_distance_dominated():
     """Test that dominated records are removed."""
-    df = pd.DataFrame({
-        "Date": [datetime(2024, 1, i) for i in range(1, 4)],
-        "Exercise": ["Running"] * 3,
-        "Category": ["Cardio"] * 3,
-        "Distance": [5.0, 10.0, 5.0],
-        "Pace": [600, 570, 630],  # 10:00, 9:30, 10:30
-    })
+    df = pd.DataFrame(
+        {
+            "Date": [datetime(2024, 1, i) for i in range(1, 4)],
+            "Exercise": ["Running"] * 3,
+            "Category": ["Cardio"] * 3,
+            "Distance": [5.0, 10.0, 5.0],
+            "Pace": [600, 570, 630],  # 10:00, 9:30, 10:30
+        }
+    )
 
     result = highest_pace_per_distance(df)
 
@@ -122,10 +127,12 @@ def test_estimate_pace_at_distance_edge_cases():
 
 def test_add_speed_metric_column():
     """Test speed calculation from pace."""
-    df = pd.DataFrame({
-        "Distance": [5.0, 10.0],
-        "Pace": [600, 570],  # 10:00 and 9:30 pace
-    })
+    df = pd.DataFrame(
+        {
+            "Distance": [5.0, 10.0],
+            "Pace": [600, 570],  # 10:00 and 9:30 pace
+        }
+    )
 
     result = add_speed_metric_column(df)
 
@@ -139,11 +146,13 @@ def test_add_speed_metric_column():
 
 def test_df_next_running_targets():
     """Test target generation from Pareto front."""
-    df_records = pd.DataFrame({
-        "Exercise": ["Running"] * 2,
-        "Distance": [5.0, 10.0],
-        "Pace": [570, 600],  # 9:30 and 10:00
-    })
+    df_records = pd.DataFrame(
+        {
+            "Exercise": ["Running"] * 2,
+            "Distance": [5.0, 10.0],
+            "Pace": [570, 600],  # 9:30 and 10:00
+        }
+    )
 
     targets = df_next_running_targets(df_records)
 
@@ -167,11 +176,13 @@ def test_df_next_running_targets():
 
 def test_df_next_running_targets_gap_filling():
     """Test that gap fillers are created for large distance gaps."""
-    df_records = pd.DataFrame({
-        "Exercise": ["Running"] * 2,
-        "Distance": [3.0, 10.0],  # Large gap
-        "Pace": [540, 600],
-    })
+    df_records = pd.DataFrame(
+        {
+            "Exercise": ["Running"] * 2,
+            "Distance": [3.0, 10.0],  # Large gap
+            "Pace": [540, 600],
+        }
+    )
 
     targets = df_next_running_targets(df_records)
 
@@ -182,11 +193,13 @@ def test_df_next_running_targets_gap_filling():
 
 def test_df_next_running_targets_empty():
     """Test target generation with empty input."""
-    df_records = pd.DataFrame({
-        "Exercise": [],
-        "Distance": [],
-        "Pace": [],
-    })
+    df_records = pd.DataFrame(
+        {
+            "Exercise": [],
+            "Distance": [],
+            "Pace": [],
+        }
+    )
 
     targets = df_next_running_targets(df_records)
     assert len(targets) == 0
@@ -194,11 +207,13 @@ def test_df_next_running_targets_empty():
 
 def test_predict_race_pace():
     """Test race pace prediction."""
-    df_records = pd.DataFrame({
-        "Exercise": ["Running"] * 3,
-        "Distance": [3.0, 5.0, 10.0],
-        "Pace": [540, 570, 600],  # 9:00, 9:30, 10:00
-    })
+    df_records = pd.DataFrame(
+        {
+            "Exercise": ["Running"] * 3,
+            "Distance": [3.0, 5.0, 10.0],
+            "Pace": [540, 570, 600],  # 9:00, 9:30, 10:00
+        }
+    )
 
     # Predict 5K (3.1 miles) pace
     prediction = predict_race_pace(df_records, "Running", 3.1)
@@ -218,11 +233,13 @@ def test_predict_race_pace():
 
 def test_predict_race_pace_no_data():
     """Test race pace prediction with no matching exercise."""
-    df_records = pd.DataFrame({
-        "Exercise": ["Running"],
-        "Distance": [5.0],
-        "Pace": [570],
-    })
+    df_records = pd.DataFrame(
+        {
+            "Exercise": ["Running"],
+            "Distance": [5.0],
+            "Pace": [570],
+        }
+    )
 
     prediction = predict_race_pace(df_records, "NonExistent", 5.0)
 
@@ -234,13 +251,15 @@ def test_predict_race_pace_no_data():
 
 def test_multiple_exercises():
     """Test handling of multiple exercise types."""
-    df = pd.DataFrame({
-        "Date": [datetime(2024, 1, 1)] * 4,
-        "Exercise": ["Running", "Running", "Cycling", "Cycling"],
-        "Category": ["Cardio"] * 4,
-        "Distance": [5.0, 10.0, 10.0, 20.0],
-        "Pace": [570, 600, 300, 330],
-    })
+    df = pd.DataFrame(
+        {
+            "Date": [datetime(2024, 1, 1)] * 4,
+            "Exercise": ["Running", "Running", "Cycling", "Cycling"],
+            "Category": ["Cardio"] * 4,
+            "Distance": [5.0, 10.0, 10.0, 20.0],
+            "Pace": [570, 600, 300, 330],
+        }
+    )
 
     result = highest_pace_per_distance(df)
 
@@ -258,11 +277,13 @@ def test_multiple_exercises():
 
 def test_running_targets_multiple_exercises():
     """Test target generation for multiple exercises."""
-    df_records = pd.DataFrame({
-        "Exercise": ["Running", "Running", "Cycling", "Cycling"],
-        "Distance": [5.0, 10.0, 10.0, 20.0],
-        "Pace": [570, 600, 300, 330],
-    })
+    df_records = pd.DataFrame(
+        {
+            "Exercise": ["Running", "Running", "Cycling", "Cycling"],
+            "Distance": [5.0, 10.0, 10.0, 20.0],
+            "Pace": [570, 600, 300, 330],
+        }
+    )
 
     targets = df_next_running_targets(df_records)
 

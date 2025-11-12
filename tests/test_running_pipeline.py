@@ -1,6 +1,5 @@
 """Integration tests for running data pipeline."""
 
-import pytest
 from pathlib import Path
 
 from kaiserlift import running_pipeline

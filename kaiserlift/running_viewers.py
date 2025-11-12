@@ -12,7 +12,6 @@ from io import BytesIO
 
 from .running_processers import (
     estimate_pace_at_distance,
-    add_speed_metric_column,
     highest_pace_per_distance,
     df_next_running_targets,
     seconds_to_pace_string,
@@ -69,7 +68,7 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     df = df[df["Exercise"] == Exercise]
     if df.empty:
         fig, ax = plt.subplots()
-        ax.text(0.5, 0.5, f"No data for {Exercise}", ha='center')
+        ax.text(0.5, 0.5, f"No data for {Exercise}", ha="center")
         return fig
 
     if df_pareto is not None:
@@ -100,7 +99,9 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Generate pace degradation curve
         x_vals = np.linspace(min_dist, plot_max_dist, 100)
-        y_vals = [estimate_pace_at_distance(min_pace, pareto_dists[0], d) for d in x_vals]
+        y_vals = [
+            estimate_pace_at_distance(min_pace, pareto_dists[0], d) for d in x_vals
+        ]
         ax.plot(x_vals, y_vals, "k--", label="Best Pace Curve", alpha=0.7)
 
         # Plot step line and markers
@@ -128,7 +129,10 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Generate dotted target pace curve
         x_vals = np.linspace(min_dist, plot_max_dist, 100)
-        y_vals = [estimate_pace_at_distance(min_target_pace, target_dists[0], d) for d in x_vals]
+        y_vals = [
+            estimate_pace_at_distance(min_target_pace, target_dists[0], d)
+            for d in x_vals
+        ]
         ax.plot(x_vals, y_vals, "g-.", label="Min Target Pace", alpha=0.7)
 
         ax.scatter(
@@ -172,7 +176,9 @@ def render_running_table_fragment(df) -> str:
     # Format pace columns for display
     if not df_targets.empty:
         df_targets_display = df_targets.copy()
-        df_targets_display["Pace"] = df_targets_display["Pace"].apply(seconds_to_pace_string)
+        df_targets_display["Pace"] = df_targets_display["Pace"].apply(
+            seconds_to_pace_string
+        )
         df_targets_display["Speed"] = df_targets_display["Speed"].round(2)
     else:
         df_targets_display = df_targets
@@ -222,9 +228,7 @@ def render_running_table_fragment(df) -> str:
 
     # Convert targets to table
     table_html = df_targets_display.to_html(
-        classes="display compact cell-border",
-        table_id="runningTable",
-        index=False
+        classes="display compact cell-border", table_id="runningTable", index=False
     )
 
     return dropdown_html + table_html + all_figures_html

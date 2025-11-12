@@ -3,7 +3,12 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from kaiserlift import gen_html_viewer, process_csv_files, gen_running_html_viewer, process_running_csv_files
+from kaiserlift import (
+    gen_html_viewer,
+    process_csv_files,
+    gen_running_html_viewer,
+    process_running_csv_files,
+)
 
 
 def main() -> None:

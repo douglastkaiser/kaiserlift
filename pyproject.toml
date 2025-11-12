@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kaiserlift"
-version = "0.1.51"
+version = "0.1.52"
 description = "Science-based progressive overload system for weightlifting and running with Pareto optimization"
 readme = "README.md"
 requires-python = ">=3.8"

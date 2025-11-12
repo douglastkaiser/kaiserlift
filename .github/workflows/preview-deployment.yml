@@ -39,7 +39,9 @@ jobs:
         run: |
           mkdir -p preview
           mkdir -p preview/pr-${{ github.event.pull_request.number }}
-          cp -r tests/example_use/build/* preview/pr-${{ github.event.pull_request.number }}/
+          # Copy build files, excluding __pycache__ and other unwanted files
+          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
+            tests/example_use/build/ preview/pr-${{ github.event.pull_request.number }}/
 
           # Create index page for preview
           cat > preview/pr-${{ github.event.pull_request.number }}/PREVIEW.md << 'EOL'
@@ -104,9 +106,10 @@ jobs:
             git pull origin gh-pages || true
           fi
 
-          # Create PR directory
+          # Create PR directory and copy files (excluding cache files)
           mkdir -p pr-${{ github.event.pull_request.number }}
-          cp -r preview/pr-${{ github.event.pull_request.number }}/* pr-${{ github.event.pull_request.number }}/
+          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
+            preview/pr-${{ github.event.pull_request.number }}/ pr-${{ github.event.pull_request.number }}/
 
           # Create or update index
           if [ ! -f index.html ]; then
@@ -155,10 +158,26 @@ jobs:
                 echo "Push failed, attempting to rebase and retry ($RETRY_COUNT/$MAX_RETRIES)..."
                 sleep $((RETRY_COUNT * 2))  # Exponential backoff: 2s, 4s, 6s, 8s
                 git fetch origin gh-pages
+
+                # Try rebase with automatic conflict resolution (favor our version)
                 git rebase origin/gh-pages || {
-                  echo "Rebase failed, trying pull..."
-                  git rebase --abort 2>/dev/null || true
-                  git pull --rebase origin gh-pages
+                  echo "Rebase had conflicts, resolving by accepting our version..."
+                  # Accept our version for all conflicts
+                  git checkout --ours .
+                  git add .
+                  git rebase --continue || {
+                    echo "Rebase continue failed, aborting and trying fresh checkout..."
+                    git rebase --abort 2>/dev/null || true
+                    # Start fresh from origin/gh-pages
+                    git reset --hard origin/gh-pages
+                    # Re-apply our changes
+                    mkdir -p pr-${{ github.event.pull_request.number }}
+                    rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
+                      --delete preview/pr-${{ github.event.pull_request.number }}/ \
+                      pr-${{ github.event.pull_request.number }}/
+                    git add .
+                    git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || true
+                  }
                 }
               fi
             fi

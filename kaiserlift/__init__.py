@@ -42,7 +42,7 @@ try:
         add_speed_metric_column,
         df_next_running_targets,
         process_running_csv_files,
-        parse_pace_string,
+        calculate_pace_from_duration,
         seconds_to_pace_string,
         predict_race_pace,
     )
@@ -75,7 +75,7 @@ __all__ = [
     "df_next_running_targets",
     "plot_running_df",
     "gen_running_html_viewer",
-    "parse_pace_string",
+    "calculate_pace_from_duration",
     "seconds_to_pace_string",
     "predict_race_pace",
 ]

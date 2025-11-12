@@ -13,13 +13,17 @@ import numpy as np
 import pandas as pd
 
 
-def parse_pace_string(pace_str: str) -> float:
-    """Convert pace string '9:30' (min:sec) to seconds per mile.
+def calculate_pace_from_duration(
+    duration_minutes: float, distance_miles: float
+) -> float:
+    """Calculate pace in seconds per mile from duration and distance.
 
     Parameters
     ----------
-    pace_str : str
-        Pace in format 'M:SS' or 'MM:SS'
+    duration_minutes : float
+        Total duration of run in minutes
+    distance_miles : float
+        Total distance in miles
 
     Returns
     -------
@@ -28,19 +32,18 @@ def parse_pace_string(pace_str: str) -> float:
 
     Examples
     --------
-    >>> parse_pace_string("9:30")
+    >>> calculate_pace_from_duration(27.0, 3.0)
+    540.0
+    >>> calculate_pace_from_duration(47.5, 5.0)
     570.0
-    >>> parse_pace_string("8:45")
-    525.0
     """
-    if pd.isna(pace_str) or pace_str == "":
+    if pd.isna(duration_minutes) or pd.isna(distance_miles) or distance_miles <= 0:
         return np.nan
     try:
-        parts = str(pace_str).split(":")
-        minutes = float(parts[0])
-        seconds = float(parts[1]) if len(parts) > 1 else 0
-        return minutes * 60 + seconds
-    except (ValueError, AttributeError, IndexError):
+        # Convert duration from minutes to seconds, then divide by distance
+        pace_seconds_per_mile = (duration_minutes * 60) / distance_miles
+        return pace_seconds_per_mile
+    except (ValueError, ZeroDivisionError):
         return np.nan
 
 
@@ -72,7 +75,7 @@ def seconds_to_pace_string(seconds: float) -> str:
 
 
 def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
-    """Load and clean a FitNotes CSV export for running data.
+    """Load and clean running data from CSV files.
 
     Parameters
     ----------
@@ -84,7 +87,8 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
     -------
     pd.DataFrame
         DataFrame with columns: [Date, Exercise, Category, Distance, Pace]
-        Pace is in seconds/mile. Distance in miles.
+        Pace is calculated from Duration and Distance and returned in seconds/mile.
+        Distance in miles.
     """
 
     file_list = list(files)
@@ -104,37 +108,44 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
     df = pd.read_csv(data_source)
     df.columns = df.columns.str.strip()
 
-    # Handle distance column variants (e.g., "Distance (miles)")
+    # Handle distance and duration column variants (e.g., "Distance (miles)", "Duration (minutes)")
     distance_like = next((c for c in df.columns if c.startswith("Distance (")), None)
     if distance_like and "Distance" not in df.columns:
         df = df.rename(columns={distance_like: "Distance"})
+
+    duration_like = next((c for c in df.columns if c.startswith("Duration (")), None)
+    if duration_like and "Duration" not in df.columns:
+        df = df.rename(columns={duration_like: "Duration"})
 
     # Parse date
     df["Date"] = pd.to_datetime(df["Date"], format="%Y-%m-%d")
     df_sorted = df.sort_values(by="Date", ascending=True)
 
-    # Ensure numeric types for Distance
+    # Ensure numeric types for Distance and Duration
     df_sorted["Distance"] = pd.to_numeric(
         df_sorted.get("Distance", np.nan), errors="coerce"
     )
+    df_sorted["Duration"] = pd.to_numeric(
+        df_sorted.get("Duration", np.nan), errors="coerce"
+    )
 
-    # Parse pace (min:sec format to seconds/mile)
-    if "Pace" in df_sorted.columns:
-        df_sorted["Pace"] = df_sorted["Pace"].apply(parse_pace_string)
-    else:
-        df_sorted["Pace"] = np.nan
+    # Calculate pace from Duration (minutes) and Distance (miles)
+    df_sorted["Pace"] = df_sorted.apply(
+        lambda row: calculate_pace_from_duration(
+            row.get("Duration", np.nan), row.get("Distance", np.nan)
+        ),
+        axis=1,
+    )
 
     # Filter to only Cardio category
     df_sorted = df_sorted[df_sorted["Category"] == "Cardio"]
 
-    # Drop unused columns
+    # Drop unused columns (Duration is dropped after calculating Pace)
     df_sorted = df_sorted.drop(
         [
             "Distance Unit",
-            "Pace Unit",
-            "Comment",
+            "Duration Unit",
             "Duration",
-            "Cadence",
             "Time",
             "Weight",
             "Reps",

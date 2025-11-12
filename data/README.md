@@ -23,7 +23,9 @@ Expected columns:
 - Exercise
 - Category
 - Distance (miles)
-- Pace
+- Duration (minutes)
+
+Note: Pace (seconds/mile) is automatically calculated from Duration and Distance during processing.
 
 ## Usage
 

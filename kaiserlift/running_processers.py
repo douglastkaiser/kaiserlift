@@ -261,7 +261,7 @@ def estimate_pace_at_distance(
 
     # Riegel's formula: pace increases by (distance_ratio)^0.06
     distance_ratio = target_distance / best_distance
-    pace_factor = distance_ratio ** 0.06
+    pace_factor = distance_ratio**0.06
 
     estimated_pace = best_pace * pace_factor
     return estimated_pace

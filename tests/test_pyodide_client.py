@@ -49,7 +49,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             const csv2 = `Date,Exercise,Category,Weight,Weight Unit,Reps,Distance,Distance Unit,Time,Comment\\n2025-05-23,Tricep Pushdown,Triceps,40,lbs,12,,,0:00:00,\\n2025-05-24,Tricep Pushdown,Triceps,45,lbs,10,,,0:00:00,`;
 
             const elements = {{
-              csvFile: {{ files: [{{ text: async () => csv1 }}] }},
+              csvFile: {{ files: [{{ name: 'test.csv', text: async () => csv1 }}] }},
               uploadButton: {{
                 addEventListener: (event, cb) => {{ elements.uploadButton._cb = cb; }},
                 click: async () => {{ await elements.uploadButton._cb(); }}
@@ -113,7 +113,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             console.log(elements.result.innerHTML.includes('Bicep Curl'));
             console.log(initCalls.length === 2);
 
-            elements.csvFile.files = [{{ text: async () => csv2 }}];
+            elements.csvFile.files = [{{ name: 'test.csv', text: async () => csv2 }}];
             await elements.uploadButton.click();
             console.log(initCalls.length === 3);
             console.log((elements.result.innerHTML.match(/id=\\"csvFile\\"/g) || []).length === 1);
@@ -134,7 +134,18 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
     )
 
     result = subprocess.run(
-        ["node", script.as_posix()], capture_output=True, text=True, check=True
+        ["node", script.as_posix()], capture_output=True, text=True, check=False
     )
+
+    # Provide detailed error message if the script failed
+    if result.returncode != 0:
+        error_msg = f"Node script failed with exit code {result.returncode}\n"
+        error_msg += f"\n=== STDOUT ===\n{result.stdout}\n"
+        error_msg += f"\n=== STDERR ===\n{result.stderr}"
+        raise AssertionError(error_msg)
+
     lines = [line for line in result.stdout.splitlines() if line]
-    assert lines[-24:] == ["true"] * 24
+    if lines[-24:] != ["true"] * 24:
+        error_msg = f"Expected 24 'true' lines, got:\n{lines[-24:]}\n"
+        error_msg += f"\n=== FULL STDOUT ===\n{result.stdout}"
+        raise AssertionError(error_msg)

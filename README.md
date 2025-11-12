@@ -1,7 +1,55 @@
-# [kaiserlift](https://www.douglastkaiser.com/projects/#workoutPlanner)
-A smarter way to choose your next workout: data-driven progressive overload
+# 🏋️ KaiserLift
 
-[pypi package](https://pypi.org/project/kaiserlift/)
+[![PyPI version](https://badge.fury.io/py/kaiserlift.svg)](https://pypi.org/project/kaiserlift/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+**A smarter way to choose your next workout: data-driven progressive overload**
+
+🎯 **Never guess your next workout again** — KaiserLift analyzes your training history and tells you exactly which exercise, weight, and rep range will give you the easiest PR.
+
+## ✨ Quick Start
+
+### Installation
+
+```bash
+pip install kaiserlift
+```
+
+Or with [uv](https://docs.astral.sh/uv/) (recommended):
+
+```bash
+uv pip install kaiserlift
+```
+
+### Run the Web Interface
+
+```bash
+kaiserlift-cli
+```
+
+Then open http://localhost:8000 in your browser and upload your FitNotes CSV export.
+
+### Use as a Python Library
+
+```python
+from kaiserlift import pipeline
+
+# Generate interactive HTML with workout recommendations
+html = pipeline(["your_fitnotes_export.csv"])
+with open("workout_plan.html", "w") as f:
+    f.write(html)
+```
+
+### CSV Data Format
+
+Your CSV should follow the FitNotes export format:
+
+```csv
+Date,Exercise,Category,Weight,Reps
+2022-09-14,Flat Barbell Bench Press,Chest,45.0,10
+2022-09-14,Dumbbell Curl,Biceps,35.0,10
+```
 
 ## Why keep doing 10 rep sets? Are you pushing in a smart way?
 
@@ -42,23 +90,7 @@ To this end I also made an HTML page that can organize these in a text searchabl
 
 ![Curl Pulldown Example - HTML](images/curlpulldown_html.png "Curl Pulldown Example - HTML")
 
-## How to use
-
-Current needs for the data format in a `.csv`
-```
-Date,Exercise,Category,Weight,Reps
-2022-09-14,Flat Barbell Bench Press,Chest,45.0,10""
-2022-09-14,Flat Barbell Bench Press,Chest,65.0,15""
-2022-09-14,Dumbbell Curl,Biceps,35.0,10""
-2022-09-14,Dumbbell Curl,Biceps,40.0,1,""
-2022-09-25,Parallel Bar Triceps Dip,Triceps,1.0,10""
-2022-09-25,Parallel Bar Triceps Dip,Triceps,1.0,12""
-```
-
-Installation
-```
-> uv pip install kaiserlift
-```
+## Advanced Usage
 
 ### Development
 

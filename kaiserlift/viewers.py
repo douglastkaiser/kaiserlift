@@ -1,7 +1,6 @@
 import numpy as np
 from difflib import get_close_matches
 import matplotlib.pyplot as plt
-import base64
 import re
 from io import BytesIO
 from .df_processers import (
@@ -192,13 +191,16 @@ def render_table_fragment(df) -> str:
     for exercise, slug in exercise_slug.items():
         fig = plot_df(df, df_records, df_targets, Exercise=exercise)
         buf = BytesIO()
-        fig.savefig(buf, format="png", bbox_inches="tight")
+        # Use SVG format instead of PNG for smaller file size and scalability
+        fig.savefig(buf, format="svg", bbox_inches="tight")
         buf.seek(0)
-        base64_img = base64.b64encode(buf.read()).decode("utf-8")
+        svg_data = buf.read().decode("utf-8")
+        # Embed SVG directly (smaller than base64-encoded PNG)
         img_html = (
-            f'<img src="data:image/png;base64,{base64_img}" '
-            f'id="fig-{slug}" class="exercise-figure" '
-            'style="display:none; max-width:100%; height:auto;">'
+            f'<div id="fig-{slug}" class="exercise-figure" '
+            f'style="display:none; max-width:100%; height:auto;">'
+            f"{svg_data}"
+            f"</div>"
         )
         figures_html[exercise] = img_html
         plt.close(fig)
@@ -247,49 +249,76 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         return fragment
 
     js_and_css = """
+    <!-- Preconnect to CDNs for faster loading -->
+    <link rel="preconnect" href="https://code.jquery.com">
+    <link rel="preconnect" href="https://cdn.datatables.net">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js" defer></script>
 
     <!-- Select2 for searchable dropdown -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" defer></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
     :root {
-        --bg: #ffffff;
-        --fg: #000000;
-        --bg-alt: #f5f5f5;
-        --border: #ccc;
+        --bg: #fafafa;
+        --fg: #1a1a1a;
+        --bg-alt: #ffffff;
+        --border: #e5e7eb;
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
     }
     @media (prefers-color-scheme: dark) {
         :root {
-            --bg: #121212;
-            --fg: #e0e0e0;
-            --bg-alt: #1e1e1e;
-            --border: #333;
+            --bg: #0f0f0f;
+            --fg: #e5e5e5;
+            --bg-alt: #1a1a1a;
+            --border: #2a2a2a;
+            --primary: #60a5fa;
+            --primary-hover: #3b82f6;
+            --success: #34d399;
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
         }
     }
     [data-theme="dark"] {
-        --bg: #121212;
-        --fg: #e0e0e0;
-        --bg-alt: #1e1e1e;
-        --border: #333;
+        --bg: #0f0f0f;
+        --fg: #e5e5e5;
+        --bg-alt: #1a1a1a;
+        --border: #2a2a2a;
+        --primary: #60a5fa;
+        --primary-hover: #3b82f6;
+        --success: #34d399;
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
     }
     [data-theme="light"] {
-        --bg: #ffffff;
-        --fg: #000000;
-        --bg-alt: #f5f5f5;
-        --border: #ccc;
+        --bg: #fafafa;
+        --fg: #1a1a1a;
+        --bg-alt: #ffffff;
+        --border: #e5e7eb;
+        --primary: #3b82f6;
+        --primary-hover: #2563eb;
+        --success: #10b981;
+        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
     }
+
+    * {
+        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    }
+
     body {
-        font-family: Arial, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         font-size: 34px;
         padding: 28px;
         background-color: var(--bg);
         color: var(--fg);
+        line-height: 1.5;
     }
 
     table.dataTable {
@@ -299,18 +328,51 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         background-color: var(--bg-alt);
         color: var(--fg);
         border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+    }
+
+    table.dataTable thead th {
+        background-color: var(--bg);
+        font-weight: 600;
+        padding: 12px;
+        border-bottom: 2px solid var(--border);
+    }
+
+    table.dataTable tbody td {
+        padding: 10px 12px;
+    }
+
+    table.dataTable tbody tr {
+        border-bottom: 1px solid var(--border);
+    }
+
+    table.dataTable tbody tr:hover {
+        background-color: var(--bg);
     }
 
     label {
         font-size: 34px;
         color: var(--fg);
+        font-weight: 500;
+        margin-bottom: 8px;
+        display: inline-block;
     }
 
     select {
         font-size: 34px;
         color: var(--fg);
         background-color: var(--bg-alt);
-        border: 1px solid var(--border);
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        padding: 8px 12px;
+    }
+
+    select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
     /* Dark mode overrides for DataTables and Select2 */
@@ -396,32 +458,97 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
 
     #uploadButton {
-        padding: 8px 16px;
+        padding: 10px 20px;
         border: none;
-        border-radius: 6px;
-        background-color: #007bff;
-        color: #fff;
+        border-radius: 8px;
+        background-color: var(--primary);
+        color: #ffffff;
         cursor: pointer;
+        font-weight: 600;
+        font-size: 28px;
+        box-shadow: var(--shadow);
+        transition: all 0.2s ease;
     }
 
     #uploadButton:hover {
-        background-color: #0056b3;
+        background-color: var(--primary-hover);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+
+    #uploadButton:active {
+        transform: translateY(0);
     }
 
     #csvFile {
-        padding: 6px;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        background-color: var(--bg);
+        padding: 10px;
+        border: 2px solid var(--border);
+        border-radius: 6px;
+        background-color: var(--bg-alt);
         color: var(--fg);
+        font-size: 28px;
+    }
+
+    #csvFile:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .exercise-figure {
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        margin: 20px 0;
+        opacity: 0;
+        animation: fadeIn 0.3s ease-in forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .exercise-figure svg {
+        max-width: 100%;
+        height: auto;
+        display: block;
     }
 
     @media only screen and (max-width: 600px) {
-        table, thead, tbody, th, td, tr {
-            display: block;
+        body {
+            padding: 16px;
         }
-        th {
-            text-align: left;
+
+        table.dataTable {
+            font-size: 28px;
+        }
+
+        label {
+            font-size: 30px;
+        }
+
+        select {
+            font-size: 30px;
+        }
+
+        #uploadButton {
+            font-size: 26px;
+            padding: 12px 20px;
+        }
+
+        #csvFile {
+            font-size: 26px;
+        }
+
+        .upload-controls {
+            flex-direction: column;
+            align-items: stretch;
         }
     }
     </style>
@@ -436,16 +563,30 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     """
 
     scripts = """
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js" defer></script>
     <script type="module" src="main.js"></script>
     """
-    meta = '<meta charset="utf-8">'
+    meta = """
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <meta name="description" content="KaiserLift workout analysis - Data-driven progressive overload with Pareto optimization">
+    """
     head_html = meta + js_and_css + scripts
     toggle_html = (
         '<button id="themeToggle" '
-        'style="position:fixed;top:10px;right:10px;padding:4px;'
+        'style="position:fixed;top:16px;right:16px;'
+        "padding:10px 14px;"
         "background:var(--bg-alt);color:var(--fg);"
-        'border:1px solid var(--border);border-radius:4px;">🌓</button>'
+        "border:2px solid var(--border);"
+        "border-radius:8px;"
+        "cursor:pointer;"
+        "font-size:24px;"
+        "box-shadow:var(--shadow);"
+        "transition:all 0.2s ease;"
+        'z-index:1000;"'
+        "onmouseover=\"this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.15)'\" "
+        "onmouseout=\"this.style.transform='translateY(0)';this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'\">"
+        "🌓</button>"
     )
     theme_script = """
     <script>

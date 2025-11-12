@@ -23,7 +23,8 @@ def test_running_pipeline_with_sample_data():
     # Verify key components are present
     assert "runningTable" in html_output
     assert "runningDropdown" in html_output
-    assert "data:image/png;base64" in html_output  # Plot embedded
+    assert "<svg" in html_output  # SVG plot embedded
+    assert "running-figure" in html_output  # Plot container div
 
 
 def test_running_pipeline_fragment_mode():

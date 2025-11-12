@@ -12,18 +12,20 @@ def main() -> None:
     out_dir = here / "build"
     out_dir.mkdir(exist_ok=True)
 
-    # Generate lifting example
+    # Generate lifting example (keep as example.html for backwards compatibility)
     csv_files = glob.glob(str(here / "FitNotes_Export_*.csv"))
     df = process_csv_files(csv_files)
     lifting_html = gen_html_viewer(df)
     (out_dir / "example.html").write_text(lifting_html, encoding="utf-8")
 
-    # Generate running example
+    # Generate running example with clean URL (running/index.html -> /running)
     running_csv = here / "running_sample.csv"
     if running_csv.exists():
         df_running = process_running_csv_files([running_csv])
         running_html = gen_running_html_viewer(df_running)
-        (out_dir / "running.html").write_text(running_html, encoding="utf-8")
+        running_dir = out_dir / "running"
+        running_dir.mkdir(exist_ok=True)
+        (running_dir / "index.html").write_text(running_html, encoding="utf-8")
 
     # Generate landing page
     landing_script = here / "generate_landing_page.py"

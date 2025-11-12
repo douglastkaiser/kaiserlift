@@ -115,7 +115,7 @@ def main() -> None:
             <li>✅ Training target recommendations</li>
         </ul>
         <p>
-            <strong>→ <a href="running.html">View Running Demo</a></strong>
+            <strong>→ <a href="running/">View Running Demo</a></strong>
         </p>
     </div>
 

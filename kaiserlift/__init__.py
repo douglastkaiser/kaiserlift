@@ -30,10 +30,29 @@ try:
     )
 
     from .pipeline import pipeline
+
+    from .running_viewers import (
+        plot_running_df,
+        gen_running_html_viewer,
+    )
+
+    from .running_processers import (
+        highest_pace_per_distance,
+        estimate_pace_at_distance,
+        add_speed_metric_column,
+        df_next_running_targets,
+        process_running_csv_files,
+        parse_pace_string,
+        seconds_to_pace_string,
+        predict_race_pace,
+    )
+
+    from .running_pipeline import running_pipeline
 except ModuleNotFoundError:  # pragma: no cover - allow __version__ without deps
     pass
 
 __all__ = [
+    # Lifting functions
     "calculate_1rm",
     "highest_weight_per_rep",
     "estimate_weight_from_1rm",
@@ -47,4 +66,16 @@ __all__ = [
     "process_csv_files",
     "gen_html_viewer",
     "pipeline",
+    # Running functions
+    "running_pipeline",
+    "process_running_csv_files",
+    "highest_pace_per_distance",
+    "estimate_pace_at_distance",
+    "add_speed_metric_column",
+    "df_next_running_targets",
+    "plot_running_df",
+    "gen_running_html_viewer",
+    "parse_pace_string",
+    "seconds_to_pace_string",
+    "predict_race_pace",
 ]

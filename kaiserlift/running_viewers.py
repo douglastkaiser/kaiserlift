@@ -5,6 +5,7 @@ running/cardio data visualization.
 """
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import re
 from io import BytesIO
@@ -47,7 +48,9 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     # Add Speed column if not present (Speed = 3600 / Pace)
     if "Speed" not in df.columns and "Pace" in df.columns:
-        df["Speed"] = df["Pace"].apply(lambda p: 3600 / p if p > 0 else np.nan)
+        df["Speed"] = df["Pace"].apply(
+            lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
+        )
 
     if Exercise is None:
         # Plot all exercises normalized
@@ -79,14 +82,14 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         df_pareto = df_pareto[df_pareto["Exercise"] == Exercise].copy()
         if "Speed" not in df_pareto.columns and "Pace" in df_pareto.columns:
             df_pareto["Speed"] = df_pareto["Pace"].apply(
-                lambda p: 3600 / p if p > 0 else np.nan
+                lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
             )
 
     if df_targets is not None:
         df_targets = df_targets[df_targets["Exercise"] == Exercise].copy()
         if "Speed" not in df_targets.columns and "Pace" in df_targets.columns:
             df_targets["Speed"] = df_targets["Pace"].apply(
-                lambda p: 3600 / p if p > 0 else np.nan
+                lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
             )
 
     # Calculate axis limits
@@ -112,18 +115,20 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Get the pace corresponding to max_speed for curve estimation
         max_speed_idx = pareto_speeds.index(max_speed)
-        best_pace = 3600 / max_speed  # Convert back to pace for estimation
+        best_pace = 3600 / max_speed if max_speed > 0 else np.nan
         best_distance = pareto_dists[max_speed_idx]
 
         # Generate speed curve (convert pace estimates to speed)
-        x_vals = np.linspace(min_dist, plot_max_dist, 100)
-        y_vals = [
-            3600 / estimate_pace_at_distance(best_pace, best_distance, d)
-            if estimate_pace_at_distance(best_pace, best_distance, d) > 0
-            else np.nan
-            for d in x_vals
-        ]
-        ax.plot(x_vals, y_vals, "k--", label="Best Speed Curve", alpha=0.7)
+        if not np.isnan(best_pace):
+            x_vals = np.linspace(min_dist, plot_max_dist, 100)
+            y_vals = []
+            for d in x_vals:
+                pace_est = estimate_pace_at_distance(best_pace, best_distance, d)
+                if pace_est > 0 and not np.isnan(pace_est):
+                    y_vals.append(3600 / pace_est)
+                else:
+                    y_vals.append(np.nan)
+            ax.plot(x_vals, y_vals, "k--", label="Best Speed Curve", alpha=0.7)
 
         # Plot step line and markers
         ax.step(
@@ -148,18 +153,20 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         # Get max speed from targets
         max_target_speed = max(target_speeds)
         max_target_idx = target_speeds.index(max_target_speed)
-        target_pace = 3600 / max_target_speed
+        target_pace = 3600 / max_target_speed if max_target_speed > 0 else np.nan
         target_distance = target_dists[max_target_idx]
 
         # Generate dotted target speed curve
-        x_vals = np.linspace(min_dist, plot_max_dist, 100)
-        y_vals = [
-            3600 / estimate_pace_at_distance(target_pace, target_distance, d)
-            if estimate_pace_at_distance(target_pace, target_distance, d) > 0
-            else np.nan
-            for d in x_vals
-        ]
-        ax.plot(x_vals, y_vals, "g-.", label="Max Target Speed", alpha=0.7)
+        if not np.isnan(target_pace):
+            x_vals = np.linspace(min_dist, plot_max_dist, 100)
+            y_vals = []
+            for d in x_vals:
+                pace_est = estimate_pace_at_distance(target_pace, target_distance, d)
+                if pace_est > 0 and not np.isnan(pace_est):
+                    y_vals.append(3600 / pace_est)
+                else:
+                    y_vals.append(np.nan)
+            ax.plot(x_vals, y_vals, "g-.", label="Max Target Speed", alpha=0.7)
 
         ax.scatter(
             target_dists,

@@ -89,9 +89,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Save current branch
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
           # Fetch gh-pages branch or create it
           git fetch origin gh-pages || true
           git checkout gh-pages || git checkout --orphan gh-pages
+
+          # Clean working directory if orphan
+          if [ -z "$(git log --oneline -1 2>/dev/null)" ]; then
+            git rm -rf . 2>/dev/null || true
+          fi
 
           # Create PR directory
           mkdir -p pr-${{ github.event.pull_request.number }}
@@ -99,39 +107,39 @@ jobs:
 
           # Create or update index
           if [ ! -f index.html ]; then
-            cat > index.html << 'INDEXEOF'
-            <!DOCTYPE html>
-            <html>
-            <head><title>KaiserLift Previews</title></head>
-            <body>
-              <h1>KaiserLift Preview Deployments</h1>
-              <p>Preview deployments are organized by PR number.</p>
-              <ul id="pr-list"></ul>
-              <script>
-                // List PR directories
-                fetch('.')
-                  .then(r => r.text())
-                  .then(html => {
-                    const dirs = [...html.matchAll(/pr-(\d+)/g)].map(m => m[1]);
-                    const list = document.getElementById('pr-list');
-                    [...new Set(dirs)].sort((a,b) => b-a).forEach(pr => {
-                      const li = document.createElement('li');
-                      li.innerHTML = `<a href="pr-${pr}/">PR #${pr}</a>`;
-                      list.appendChild(li);
-                    });
-                  });
-              </script>
-            </body>
-            </html>
-            INDEXEOF
+            cat > index.html <<'INDEXEOF'
+<!DOCTYPE html>
+<html>
+<head><title>KaiserLift Previews</title></head>
+<body>
+  <h1>KaiserLift Preview Deployments</h1>
+  <p>Preview deployments are organized by PR number.</p>
+  <ul id="pr-list"></ul>
+  <script>
+    // List PR directories
+    fetch('.')
+      .then(r => r.text())
+      .then(html => {
+        const dirs = [...html.matchAll(/pr-(\d+)/g)].map(m => m[1]);
+        const list = document.getElementById('pr-list');
+        [...new Set(dirs)].sort((a,b) => b-a).forEach(pr => {
+          const li = document.createElement('li');
+          li.innerHTML = `<a href="pr-${pr}/">PR #${pr}</a>`;
+          list.appendChild(li);
+        });
+      });
+  </script>
+</body>
+</html>
+INDEXEOF
           fi
 
           git add .
           git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
-          git push origin gh-pages
+          git push origin gh-pages || git push -u origin gh-pages
 
           # Switch back to original branch
-          git checkout ${{ github.head_ref }}
+          git checkout "$CURRENT_BRANCH" || git checkout -
 
       # Comment on PR with preview link
       - name: Comment preview link

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kaiserlift"
-version = "0.1.48"
+version = "0.1.49"
 description = "Data-driven progressive overload"
 readme = "README.md"
 authors = [{ name = "Douglas Kaiser", email = "douglastkaiser@gmail.com" }]

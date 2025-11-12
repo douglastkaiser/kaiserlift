@@ -78,12 +78,16 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     if df_pareto is not None:
         df_pareto = df_pareto[df_pareto["Exercise"] == Exercise].copy()
         if "Speed" not in df_pareto.columns and "Pace" in df_pareto.columns:
-            df_pareto["Speed"] = df_pareto["Pace"].apply(lambda p: 3600 / p if p > 0 else np.nan)
+            df_pareto["Speed"] = df_pareto["Pace"].apply(
+                lambda p: 3600 / p if p > 0 else np.nan
+            )
 
     if df_targets is not None:
         df_targets = df_targets[df_targets["Exercise"] == Exercise].copy()
         if "Speed" not in df_targets.columns and "Pace" in df_targets.columns:
-            df_targets["Speed"] = df_targets["Pace"].apply(lambda p: 3600 / p if p > 0 else np.nan)
+            df_targets["Speed"] = df_targets["Pace"].apply(
+                lambda p: 3600 / p if p > 0 else np.nan
+            )
 
     # Calculate axis limits
     distance_series = [df["Distance"]]

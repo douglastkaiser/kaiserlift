@@ -49,7 +49,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             const csv2 = `Date,Exercise,Category,Weight,Weight Unit,Reps,Distance,Distance Unit,Time,Comment\\n2025-05-23,Tricep Pushdown,Triceps,40,lbs,12,,,0:00:00,\\n2025-05-24,Tricep Pushdown,Triceps,45,lbs,10,,,0:00:00,`;
 
             const elements = {{
-              csvFile: {{ files: [{{ text: async () => csv1 }}] }},
+              csvFile: {{ files: [{{ name: 'test.csv', text: async () => csv1 }}] }},
               uploadButton: {{
                 addEventListener: (event, cb) => {{ elements.uploadButton._cb = cb; }},
                 click: async () => {{ await elements.uploadButton._cb(); }}
@@ -113,7 +113,7 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
             console.log(elements.result.innerHTML.includes('Bicep Curl'));
             console.log(initCalls.length === 2);
 
-            elements.csvFile.files = [{{ text: async () => csv2 }}];
+            elements.csvFile.files = [{{ name: 'test.csv', text: async () => csv2 }}];
             await elements.uploadButton.click();
             console.log(initCalls.length === 3);
             console.log((elements.result.innerHTML.match(/id=\\"csvFile\\"/g) || []).length === 1);

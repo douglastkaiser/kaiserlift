@@ -134,7 +134,18 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
     )
 
     result = subprocess.run(
-        ["node", script.as_posix()], capture_output=True, text=True, check=True
+        ["node", script.as_posix()], capture_output=True, text=True, check=False
     )
+
+    # Provide detailed error message if the script failed
+    if result.returncode != 0:
+        error_msg = f"Node script failed with exit code {result.returncode}\n"
+        error_msg += f"\n=== STDOUT ===\n{result.stdout}\n"
+        error_msg += f"\n=== STDERR ===\n{result.stderr}"
+        raise AssertionError(error_msg)
+
     lines = [line for line in result.stdout.splitlines() if line]
-    assert lines[-24:] == ["true"] * 24
+    if lines[-24:] != ["true"] * 24:
+        error_msg = f"Expected 24 'true' lines, got:\n{lines[-24:]}\n"
+        error_msg += f"\n=== FULL STDOUT ===\n{result.stdout}"
+        raise AssertionError(error_msg)

@@ -184,14 +184,23 @@ jobs:
       # ===== Generate Summary =====
       - name: Parse coverage percentage
         id: coverage
+        continue-on-error: true
         run: |
-          COVERAGE=$(python -c "import json; print(json.load(open('evaluation_bundle/coverage.json'))['totals']['percent_covered'])")
-          echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
+          if [ -f evaluation_bundle/coverage.json ]; then
+            COVERAGE=$(python3 -c "import json; print(f\"{json.load(open('evaluation_bundle/coverage.json'))['totals']['percent_covered']:.2f}\")")
+            echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
+          else
+            echo "percentage=N/A" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Add evaluation summary to job
         run: |
-          WHEEL_SIZE=$(stat -f%z evaluation_bundle/*.whl 2>/dev/null || stat -c%s evaluation_bundle/*.whl)
-          WHEEL_SIZE_KB=$((WHEEL_SIZE / 1024))
+          if ls evaluation_bundle/*.whl 1> /dev/null 2>&1; then
+            WHEEL_SIZE=$(stat -f%z evaluation_bundle/*.whl 2>/dev/null || stat -c%s evaluation_bundle/*.whl)
+            WHEEL_SIZE_KB=$((WHEEL_SIZE / 1024))
+          else
+            WHEEL_SIZE_KB="N/A"
+          fi
 
           cat >> "$GITHUB_STEP_SUMMARY" << EOL
           # 🎯 Branch Evaluation Complete

@@ -83,7 +83,8 @@ jobs:
         run: |
           uv venv
           uv build
-          uv pip install "dist/*.whl[dev]"
+          WHEEL=$(ls dist/*.whl)
+          uv pip install "${WHEEL}[dev]"
 
       - name: Inject version into client
         run: uv run --no-project python scripts/inject_version.py

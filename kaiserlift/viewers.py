@@ -1,7 +1,6 @@
 import numpy as np
 from difflib import get_close_matches
 import matplotlib.pyplot as plt
-import base64
 import re
 from io import BytesIO
 from .df_processers import (
@@ -200,8 +199,8 @@ def render_table_fragment(df) -> str:
         img_html = (
             f'<div id="fig-{slug}" class="exercise-figure" '
             f'style="display:none; max-width:100%; height:auto;">'
-            f'{svg_data}'
-            f'</div>'
+            f"{svg_data}"
+            f"</div>"
         )
         figures_html[exercise] = img_html
         plt.close(fig)
@@ -567,27 +566,27 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js" defer></script>
     <script type="module" src="main.js"></script>
     """
-    meta = '''
+    meta = """
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="description" content="KaiserLift workout analysis - Data-driven progressive overload with Pareto optimization">
-    '''
+    """
     head_html = meta + js_and_css + scripts
     toggle_html = (
         '<button id="themeToggle" '
         'style="position:fixed;top:16px;right:16px;'
-        'padding:10px 14px;'
-        'background:var(--bg-alt);color:var(--fg);'
-        'border:2px solid var(--border);'
-        'border-radius:8px;'
-        'cursor:pointer;'
-        'font-size:24px;'
-        'box-shadow:var(--shadow);'
-        'transition:all 0.2s ease;'
+        "padding:10px 14px;"
+        "background:var(--bg-alt);color:var(--fg);"
+        "border:2px solid var(--border);"
+        "border-radius:8px;"
+        "cursor:pointer;"
+        "font-size:24px;"
+        "box-shadow:var(--shadow);"
+        "transition:all 0.2s ease;"
         'z-index:1000;"'
-        'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.boxShadow=\'0 4px 6px rgba(0,0,0,0.15)\'" '
-        'onmouseout="this.style.transform=\'translateY(0)\';this.style.boxShadow=\'0 1px 3px rgba(0,0,0,0.1)\'">'
-        '🌓</button>'
+        "onmouseover=\"this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 6px rgba(0,0,0,0.15)'\" "
+        "onmouseout=\"this.style.transform='translateY(0)';this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'\">"
+        "🌓</button>"
     )
     theme_script = """
     <script>

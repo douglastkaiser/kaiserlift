@@ -6,7 +6,6 @@ running/cardio data visualization.
 
 import numpy as np
 import matplotlib.pyplot as plt
-import base64
 import re
 from io import BytesIO
 
@@ -204,8 +203,8 @@ def render_running_table_fragment(df) -> str:
         img_html = (
             f'<div id="fig-{slug}" class="running-figure" '
             f'style="display:none; max-width:100%; height:auto;">'
-            f'{svg_data}'
-            f'</div>'
+            f"{svg_data}"
+            f"</div>"
         )
         figures_html[exercise] = img_html
         plt.close(fig)
@@ -659,10 +658,12 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     </script>
     """
 
-    meta = '''
+    meta = """
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="description" content="KaiserLift running analysis - Data-driven pace optimization with Pareto front">
-    '''
+    """
     body_html = upload_html + f'<div id="result">{fragment}</div>'
-    return f"<html><head>{meta}{js_and_css}</head><body>{body_html}{scripts}</body></html>"
+    return (
+        f"<html><head>{meta}{js_and_css}</head><body>{body_html}{scripts}</body></html>"
+    )

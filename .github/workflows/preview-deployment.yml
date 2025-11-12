@@ -94,6 +94,14 @@ jobs:
           # Save current branch
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
+          # Save preview content to temp directory (outside git working tree)
+          # This ensures it survives git reset operations
+          TEMP_PREVIEW="/tmp/pr-preview-${{ github.event.pull_request.number }}"
+          rm -rf "$TEMP_PREVIEW"
+          mkdir -p "$TEMP_PREVIEW"
+          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
+            preview/pr-${{ github.event.pull_request.number }}/ "$TEMP_PREVIEW/"
+
           # Fetch gh-pages branch or create it
           git fetch origin gh-pages || true
           git checkout gh-pages || git checkout --orphan gh-pages
@@ -106,10 +114,9 @@ jobs:
             git pull origin gh-pages || true
           fi
 
-          # Create PR directory and copy files (excluding cache files)
+          # Create PR directory and copy files from temp location
           mkdir -p pr-${{ github.event.pull_request.number }}
-          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-            preview/pr-${{ github.event.pull_request.number }}/ pr-${{ github.event.pull_request.number }}/
+          rsync -av "$TEMP_PREVIEW/" pr-${{ github.event.pull_request.number }}/
 
           # Create or update index
           if [ ! -f index.html ]; then
@@ -140,7 +147,8 @@ jobs:
           EOF
           fi
 
-          git add .
+          # Only add the PR directory and index, not preview/ or other files
+          git add pr-${{ github.event.pull_request.number }}/ index.html
           git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
 
           # Push with retry logic to handle concurrent deployments
@@ -163,19 +171,42 @@ jobs:
                 git rebase origin/gh-pages || {
                   echo "Rebase had conflicts, resolving by accepting our version..."
                   # Accept our version for all conflicts
-                  git checkout --ours .
-                  git add .
+                  git checkout --ours pr-${{ github.event.pull_request.number }}/ index.html
+                  git add pr-${{ github.event.pull_request.number }}/ index.html
                   git rebase --continue || {
                     echo "Rebase continue failed, aborting and trying fresh checkout..."
                     git rebase --abort 2>/dev/null || true
                     # Start fresh from origin/gh-pages
                     git reset --hard origin/gh-pages
-                    # Re-apply our changes
+                    # Re-apply our changes from temp directory
                     mkdir -p pr-${{ github.event.pull_request.number }}
-                    rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-                      --delete preview/pr-${{ github.event.pull_request.number }}/ \
-                      pr-${{ github.event.pull_request.number }}/
-                    git add .
+                    rsync -av "$TEMP_PREVIEW/" pr-${{ github.event.pull_request.number }}/
+                    # Ensure index exists
+                    if [ ! -f index.html ]; then
+                      cat > index.html <<'INNEREOF'
+<!DOCTYPE html>
+<html>
+<head><title>KaiserLift Previews</title></head>
+<body>
+  <h1>KaiserLift Preview Deployments</h1>
+  <p>Preview deployments are organized by PR number.</p>
+  <ul id="pr-list"></ul>
+  <script>
+    fetch('.').then(r => r.text()).then(html => {
+      const dirs = [...html.matchAll(/pr-(\d+)/g)].map(m => m[1]);
+      const list = document.getElementById('pr-list');
+      [...new Set(dirs)].sort((a,b) => b-a).forEach(pr => {
+        const li = document.createElement('li');
+        li.innerHTML = '<a href="pr-' + pr + '/">PR #' + pr + '</a>';
+        list.appendChild(li);
+      });
+    });
+  </script>
+</body>
+</html>
+INNEREOF
+                    fi
+                    git add pr-${{ github.event.pull_request.number }}/ index.html
                     git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || true
                   }
                 }

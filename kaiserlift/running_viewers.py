@@ -202,9 +202,15 @@ def render_running_table_fragment(df) -> str:
     str
         HTML fragment with dropdown, table, and figures
     """
+    import sys
+    print(f"DEBUG: Input df shape: {df.shape}, columns: {df.columns.tolist()}", file=sys.stderr)
+    print(f"DEBUG: Unique exercises: {df['Exercise'].unique().tolist() if 'Exercise' in df.columns else 'No Exercise column'}", file=sys.stderr)
 
     df_records = highest_pace_per_distance(df)
+    print(f"DEBUG: df_records shape: {df_records.shape}, has Speed: {'Speed' in df_records.columns}", file=sys.stderr)
+
     df_targets = df_next_running_targets(df_records)
+    print(f"DEBUG: df_targets shape: {df_targets.shape}, has Speed: {'Speed' in df_targets.columns}", file=sys.stderr)
 
     # Format pace columns for display
     if not df_targets.empty:
@@ -227,21 +233,29 @@ def render_running_table_fragment(df) -> str:
 
     # Generate plots for each exercise
     for exercise, slug in exercise_slug.items():
-        fig = plot_running_df(df, df_records, df_targets, Exercise=exercise)
-        buf = BytesIO()
-        # Use SVG format instead of PNG for smaller file size and scalability
-        fig.savefig(buf, format="svg", bbox_inches="tight")
-        buf.seek(0)
-        svg_data = buf.read().decode("utf-8")
-        # Embed SVG directly (smaller than base64-encoded PNG)
-        img_html = (
-            f'<div id="fig-{slug}" class="running-figure" '
-            f'style="display:none; max-width:100%; height:auto;">'
-            f"{svg_data}"
-            f"</div>"
-        )
-        figures_html[exercise] = img_html
-        plt.close(fig)
+        try:
+            fig = plot_running_df(df, df_records, df_targets, Exercise=exercise)
+            buf = BytesIO()
+            # Use SVG format instead of PNG for smaller file size and scalability
+            fig.savefig(buf, format="svg", bbox_inches="tight")
+            buf.seek(0)
+            svg_data = buf.read().decode("utf-8")
+            # Embed SVG directly (smaller than base64-encoded PNG)
+            img_html = (
+                f'<div id="fig-{slug}" class="running-figure" '
+                f'style="display:none; max-width:100%; height:auto;">'
+                f"{svg_data}"
+                f"</div>"
+            )
+            figures_html[exercise] = img_html
+            plt.close(fig)
+        except Exception as e:
+            # If plot generation fails, log error but continue
+            import sys
+            print(f"Warning: Failed to generate plot for {exercise}: {e}", file=sys.stderr)
+            import traceback
+            traceback.print_exc()
+            plt.close('all')  # Clean up any partial figures
 
     all_figures_html = "\n".join(figures_html.values())
 

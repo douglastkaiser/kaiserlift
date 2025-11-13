@@ -239,6 +239,43 @@ def render_running_table_fragment(df) -> str:
     # Format pace columns for display
     if not df_targets.empty:
         df_targets_display = df_targets.copy()
+
+        # Calculate distance from pareto curve for each target
+        distances_from_pareto = []
+        for _, row in df_targets_display.iterrows():
+            exercise = row["Exercise"]
+            target_dist = row["Distance"]
+            target_speed = row["Speed"]
+
+            # Get pareto data for this exercise
+            exercise_records = df_records[df_records["Exercise"] == exercise]
+            if not exercise_records.empty:
+                # Find best speed on pareto front
+                pareto_speeds = exercise_records["Speed"].tolist()
+                pareto_dists = exercise_records["Distance"].tolist()
+                max_speed = max(pareto_speeds)
+                max_speed_idx = pareto_speeds.index(max_speed)
+                best_pace = 3600 / max_speed if max_speed > 0 else np.nan
+                best_distance = pareto_dists[max_speed_idx]
+
+                # Estimate pareto speed at target distance
+                if not np.isnan(best_pace):
+                    pareto_pace_est = estimate_pace_at_distance(best_pace, best_distance, target_dist)
+                    if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
+                        pareto_speed_est = 3600 / pareto_pace_est
+                        # Calculate speed difference (mph)
+                        distance_from_pareto = abs(target_speed - pareto_speed_est)
+                        distances_from_pareto.append(distance_from_pareto)
+                    else:
+                        distances_from_pareto.append(np.inf)
+                else:
+                    distances_from_pareto.append(np.inf)
+            else:
+                distances_from_pareto.append(np.inf)
+
+        df_targets_display["Distance from Pareto (mph)"] = distances_from_pareto
+        df_targets_display["Distance from Pareto (mph)"] = df_targets_display["Distance from Pareto (mph)"].round(3)
+
         df_targets_display["Pace"] = df_targets_display["Pace"].apply(
             seconds_to_pace_string
         )
@@ -623,7 +660,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         // Initialize DataTable
         $('#runningTable').DataTable({
             pageLength: 25,
-            order: [[0, 'asc']]
+            order: [[4, 'asc']]  // Sort by "Distance from Pareto" column (index 4) - closest targets first
         });
 
         // Theme toggle

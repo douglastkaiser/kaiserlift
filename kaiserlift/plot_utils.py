@@ -40,6 +40,7 @@ def plotly_figure_to_html_div(fig, slug: str, display: str = "none") -> str:
     """
     plotly_html = fig.to_html(
         include_plotlyjs=False,
+        full_html=False,
         div_id=f"fig-{slug}",
         config={"displayModeBar": True, "displaylogo": False},
     )

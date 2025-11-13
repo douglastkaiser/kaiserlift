@@ -9,6 +9,6 @@ This is a preview deployment for PR #77
 ## PR Information
 - **Title:** Add basic interactivity to data plots
 - **Branch:** claude/add-interactive-plots-011CV51SnCimvVSyFAasxBFK
-- **Commit:** a0714610d9ff49bfa5d4ca096c79941ef14d48d0
+- **Commit:** 636b1bdc363cc35410c59a8ab81c78a3e449515c
 
 [View PR](https://github.com/douglastkaiser/kaiserlift/pull/77)

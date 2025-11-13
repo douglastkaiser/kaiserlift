@@ -14,12 +14,12 @@
 
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js" defer></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
 
     <!-- Select2 for searchable dropdown -->
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
     <!-- Custom Styling for Mobile -->
     <style>
@@ -4352,10 +4352,45 @@
 </body>
 </html></div></div>
     <script>
-    document.getElementById('themeToggle').addEventListener('click', () => {
-      const root = document.documentElement;
-      const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-      root.setAttribute('data-theme', current);
+    // Wait for DOM to be ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Theme toggle
+      document.getElementById('themeToggle').addEventListener('click', () => {
+        const root = document.documentElement;
+        const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        root.setAttribute('data-theme', current);
+      });
+
+      // Initialize DataTable
+      const table = $('#exerciseTable').DataTable({
+        pageLength: 25,
+        order: [[0, 'asc']]
+      });
+
+      // Initialize Select2
+      $('#exerciseDropdown').select2({
+        placeholder: 'Select an exercise',
+        allowClear: true
+      });
+
+      // Handle exercise dropdown change
+      $('#exerciseDropdown').on('change', function() {
+        const selectedExercise = $(this).val();
+        const selectedSlug = $(this).find(':selected').data('fig');
+
+        // Filter DataTable
+        if (selectedExercise) {
+          table.column(0).search('^' + selectedExercise + '$', true, false).draw();
+        } else {
+          table.column(0).search('').draw();
+        }
+
+        // Show/hide figures
+        $('.exercise-figure').hide();
+        if (selectedSlug) {
+          $('#fig-' + selectedSlug + '-wrapper').show();
+        }
+      });
     });
     </script>
     </body></html>

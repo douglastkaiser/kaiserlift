@@ -21,7 +21,9 @@ def slugify(name: str) -> str:
     return slug.lower()
 
 
-def plotly_figure_to_html_div(fig, slug: str, display: str = "none") -> str:
+def plotly_figure_to_html_div(
+    fig, slug: str, display: str = "none", css_class: str = "exercise-figure"
+) -> str:
     """Convert a Plotly figure to an HTML div with wrapper.
 
     Parameters
@@ -32,6 +34,8 @@ def plotly_figure_to_html_div(fig, slug: str, display: str = "none") -> str:
         Slugified name for the div ID
     display : str, optional
         CSS display property value (default: "none")
+    css_class : str, optional
+        CSS class for the wrapper div (default: "exercise-figure")
 
     Returns
     -------
@@ -46,7 +50,7 @@ def plotly_figure_to_html_div(fig, slug: str, display: str = "none") -> str:
     )
 
     return (
-        f'<div id="fig-{slug}-wrapper" class="exercise-figure" '
+        f'<div id="fig-{slug}-wrapper" class="{css_class}" '
         f'style="display:{display};">'
         f"{plotly_html}"
         f"</div>"

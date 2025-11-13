@@ -400,7 +400,9 @@ def render_running_table_fragment(df) -> str:
         try:
             fig = plot_running_df(df, df_records, df_targets, Exercise=exercise)
             # Convert Plotly figure to HTML div with wrapper
-            img_html = plotly_figure_to_html_div(fig, slug, display="block")
+            img_html = plotly_figure_to_html_div(
+                fig, slug, display="block", css_class="running-figure"
+            )
             figures_html[exercise] = img_html
         except Exception:
             # If plot generation fails, skip this exercise and continue

@@ -260,7 +260,9 @@ def render_running_table_fragment(df) -> str:
 
                 # Estimate pareto speed at target distance
                 if not np.isnan(best_pace):
-                    pareto_pace_est = estimate_pace_at_distance(best_pace, best_distance, target_dist)
+                    pareto_pace_est = estimate_pace_at_distance(
+                        best_pace, best_distance, target_dist
+                    )
                     if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
                         pareto_speed_est = 3600 / pareto_pace_est
                         # Calculate speed difference (mph)
@@ -274,7 +276,9 @@ def render_running_table_fragment(df) -> str:
                 distances_from_pareto.append(np.inf)
 
         df_targets_display["Distance from Pareto (mph)"] = distances_from_pareto
-        df_targets_display["Distance from Pareto (mph)"] = df_targets_display["Distance from Pareto (mph)"].round(3)
+        df_targets_display["Distance from Pareto (mph)"] = df_targets_display[
+            "Distance from Pareto (mph)"
+        ].round(3)
 
         df_targets_display["Pace"] = df_targets_display["Pace"].apply(
             seconds_to_pace_string

@@ -17,6 +17,12 @@ from .running_processers import (
     seconds_to_pace_string,
     add_speed_metric_column,
 )
+from .plot_utils import (
+    slugify,
+    plotly_figure_to_html_div,
+    get_plotly_cdn_html,
+    get_plotly_preconnect_html,
+)
 
 
 def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
@@ -388,30 +394,14 @@ def render_running_table_fragment(df) -> str:
 
     figures_html: dict[str, str] = {}
 
-    def slugify(name: str) -> str:
-        slug = re.sub(r"[^\w]+", "_", name)
-        slug = re.sub(r"_+", "_", slug).strip("_")
-        return slug.lower()
-
     exercise_slug = {ex: slugify(ex) for ex in df["Exercise"].unique()}
 
     # Generate plots for each exercise
     for exercise, slug in exercise_slug.items():
         try:
             fig = plot_running_df(df, df_records, df_targets, Exercise=exercise)
-            # Convert Plotly figure to HTML
-            plotly_html = fig.to_html(
-                include_plotlyjs=False,
-                div_id=f"fig-{slug}",
-                config={"displayModeBar": True, "displaylogo": False},
-            )
-            # Wrap in a div with display:block initially
-            img_html = (
-                f'<div id="fig-{slug}-wrapper" class="running-figure" '
-                f'style="display:block;">'
-                f"{plotly_html}"
-                f"</div>"
-            )
+            # Convert Plotly figure to HTML div with wrapper
+            img_html = plotly_figure_to_html_div(fig, slug, display="block")
             figures_html[exercise] = img_html
         except Exception:
             # If plot generation fails, skip this exercise and continue
@@ -454,10 +444,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     <link rel="preconnect" href="https://code.jquery.com">
     <link rel="preconnect" href="https://cdn.datatables.net">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    <link rel="preconnect" href="https://cdn.plot.ly">
-
-    <!-- Plotly for interactive plots -->
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    """ + get_plotly_preconnect_html() + "\n" + get_plotly_cdn_html() + """
 
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>

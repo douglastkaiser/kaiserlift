@@ -15,6 +15,7 @@ from .running_processers import (
     highest_pace_per_distance,
     df_next_running_targets,
     seconds_to_pace_string,
+    add_speed_metric_column,
 )
 
 
@@ -234,6 +235,8 @@ def render_running_table_fragment(df) -> str:
     """
 
     df_records = highest_pace_per_distance(df)
+    # Ensure df_records has Speed column for distance calculations
+    df_records = add_speed_metric_column(df_records)
     df_targets = df_next_running_targets(df_records)
 
     # Format pace columns for display

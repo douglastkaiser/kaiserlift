@@ -15,6 +15,7 @@ from .running_processers import (
     highest_pace_per_distance,
     df_next_running_targets,
     seconds_to_pace_string,
+    add_speed_metric_column,
 )
 
 
@@ -105,6 +106,10 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     fig, ax = plt.subplots()
 
+    # Initialize pareto curve parameters
+    best_pace = np.nan
+    best_distance = np.nan
+
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
         pareto_points = list(zip(df_pareto["Distance"], df_pareto["Speed"]))
@@ -150,11 +155,38 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         target_points = list(zip(df_targets["Distance"], df_targets["Speed"]))
         target_dists, target_speeds = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Get max speed from targets
-        max_target_speed = max(target_speeds)
-        max_target_idx = target_speeds.index(max_target_speed)
-        target_pace = 3600 / max_target_speed if max_target_speed > 0 else np.nan
-        target_distance = target_dists[max_target_idx]
+        # Find the target furthest below the pareto curve (easiest to achieve)
+        if not np.isnan(best_pace):
+            # Find target with maximum distance below pareto curve
+            max_distance_below_pareto = -float("inf")
+            furthest_below_idx = 0
+
+            for i, (t_dist, t_speed) in enumerate(zip(target_dists, target_speeds)):
+                # Estimate pareto speed at this target distance
+                pareto_pace_est = estimate_pace_at_distance(
+                    best_pace, best_distance, t_dist
+                )
+                if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
+                    pareto_speed_est = 3600 / pareto_pace_est
+                    # Calculate how far below the pareto curve this target is
+                    # Positive value means target is below pareto (easier to achieve)
+                    distance_below = pareto_speed_est - t_speed
+                    if distance_below > max_distance_below_pareto:
+                        max_distance_below_pareto = distance_below
+                        furthest_below_idx = i
+
+            target_pace = (
+                3600 / target_speeds[furthest_below_idx]
+                if target_speeds[furthest_below_idx] > 0
+                else np.nan
+            )
+            target_distance = target_dists[furthest_below_idx]
+        else:
+            # Fallback: use max speed (original behavior)
+            max_target_speed = max(target_speeds)
+            max_target_idx = target_speeds.index(max_target_speed)
+            target_pace = 3600 / max_target_speed if max_target_speed > 0 else np.nan
+            target_distance = target_dists[max_target_idx]
 
         # Generate dotted target speed curve
         if not np.isnan(target_pace):
@@ -166,7 +198,7 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
-            ax.plot(x_vals, y_vals, "g-.", label="Max Target Speed", alpha=0.7)
+            ax.plot(x_vals, y_vals, "g-.", label="Target Speed Curve", alpha=0.7)
 
         ax.scatter(
             target_dists,
@@ -205,11 +237,56 @@ def render_running_table_fragment(df) -> str:
     """
 
     df_records = highest_pace_per_distance(df)
+    # Ensure df_records has Speed column for distance calculations
+    df_records = add_speed_metric_column(df_records)
     df_targets = df_next_running_targets(df_records)
 
     # Format pace columns for display
     if not df_targets.empty:
         df_targets_display = df_targets.copy()
+
+        # Calculate distance from pareto curve for each target
+        distances_from_pareto = []
+        for _, row in df_targets_display.iterrows():
+            exercise = row["Exercise"]
+            target_dist = row["Distance"]
+            target_speed = row["Speed"]
+
+            # Get pareto data for this exercise
+            exercise_records = df_records[df_records["Exercise"] == exercise]
+            if not exercise_records.empty:
+                # Find best speed on pareto front
+                pareto_speeds = exercise_records["Speed"].tolist()
+                pareto_dists = exercise_records["Distance"].tolist()
+                max_speed = max(pareto_speeds)
+                max_speed_idx = pareto_speeds.index(max_speed)
+                best_pace = 3600 / max_speed if max_speed > 0 else np.nan
+                best_distance = pareto_dists[max_speed_idx]
+
+                # Estimate pareto speed at target distance
+                if not np.isnan(best_pace):
+                    pareto_pace_est = estimate_pace_at_distance(
+                        best_pace, best_distance, target_dist
+                    )
+                    if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
+                        pareto_speed_est = 3600 / pareto_pace_est
+                        # Calculate how far below the pareto curve this target is
+                        # Positive = target below pareto (easier to achieve)
+                        # Negative = target above pareto (already exceeded)
+                        distance_below = pareto_speed_est - target_speed
+                        distances_from_pareto.append(distance_below)
+                    else:
+                        distances_from_pareto.append(-np.inf)
+                else:
+                    distances_from_pareto.append(-np.inf)
+            else:
+                distances_from_pareto.append(-np.inf)
+
+        df_targets_display["Distance Below Pareto (mph)"] = distances_from_pareto
+        df_targets_display["Distance Below Pareto (mph)"] = df_targets_display[
+            "Distance Below Pareto (mph)"
+        ].round(3)
+
         df_targets_display["Pace"] = df_targets_display["Pace"].apply(
             seconds_to_pace_string
         )
@@ -594,7 +671,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         // Initialize DataTable
         $('#runningTable').DataTable({
             pageLength: 25,
-            order: [[0, 'asc']]
+            order: [[4, 'desc']]  // Sort by "Distance Below Pareto" column (index 4) - easiest targets first
         });
 
         // Theme toggle

@@ -7,6 +7,7 @@ running/cardio data visualization.
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 import re
 from io import BytesIO
 
@@ -41,8 +42,8 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     Returns
     -------
-    matplotlib.figure.Figure
-        The generated figure
+    plotly.graph_objects.Figure
+        The generated interactive figure
     """
 
     df = df[df["Distance"] > 0].copy()
@@ -56,26 +57,40 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     if Exercise is None:
         # Plot all exercises normalized
         exercises = df["Exercise"].unique()
-        fig, ax = plt.subplots()
+        fig = go.Figure()
         for exercise in exercises:
             ex_df = df[df["Exercise"] == exercise]
-            ax.scatter(
-                ex_df["Distance"] / max(ex_df["Distance"]),
-                ex_df["Speed"] / max(ex_df["Speed"]),
-                label=exercise,
-                alpha=0.6,
-            )
-        ax.set_title("Speed vs. Distance for All Running Exercises")
-        ax.set_xlabel("Distance (normalized)")
-        ax.set_ylabel("Speed (normalized, higher=faster)")
-        ax.legend()
+            max_dist = max(ex_df["Distance"])
+            max_speed = max(ex_df["Speed"])
+            fig.add_trace(go.Scatter(
+                x=ex_df["Distance"] / max_dist,
+                y=ex_df["Speed"] / max_speed,
+                mode='markers',
+                name=exercise,
+                opacity=0.6,
+                hovertemplate='<b>%{fullData.name}</b><br>' +
+                              'Distance: %{customdata[0]:.2f} mi<br>' +
+                              'Speed: %{customdata[1]:.2f} mph<extra></extra>',
+                customdata=list(zip(ex_df["Distance"], ex_df["Speed"]))
+            ))
+        fig.update_layout(
+            title="Speed vs. Distance for All Running Exercises",
+            xaxis_title="Distance (normalized)",
+            yaxis_title="Speed (normalized, higher=faster)",
+            hovermode='closest',
+            template='plotly_white'
+        )
         return fig
 
     # Filter to specific exercise
     df = df[df["Exercise"] == Exercise]
     if df.empty:
-        fig, ax = plt.subplots()
-        ax.text(0.5, 0.5, f"No data for {Exercise}", ha="center")
+        fig = go.Figure()
+        fig.add_annotation(
+            text=f"No data for {Exercise}",
+            xref="paper", yref="paper",
+            x=0.5, y=0.5, showarrow=False
+        )
         return fig
 
     # Add Speed to pareto and targets if needed
@@ -104,11 +119,27 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     max_dist = max(s.max() for s in distance_series)
     plot_max_dist = max_dist + 1
 
-    fig, ax = plt.subplots()
+    fig = go.Figure()
 
     # Initialize pareto curve parameters
     best_pace = np.nan
     best_distance = np.nan
+
+    # Plot raw data first (blue dots)
+    pace_strings = [seconds_to_pace_string(3600/s) if s > 0 else "N/A" for s in df["Speed"]]
+    fig.add_trace(go.Scatter(
+        x=df["Distance"],
+        y=df["Speed"],
+        mode='markers',
+        name='All Runs',
+        marker=dict(color='blue', size=8),
+        opacity=0.6,
+        hovertemplate='<b>Run</b><br>' +
+                      'Distance: %{x:.2f} mi<br>' +
+                      'Speed: %{y:.2f} mph<br>' +
+                      'Pace: %{customdata}<extra></extra>',
+        customdata=pace_strings
+    ))
 
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
@@ -133,22 +164,44 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
-            ax.plot(x_vals, y_vals, "k--", label="Best Speed Curve", alpha=0.7)
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=y_vals,
+                mode='lines',
+                name='Best Speed Curve',
+                line=dict(color='black', dash='dash', width=2),
+                opacity=0.7,
+                hovertemplate='<b>Best Speed Curve</b><br>' +
+                              'Distance: %{x:.2f} mi<br>' +
+                              'Speed: %{y:.2f} mph<br>' +
+                              f'Pace: {seconds_to_pace_string(best_pace)}<extra></extra>'
+            ))
 
-        # Plot step line and markers
-        ax.step(
-            pareto_dists,
-            pareto_speeds,
-            color="red",
-            label="Pareto Front (Best Speeds)",
-        )
-        ax.scatter(
-            pareto_dists,
-            pareto_speeds,
-            color="red",
-            marker="o",
-            label="_nolegend_",
-        )
+        # Plot step line
+        fig.add_trace(go.Scatter(
+            x=list(pareto_dists),
+            y=list(pareto_speeds),
+            mode='lines',
+            name='Pareto Front (Best Speeds)',
+            line=dict(color='red', shape='hv', width=2),
+            hovertemplate='<b>Pareto Front</b><extra></extra>'
+        ))
+
+        # Plot markers
+        pareto_paces = [seconds_to_pace_string(3600/s) if s > 0 else "N/A" for s in pareto_speeds]
+        fig.add_trace(go.Scatter(
+            x=list(pareto_dists),
+            y=list(pareto_speeds),
+            mode='markers',
+            name='Pareto Points',
+            marker=dict(color='red', size=10, symbol='circle'),
+            hovertemplate='<b>Pareto Point</b><br>' +
+                          'Distance: %{x:.2f} mi<br>' +
+                          'Speed: %{y:.2f} mph<br>' +
+                          'Pace: %{customdata}<extra></extra>',
+            customdata=pareto_paces,
+            showlegend=False
+        ))
 
     # Plot targets (green X)
     if df_targets is not None and not df_targets.empty:
@@ -198,26 +251,43 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
-            ax.plot(x_vals, y_vals, "g-.", label="Target Speed Curve", alpha=0.7)
+            fig.add_trace(go.Scatter(
+                x=x_vals,
+                y=y_vals,
+                mode='lines',
+                name='Target Speed Curve',
+                line=dict(color='green', dash='dashdot', width=2),
+                opacity=0.7,
+                hovertemplate='<b>Target Speed Curve</b><br>' +
+                              'Distance: %{x:.2f} mi<br>' +
+                              'Speed: %{y:.2f} mph<br>' +
+                              f'Pace: {seconds_to_pace_string(target_pace)}<extra></extra>'
+            ))
 
-        ax.scatter(
-            target_dists,
-            target_speeds,
-            color="green",
-            marker="x",
-            s=100,
-            label="Next Targets",
-        )
+        # Target markers
+        target_paces = [seconds_to_pace_string(3600/s) if s > 0 else "N/A" for s in target_speeds]
+        fig.add_trace(go.Scatter(
+            x=list(target_dists),
+            y=list(target_speeds),
+            mode='markers',
+            name='Next Targets',
+            marker=dict(color='green', size=12, symbol='x'),
+            hovertemplate='<b>Target</b><br>' +
+                          'Distance: %{x:.2f} mi<br>' +
+                          'Speed: %{y:.2f} mph<br>' +
+                          'Pace: %{customdata}<extra></extra>',
+            customdata=target_paces
+        ))
 
-    # Plot raw data (blue dots)
-    ax.scatter(df["Distance"], df["Speed"], label="All Runs", alpha=0.6)
-
-    ax.set_title(f"Speed vs. Distance for {Exercise}")
-    ax.set_xlabel("Distance (miles)")
-    ax.set_ylabel("Speed (mph, higher=faster)")
-    ax.set_xscale("log")
-    ax.set_xlim(right=plot_max_dist)
-    ax.legend()
+    fig.update_layout(
+        title=f"Speed vs. Distance for {Exercise}",
+        xaxis_title="Distance (miles)",
+        yaxis_title="Speed (mph, higher=faster)",
+        xaxis_type="log",
+        xaxis=dict(range=[np.log10(min_dist * 0.9), np.log10(plot_max_dist)]),
+        hovermode='closest',
+        template='plotly_white'
+    )
 
     return fig
 
@@ -307,20 +377,20 @@ def render_running_table_fragment(df) -> str:
     for exercise, slug in exercise_slug.items():
         try:
             fig = plot_running_df(df, df_records, df_targets, Exercise=exercise)
-            buf = BytesIO()
-            # Use SVG format instead of PNG for smaller file size and scalability
-            fig.savefig(buf, format="svg", bbox_inches="tight")
-            buf.seek(0)
-            svg_data = buf.read().decode("utf-8")
-            # Embed SVG directly (smaller than base64-encoded PNG)
+            # Convert Plotly figure to HTML
+            plotly_html = fig.to_html(
+                include_plotlyjs=False,
+                div_id=f"fig-{slug}",
+                config={'displayModeBar': True, 'displaylogo': False}
+            )
+            # Wrap in a div with display:block initially
             img_html = (
-                f'<div id="fig-{slug}" class="running-figure" '
-                f'style="display:block; max-width:100%; height:auto;">'
-                f"{svg_data}"
+                f'<div id="fig-{slug}-wrapper" class="running-figure" '
+                f'style="display:block;">'
+                f"{plotly_html}"
                 f"</div>"
             )
             figures_html[exercise] = img_html
-            plt.close(fig)
         except Exception:
             # If plot generation fails, skip this exercise and continue
             plt.close("all")  # Clean up any partial figures
@@ -362,6 +432,10 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     <link rel="preconnect" href="https://code.jquery.com">
     <link rel="preconnect" href="https://cdn.datatables.net">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://cdn.plot.ly">
+
+    <!-- Plotly for interactive plots -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>

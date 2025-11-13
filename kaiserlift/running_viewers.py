@@ -157,12 +157,14 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         # Find the target closest to the pareto curve
         if not np.isnan(best_pace):
             # Find target with minimum distance to pareto curve
-            min_distance_to_pareto = float('inf')
+            min_distance_to_pareto = float("inf")
             closest_target_idx = 0
 
             for i, (t_dist, t_speed) in enumerate(zip(target_dists, target_speeds)):
                 # Estimate pareto speed at this target distance
-                pareto_pace_est = estimate_pace_at_distance(best_pace, best_distance, t_dist)
+                pareto_pace_est = estimate_pace_at_distance(
+                    best_pace, best_distance, t_dist
+                )
                 if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
                     pareto_speed_est = 3600 / pareto_pace_est
                     # Calculate vertical distance (speed difference)
@@ -171,7 +173,11 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
                         min_distance_to_pareto = distance
                         closest_target_idx = i
 
-            target_pace = 3600 / target_speeds[closest_target_idx] if target_speeds[closest_target_idx] > 0 else np.nan
+            target_pace = (
+                3600 / target_speeds[closest_target_idx]
+                if target_speeds[closest_target_idx] > 0
+                else np.nan
+            )
             target_distance = target_dists[closest_target_idx]
         else:
             # Fallback: use max speed (original behavior)

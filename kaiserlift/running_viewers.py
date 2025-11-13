@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-import re
 
 from .running_processers import (
     estimate_pace_at_distance,
@@ -439,12 +438,17 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         return fragment
 
     # Include same CSS/JS as lifting viewer
-    js_and_css = """
+    js_and_css = (
+        """
     <!-- Preconnect to CDNs for faster loading -->
     <link rel="preconnect" href="https://code.jquery.com">
     <link rel="preconnect" href="https://cdn.datatables.net">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    """ + get_plotly_preconnect_html() + "\n" + get_plotly_cdn_html() + """
+    """
+        + get_plotly_preconnect_html()
+        + "\n"
+        + get_plotly_cdn_html()
+        + """
 
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
@@ -736,6 +740,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
     </style>
     """
+    )
 
     upload_html = """
     <button class="theme-toggle" id="themeToggle">🌙</button>

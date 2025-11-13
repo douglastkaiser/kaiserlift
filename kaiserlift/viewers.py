@@ -1,7 +1,6 @@
 import numpy as np
 from difflib import get_close_matches
 import plotly.graph_objects as go
-import re
 from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
@@ -316,12 +315,17 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     if not embed_assets:
         return fragment
 
-    js_and_css = """
+    js_and_css = (
+        """
     <!-- Preconnect to CDNs for faster loading -->
     <link rel="preconnect" href="https://code.jquery.com">
     <link rel="preconnect" href="https://cdn.datatables.net">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    """ + get_plotly_preconnect_html() + "\n" + get_plotly_cdn_html() + """
+    """
+        + get_plotly_preconnect_html()
+        + "\n"
+        + get_plotly_cdn_html()
+        + """
 
     <!-- DataTables -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
@@ -622,6 +626,7 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
     </style>
     """
+    )
 
     upload_html = """
     <div class="upload-controls">

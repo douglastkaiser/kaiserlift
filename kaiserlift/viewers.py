@@ -1,9 +1,7 @@
 import numpy as np
 from difflib import get_close_matches
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import re
-from io import BytesIO
 from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
@@ -31,21 +29,23 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
             exercise_df = df[df["Exercise"] == exercise]
             max_reps = max(exercise_df["Reps"])
             max_weight = max(exercise_df["Weight"])
-            fig.add_trace(go.Scatter(
-                x=exercise_df["Reps"] / max_reps,
-                y=exercise_df["Weight"] / max_weight,
-                mode='markers',
-                name=exercise,
-                hovertemplate='<b>%{fullData.name}</b><br>' +
-                              'Reps: %{customdata[0]}<br>' +
-                              'Weight: %{customdata[1]} lbs<extra></extra>',
-                customdata=list(zip(exercise_df["Reps"], exercise_df["Weight"]))
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=exercise_df["Reps"] / max_reps,
+                    y=exercise_df["Weight"] / max_weight,
+                    mode="markers",
+                    name=exercise,
+                    hovertemplate="<b>%{fullData.name}</b><br>"
+                    + "Reps: %{customdata[0]}<br>"
+                    + "Weight: %{customdata[1]} lbs<extra></extra>",
+                    customdata=list(zip(exercise_df["Reps"], exercise_df["Weight"])),
+                )
+            )
         fig.update_layout(
             title="Weight vs. Reps for All Exercises",
             xaxis_title="Reps (normalized)",
             yaxis_title="Weight (normalized)",
-            hovermode='closest'
+            hovermode="closest",
         )
         return fig
 
@@ -69,18 +69,20 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     fig = go.Figure()
 
     # Plot raw data points first (so they appear in the background)
-    fig.add_trace(go.Scatter(
-        x=df["Reps"],
-        y=df["Weight"],
-        mode='markers',
-        name='Data Points',
-        marker=dict(color='blue', size=8),
-        hovertemplate='<b>Data Point</b><br>' +
-                      'Reps: %{x}<br>' +
-                      'Weight: %{y} lbs<br>' +
-                      '1RM: %{customdata:.1f}<extra></extra>',
-        customdata=[calculate_1rm(w, r) for w, r in zip(df["Weight"], df["Reps"])]
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=df["Reps"],
+            y=df["Weight"],
+            mode="markers",
+            name="Data Points",
+            marker=dict(color="blue", size=8),
+            hovertemplate="<b>Data Point</b><br>"
+            + "Reps: %{x}<br>"
+            + "Weight: %{y} lbs<br>"
+            + "1RM: %{customdata:.1f}<extra></extra>",
+            customdata=[calculate_1rm(w, r) for w, r in zip(df["Weight"], df["Reps"])],
+        )
+    )
 
     if df_pareto is not None and not df_pareto.empty:
         pareto_points = list(zip(df_pareto["Reps"], df_pareto["Weight"]))
@@ -95,43 +97,49 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         # Generate dotted Epley decay line
         x_vals = np.linspace(min_rep, plot_max_rep, 10)
         y_vals = [estimate_weight_from_1rm(max_1rm, r) for r in x_vals]
-        fig.add_trace(go.Scatter(
-            x=x_vals,
-            y=y_vals,
-            mode='lines',
-            name='Max Achieved 1RM',
-            line=dict(color='black', dash='dash', width=2),
-            opacity=0.7,
-            hovertemplate='<b>Max 1RM Curve</b><br>' +
-                          'Reps: %{x}<br>' +
-                          'Weight: %{y:.1f} lbs<br>' +
-                          f'1RM: {max_1rm:.1f}<extra></extra>'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x_vals,
+                y=y_vals,
+                mode="lines",
+                name="Max Achieved 1RM",
+                line=dict(color="black", dash="dash", width=2),
+                opacity=0.7,
+                hovertemplate="<b>Max 1RM Curve</b><br>"
+                + "Reps: %{x}<br>"
+                + "Weight: %{y:.1f} lbs<br>"
+                + f"1RM: {max_1rm:.1f}<extra></extra>",
+            )
+        )
 
         # Pareto step line
-        fig.add_trace(go.Scatter(
-            x=pareto_reps,
-            y=pareto_weights,
-            mode='lines',
-            name='Pareto Front',
-            line=dict(color='red', shape='hv', width=2),
-            hovertemplate='<b>Pareto Front</b><extra></extra>'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=pareto_reps,
+                y=pareto_weights,
+                mode="lines",
+                name="Pareto Front",
+                line=dict(color="red", shape="hv", width=2),
+                hovertemplate="<b>Pareto Front</b><extra></extra>",
+            )
+        )
 
         # Pareto markers
-        fig.add_trace(go.Scatter(
-            x=pareto_reps,
-            y=pareto_weights,
-            mode='markers',
-            name='Pareto Points',
-            marker=dict(color='red', size=10, symbol='circle'),
-            hovertemplate='<b>Pareto Point</b><br>' +
-                          'Reps: %{x}<br>' +
-                          'Weight: %{y} lbs<br>' +
-                          '1RM: %{customdata:.1f}<extra></extra>',
-            customdata=one_rms,
-            showlegend=False
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=pareto_reps,
+                y=pareto_weights,
+                mode="markers",
+                name="Pareto Points",
+                marker=dict(color="red", size=10, symbol="circle"),
+                hovertemplate="<b>Pareto Point</b><br>"
+                + "Reps: %{x}<br>"
+                + "Weight: %{y} lbs<br>"
+                + "1RM: %{customdata:.1f}<extra></extra>",
+                customdata=one_rms,
+                showlegend=False,
+            )
+        )
 
     if df_targets is not None and not df_targets.empty:
         target_points = list(zip(df_targets["Reps"], df_targets["Weight"]))
@@ -144,40 +152,47 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         # Generate dotted Epley decay line for targets
         x_vals = np.linspace(min_rep, plot_max_rep, 10)
         y_vals = [estimate_weight_from_1rm(min_1rm, r) for r in x_vals]
-        fig.add_trace(go.Scatter(
-            x=x_vals,
-            y=y_vals,
-            mode='lines',
-            name='Min Target 1RM',
-            line=dict(color='green', dash='dashdot', width=2),
-            opacity=0.7,
-            hovertemplate='<b>Target 1RM Curve</b><br>' +
-                          'Reps: %{x}<br>' +
-                          'Weight: %{y:.1f} lbs<br>' +
-                          f'1RM: {min_1rm:.1f}<extra></extra>'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x_vals,
+                y=y_vals,
+                mode="lines",
+                name="Min Target 1RM",
+                line=dict(color="green", dash="dashdot", width=2),
+                opacity=0.7,
+                hovertemplate="<b>Target 1RM Curve</b><br>"
+                + "Reps: %{x}<br>"
+                + "Weight: %{y:.1f} lbs<br>"
+                + f"1RM: {min_1rm:.1f}<extra></extra>",
+            )
+        )
 
         # Target markers
-        fig.add_trace(go.Scatter(
-            x=df_targets["Reps"],
-            y=df_targets["Weight"],
-            mode='markers',
-            name='Targets',
-            marker=dict(color='green', size=12, symbol='x'),
-            hovertemplate='<b>Target</b><br>' +
-                          'Reps: %{x}<br>' +
-                          'Weight: %{y} lbs<br>' +
-                          '1RM: %{customdata:.1f}<extra></extra>',
-            customdata=[calculate_1rm(w, r) for w, r in zip(df_targets["Weight"], df_targets["Reps"])]
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=df_targets["Reps"],
+                y=df_targets["Weight"],
+                mode="markers",
+                name="Targets",
+                marker=dict(color="green", size=12, symbol="x"),
+                hovertemplate="<b>Target</b><br>"
+                + "Reps: %{x}<br>"
+                + "Weight: %{y} lbs<br>"
+                + "1RM: %{customdata:.1f}<extra></extra>",
+                customdata=[
+                    calculate_1rm(w, r)
+                    for w, r in zip(df_targets["Weight"], df_targets["Reps"])
+                ],
+            )
+        )
 
     fig.update_layout(
         title=f"Weight vs. Reps for {closest_match}",
         xaxis_title="Reps",
         yaxis_title="Weight (lbs)",
         xaxis=dict(range=[0, plot_max_rep]),
-        hovermode='closest',
-        template='plotly_white'
+        hovermode="closest",
+        template="plotly_white",
     )
 
     return fig
@@ -258,7 +273,7 @@ def render_table_fragment(df) -> str:
         plotly_html = fig.to_html(
             include_plotlyjs=False,
             div_id=f"fig-{slug}",
-            config={'displayModeBar': True, 'displaylogo': False}
+            config={"displayModeBar": True, "displaylogo": False},
         )
         # Wrap in a div with display:none initially
         img_html = (

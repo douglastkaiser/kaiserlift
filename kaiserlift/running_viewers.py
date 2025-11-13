@@ -9,7 +9,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import re
-from io import BytesIO
 
 from .running_processers import (
     estimate_pace_at_distance,
@@ -62,23 +61,25 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
             ex_df = df[df["Exercise"] == exercise]
             max_dist = max(ex_df["Distance"])
             max_speed = max(ex_df["Speed"])
-            fig.add_trace(go.Scatter(
-                x=ex_df["Distance"] / max_dist,
-                y=ex_df["Speed"] / max_speed,
-                mode='markers',
-                name=exercise,
-                opacity=0.6,
-                hovertemplate='<b>%{fullData.name}</b><br>' +
-                              'Distance: %{customdata[0]:.2f} mi<br>' +
-                              'Speed: %{customdata[1]:.2f} mph<extra></extra>',
-                customdata=list(zip(ex_df["Distance"], ex_df["Speed"]))
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=ex_df["Distance"] / max_dist,
+                    y=ex_df["Speed"] / max_speed,
+                    mode="markers",
+                    name=exercise,
+                    opacity=0.6,
+                    hovertemplate="<b>%{fullData.name}</b><br>"
+                    + "Distance: %{customdata[0]:.2f} mi<br>"
+                    + "Speed: %{customdata[1]:.2f} mph<extra></extra>",
+                    customdata=list(zip(ex_df["Distance"], ex_df["Speed"])),
+                )
+            )
         fig.update_layout(
             title="Speed vs. Distance for All Running Exercises",
             xaxis_title="Distance (normalized)",
             yaxis_title="Speed (normalized, higher=faster)",
-            hovermode='closest',
-            template='plotly_white'
+            hovermode="closest",
+            template="plotly_white",
         )
         return fig
 
@@ -88,8 +89,11 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         fig = go.Figure()
         fig.add_annotation(
             text=f"No data for {Exercise}",
-            xref="paper", yref="paper",
-            x=0.5, y=0.5, showarrow=False
+            xref="paper",
+            yref="paper",
+            x=0.5,
+            y=0.5,
+            showarrow=False,
         )
         return fig
 
@@ -126,20 +130,24 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     best_distance = np.nan
 
     # Plot raw data first (blue dots)
-    pace_strings = [seconds_to_pace_string(3600/s) if s > 0 else "N/A" for s in df["Speed"]]
-    fig.add_trace(go.Scatter(
-        x=df["Distance"],
-        y=df["Speed"],
-        mode='markers',
-        name='All Runs',
-        marker=dict(color='blue', size=8),
-        opacity=0.6,
-        hovertemplate='<b>Run</b><br>' +
-                      'Distance: %{x:.2f} mi<br>' +
-                      'Speed: %{y:.2f} mph<br>' +
-                      'Pace: %{customdata}<extra></extra>',
-        customdata=pace_strings
-    ))
+    pace_strings = [
+        seconds_to_pace_string(3600 / s) if s > 0 else "N/A" for s in df["Speed"]
+    ]
+    fig.add_trace(
+        go.Scatter(
+            x=df["Distance"],
+            y=df["Speed"],
+            mode="markers",
+            name="All Runs",
+            marker=dict(color="blue", size=8),
+            opacity=0.6,
+            hovertemplate="<b>Run</b><br>"
+            + "Distance: %{x:.2f} mi<br>"
+            + "Speed: %{y:.2f} mph<br>"
+            + "Pace: %{customdata}<extra></extra>",
+            customdata=pace_strings,
+        )
+    )
 
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
@@ -164,44 +172,52 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
-            fig.add_trace(go.Scatter(
-                x=x_vals,
-                y=y_vals,
-                mode='lines',
-                name='Best Speed Curve',
-                line=dict(color='black', dash='dash', width=2),
-                opacity=0.7,
-                hovertemplate='<b>Best Speed Curve</b><br>' +
-                              'Distance: %{x:.2f} mi<br>' +
-                              'Speed: %{y:.2f} mph<br>' +
-                              f'Pace: {seconds_to_pace_string(best_pace)}<extra></extra>'
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=x_vals,
+                    y=y_vals,
+                    mode="lines",
+                    name="Best Speed Curve",
+                    line=dict(color="black", dash="dash", width=2),
+                    opacity=0.7,
+                    hovertemplate="<b>Best Speed Curve</b><br>"
+                    + "Distance: %{x:.2f} mi<br>"
+                    + "Speed: %{y:.2f} mph<br>"
+                    + f"Pace: {seconds_to_pace_string(best_pace)}<extra></extra>",
+                )
+            )
 
         # Plot step line
-        fig.add_trace(go.Scatter(
-            x=list(pareto_dists),
-            y=list(pareto_speeds),
-            mode='lines',
-            name='Pareto Front (Best Speeds)',
-            line=dict(color='red', shape='hv', width=2),
-            hovertemplate='<b>Pareto Front</b><extra></extra>'
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=list(pareto_dists),
+                y=list(pareto_speeds),
+                mode="lines",
+                name="Pareto Front (Best Speeds)",
+                line=dict(color="red", shape="hv", width=2),
+                hovertemplate="<b>Pareto Front</b><extra></extra>",
+            )
+        )
 
         # Plot markers
-        pareto_paces = [seconds_to_pace_string(3600/s) if s > 0 else "N/A" for s in pareto_speeds]
-        fig.add_trace(go.Scatter(
-            x=list(pareto_dists),
-            y=list(pareto_speeds),
-            mode='markers',
-            name='Pareto Points',
-            marker=dict(color='red', size=10, symbol='circle'),
-            hovertemplate='<b>Pareto Point</b><br>' +
-                          'Distance: %{x:.2f} mi<br>' +
-                          'Speed: %{y:.2f} mph<br>' +
-                          'Pace: %{customdata}<extra></extra>',
-            customdata=pareto_paces,
-            showlegend=False
-        ))
+        pareto_paces = [
+            seconds_to_pace_string(3600 / s) if s > 0 else "N/A" for s in pareto_speeds
+        ]
+        fig.add_trace(
+            go.Scatter(
+                x=list(pareto_dists),
+                y=list(pareto_speeds),
+                mode="markers",
+                name="Pareto Points",
+                marker=dict(color="red", size=10, symbol="circle"),
+                hovertemplate="<b>Pareto Point</b><br>"
+                + "Distance: %{x:.2f} mi<br>"
+                + "Speed: %{y:.2f} mph<br>"
+                + "Pace: %{customdata}<extra></extra>",
+                customdata=pareto_paces,
+                showlegend=False,
+            )
+        )
 
     # Plot targets (green X)
     if df_targets is not None and not df_targets.empty:
@@ -251,33 +267,39 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
-            fig.add_trace(go.Scatter(
-                x=x_vals,
-                y=y_vals,
-                mode='lines',
-                name='Target Speed Curve',
-                line=dict(color='green', dash='dashdot', width=2),
-                opacity=0.7,
-                hovertemplate='<b>Target Speed Curve</b><br>' +
-                              'Distance: %{x:.2f} mi<br>' +
-                              'Speed: %{y:.2f} mph<br>' +
-                              f'Pace: {seconds_to_pace_string(target_pace)}<extra></extra>'
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=x_vals,
+                    y=y_vals,
+                    mode="lines",
+                    name="Target Speed Curve",
+                    line=dict(color="green", dash="dashdot", width=2),
+                    opacity=0.7,
+                    hovertemplate="<b>Target Speed Curve</b><br>"
+                    + "Distance: %{x:.2f} mi<br>"
+                    + "Speed: %{y:.2f} mph<br>"
+                    + f"Pace: {seconds_to_pace_string(target_pace)}<extra></extra>",
+                )
+            )
 
         # Target markers
-        target_paces = [seconds_to_pace_string(3600/s) if s > 0 else "N/A" for s in target_speeds]
-        fig.add_trace(go.Scatter(
-            x=list(target_dists),
-            y=list(target_speeds),
-            mode='markers',
-            name='Next Targets',
-            marker=dict(color='green', size=12, symbol='x'),
-            hovertemplate='<b>Target</b><br>' +
-                          'Distance: %{x:.2f} mi<br>' +
-                          'Speed: %{y:.2f} mph<br>' +
-                          'Pace: %{customdata}<extra></extra>',
-            customdata=target_paces
-        ))
+        target_paces = [
+            seconds_to_pace_string(3600 / s) if s > 0 else "N/A" for s in target_speeds
+        ]
+        fig.add_trace(
+            go.Scatter(
+                x=list(target_dists),
+                y=list(target_speeds),
+                mode="markers",
+                name="Next Targets",
+                marker=dict(color="green", size=12, symbol="x"),
+                hovertemplate="<b>Target</b><br>"
+                + "Distance: %{x:.2f} mi<br>"
+                + "Speed: %{y:.2f} mph<br>"
+                + "Pace: %{customdata}<extra></extra>",
+                customdata=target_paces,
+            )
+        )
 
     fig.update_layout(
         title=f"Speed vs. Distance for {Exercise}",
@@ -285,8 +307,8 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         yaxis_title="Speed (mph, higher=faster)",
         xaxis_type="log",
         xaxis=dict(range=[np.log10(min_dist * 0.9), np.log10(plot_max_dist)]),
-        hovermode='closest',
-        template='plotly_white'
+        hovermode="closest",
+        template="plotly_white",
     )
 
     return fig
@@ -381,7 +403,7 @@ def render_running_table_fragment(df) -> str:
             plotly_html = fig.to_html(
                 include_plotlyjs=False,
                 div_id=f"fig-{slug}",
-                config={'displayModeBar': True, 'displaylogo': False}
+                config={"displayModeBar": True, "displaylogo": False},
             )
             # Wrap in a div with display:block initially
             img_html = (

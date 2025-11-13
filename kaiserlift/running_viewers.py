@@ -105,6 +105,10 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     fig, ax = plt.subplots()
 
+    # Initialize pareto curve parameters
+    best_pace = np.nan
+    best_distance = np.nan
+
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
         pareto_points = list(zip(df_pareto["Distance"], df_pareto["Speed"]))
@@ -150,11 +154,31 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         target_points = list(zip(df_targets["Distance"], df_targets["Speed"]))
         target_dists, target_speeds = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Get max speed from targets
-        max_target_speed = max(target_speeds)
-        max_target_idx = target_speeds.index(max_target_speed)
-        target_pace = 3600 / max_target_speed if max_target_speed > 0 else np.nan
-        target_distance = target_dists[max_target_idx]
+        # Find the target closest to the pareto curve
+        if not np.isnan(best_pace):
+            # Find target with minimum distance to pareto curve
+            min_distance_to_pareto = float('inf')
+            closest_target_idx = 0
+
+            for i, (t_dist, t_speed) in enumerate(zip(target_dists, target_speeds)):
+                # Estimate pareto speed at this target distance
+                pareto_pace_est = estimate_pace_at_distance(best_pace, best_distance, t_dist)
+                if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
+                    pareto_speed_est = 3600 / pareto_pace_est
+                    # Calculate vertical distance (speed difference)
+                    distance = abs(t_speed - pareto_speed_est)
+                    if distance < min_distance_to_pareto:
+                        min_distance_to_pareto = distance
+                        closest_target_idx = i
+
+            target_pace = 3600 / target_speeds[closest_target_idx] if target_speeds[closest_target_idx] > 0 else np.nan
+            target_distance = target_dists[closest_target_idx]
+        else:
+            # Fallback: use max speed (original behavior)
+            max_target_speed = max(target_speeds)
+            max_target_idx = target_speeds.index(max_target_speed)
+            target_pace = 3600 / max_target_speed if max_target_speed > 0 else np.nan
+            target_distance = target_dists[max_target_idx]
 
         # Generate dotted target speed curve
         if not np.isnan(target_pace):
@@ -166,7 +190,7 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
-            ax.plot(x_vals, y_vals, "g-.", label="Max Target Speed", alpha=0.7)
+            ax.plot(x_vals, y_vals, "g-.", label="Target Speed Curve", alpha=0.7)
 
         ax.scatter(
             target_dists,

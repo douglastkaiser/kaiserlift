@@ -106,12 +106,13 @@ def test_highest_pace_per_distance_dominated():
 
 
 def test_estimate_pace_at_distance():
-    """Test pace estimation at different distances."""
+    """Test pace estimation at different distances using Riegel's formula."""
     # Best pace: 9:30 (570 sec/mi) at 5 miles
     # Estimate at 10 miles (2x distance)
-    # Should be ~5% slower: 570 * 1.05 = 598.5
+    # Riegel's formula: pace2 = pace1 * (distance2/distance1)^0.06
+    # 570 * (10/5)^0.06 = 570 * 2^0.06 ≈ 594.05
     estimated = estimate_pace_at_distance(570, 5.0, 10.0)
-    expected = 570 * (1 + 0.05 * (10.0 / 5.0 - 1))  # 598.5
+    expected = 570 * (10.0 / 5.0) ** 0.06  # Riegel's formula
     assert abs(estimated - expected) < 0.1
 
     # Same distance should return same pace
@@ -165,19 +166,19 @@ def test_df_next_running_targets():
     targets = df_next_running_targets(df_records)
 
     # Should have at least:
-    # 1. Faster pace at 5.0 miles (570 * 0.95 = 541.5)
+    # 1. Faster pace at 5.0 miles (570 * 0.98 = 558.6)
     # 2. Gap filler(s) between 5.0 and 10.0
-    # 3. Longer distance at 10.5 miles
+    # 3. Longer distance at 11.0 miles (10.0 is in 5-13 range, so +1 mile)
     assert len(targets) >= 3
     assert "Speed" in targets.columns
 
-    # Check shortest distance target (5% improvement)
+    # Check shortest distance target (2% improvement)
     shortest_target = targets[targets["Distance"] == 5.0]
     assert len(shortest_target) == 1
-    assert abs(shortest_target["Pace"].values[0] - 570 * 0.95) < 0.1
+    assert abs(shortest_target["Pace"].values[0] - 570 * 0.98) < 0.1
 
-    # Check longest distance target (+0.5 miles)
-    longest_target = targets[targets["Distance"] == 10.5]
+    # Check longest distance target (+1.0 mile for 5-13 mile range)
+    longest_target = targets[targets["Distance"] == 11.0]
     assert len(longest_target) == 1
     assert longest_target["Pace"].values[0] == 600
 

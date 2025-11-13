@@ -183,7 +183,8 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     ax.set_title(f"Speed vs. Distance for {Exercise}")
     ax.set_xlabel("Distance (miles)")
     ax.set_ylabel("Speed (mph, higher=faster)")
-    ax.set_xlim(left=0, right=plot_max_dist)
+    ax.set_xscale("log")
+    ax.set_xlim(right=plot_max_dist)
     ax.legend()
 
     return fig

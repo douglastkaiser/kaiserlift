@@ -155,11 +155,11 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         target_points = list(zip(df_targets["Distance"], df_targets["Speed"]))
         target_dists, target_speeds = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Find the target closest to the pareto curve
+        # Find the target furthest below the pareto curve (easiest to achieve)
         if not np.isnan(best_pace):
-            # Find target with minimum distance to pareto curve
-            min_distance_to_pareto = float("inf")
-            closest_target_idx = 0
+            # Find target with maximum distance below pareto curve
+            max_distance_below_pareto = -float("inf")
+            furthest_below_idx = 0
 
             for i, (t_dist, t_speed) in enumerate(zip(target_dists, target_speeds)):
                 # Estimate pareto speed at this target distance
@@ -168,18 +168,19 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
                 )
                 if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
                     pareto_speed_est = 3600 / pareto_pace_est
-                    # Calculate vertical distance (speed difference)
-                    distance = abs(t_speed - pareto_speed_est)
-                    if distance < min_distance_to_pareto:
-                        min_distance_to_pareto = distance
-                        closest_target_idx = i
+                    # Calculate how far below the pareto curve this target is
+                    # Positive value means target is below pareto (easier to achieve)
+                    distance_below = pareto_speed_est - t_speed
+                    if distance_below > max_distance_below_pareto:
+                        max_distance_below_pareto = distance_below
+                        furthest_below_idx = i
 
             target_pace = (
-                3600 / target_speeds[closest_target_idx]
-                if target_speeds[closest_target_idx] > 0
+                3600 / target_speeds[furthest_below_idx]
+                if target_speeds[furthest_below_idx] > 0
                 else np.nan
             )
-            target_distance = target_dists[closest_target_idx]
+            target_distance = target_dists[furthest_below_idx]
         else:
             # Fallback: use max speed (original behavior)
             max_target_speed = max(target_speeds)
@@ -268,19 +269,21 @@ def render_running_table_fragment(df) -> str:
                     )
                     if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
                         pareto_speed_est = 3600 / pareto_pace_est
-                        # Calculate speed difference (mph)
-                        distance_from_pareto = abs(target_speed - pareto_speed_est)
-                        distances_from_pareto.append(distance_from_pareto)
+                        # Calculate how far below the pareto curve this target is
+                        # Positive = target below pareto (easier to achieve)
+                        # Negative = target above pareto (already exceeded)
+                        distance_below = pareto_speed_est - target_speed
+                        distances_from_pareto.append(distance_below)
                     else:
-                        distances_from_pareto.append(np.inf)
+                        distances_from_pareto.append(-np.inf)
                 else:
-                    distances_from_pareto.append(np.inf)
+                    distances_from_pareto.append(-np.inf)
             else:
-                distances_from_pareto.append(np.inf)
+                distances_from_pareto.append(-np.inf)
 
-        df_targets_display["Distance from Pareto (mph)"] = distances_from_pareto
-        df_targets_display["Distance from Pareto (mph)"] = df_targets_display[
-            "Distance from Pareto (mph)"
+        df_targets_display["Distance Below Pareto (mph)"] = distances_from_pareto
+        df_targets_display["Distance Below Pareto (mph)"] = df_targets_display[
+            "Distance Below Pareto (mph)"
         ].round(3)
 
         df_targets_display["Pace"] = df_targets_display["Pace"].apply(
@@ -667,7 +670,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         // Initialize DataTable
         $('#runningTable').DataTable({
             pageLength: 25,
-            order: [[4, 'asc']]  // Sort by "Distance from Pareto" column (index 4) - closest targets first
+            order: [[4, 'desc']]  // Sort by "Distance Below Pareto" column (index 4) - easiest targets first
         });
 
         // Theme toggle

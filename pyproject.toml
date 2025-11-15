@@ -32,6 +32,7 @@ dependencies = [
     "pandas",
     "numpy",
     "matplotlib",
+    "plotly",
     "ipython",
 ]
 

@@ -22,7 +22,7 @@ def test_running_pipeline_with_sample_data():
 
     # Verify key components are present
     assert "runningTable" in html_output
-    assert "<svg" in html_output  # SVG plot embedded
+    assert "plotly-graph-div" in html_output  # Plotly plot div
     assert "running-figure" in html_output  # Plot container div
 
 

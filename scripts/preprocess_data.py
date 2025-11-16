@@ -84,7 +84,7 @@ def preprocess_lifting_data(
     )
 
     # Option 2: Calculate Pareto fronts and write JSON
-    print(f"🎯 Calculating Pareto-optimal sets...")
+    print("🎯 Calculating Pareto-optimal sets...")
     df_pareto = highest_weight_per_rep(df_processed)
     df_pareto_with_1rm = add_1rm_column(df_pareto)
 
@@ -132,7 +132,9 @@ def preprocess_lifting_data(
     return stats
 
 
-def preprocess_running_data(input_csv: Path, output_filtered_csv: Path) -> dict[str, Any]:
+def preprocess_running_data(
+    input_csv: Path, output_filtered_csv: Path
+) -> dict[str, Any]:
     """Pre-process running CSV data.
 
     Parameters

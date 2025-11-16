@@ -50,137 +50,16 @@ jobs:
           echo ""
           echo "All critical files present!"
 
-      - name: Deploy to GitHub Pages repo
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          # Configure git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Clone the GitHub Pages repository
-          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
-          TEMP_DIR="/tmp/pages-repo"
-          rm -rf "$TEMP_DIR"
-
-          # Use token authentication for cloning
-          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR"
-
-          cd "$TEMP_DIR"
-
-          # Show what currently exists
-          echo "Current kaiserlift directory contents BEFORE cleanup:"
-          ls -la kaiserlift/ 2>/dev/null || echo "Directory doesn't exist"
-
-          # Delete the ENTIRE kaiserlift directory (not just contents)
-          # This forces Git to see it as completely new when we re-add
-          git rm -rf kaiserlift 2>/dev/null || echo "No kaiserlift directory to remove"
-
-          echo "After git rm:"
-          git status --short
-
-          # Recreate the directory
-          mkdir -p kaiserlift
-
-          # Verify source build directory exists and has content
-          if [ ! -d "${{ github.workspace }}/tests/example_use/build" ]; then
-            echo "ERROR: Build directory does not exist!"
-            exit 1
-          fi
-
-          echo "Source build directory contents:"
-          ls -laR "${{ github.workspace }}/tests/example_use/build/"
-
-          # Copy new build files to kaiserlift directory
-          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-            ${{ github.workspace }}/tests/example_use/build/ kaiserlift/
-
-          # Ensure .nojekyll exists in repo root (not just kaiserlift subdir)
-          # This prevents GitHub Pages from processing files through Jekyll
-          touch .nojekyll
-
-          # Explicitly add all files by full path (git add won't pick up new files without this)
-          git add -f kaiserlift/index.html
-          git add -f kaiserlift/main.js
-          git add -f kaiserlift/version.js
-          git add -f kaiserlift/.nojekyll
-          git add -f kaiserlift/lifting/index.html
-          git add -f kaiserlift/running/index.html
-          git add -f .nojekyll
-
-          # Verify what we're about to commit
-          echo "Files in kaiserlift directory:"
-          ls -la kaiserlift/
-          echo ""
-          echo "Subdirectories in kaiserlift:"
-          ls -la kaiserlift/*/  2>/dev/null || echo "No subdirectories found!"
-          echo ""
-          echo "Checking for critical files:"
-          [ -f "kaiserlift/index.html" ] && echo "✓ index.html exists" || echo "✗ index.html MISSING"
-          [ -f "kaiserlift/lifting/index.html" ] && echo "✓ lifting/index.html exists" || echo "✗ lifting/index.html MISSING"
-          [ -f "kaiserlift/running/index.html" ] && echo "✓ running/index.html exists" || echo "✗ running/index.html MISSING"
-          [ -f "kaiserlift/.nojekyll" ] && echo "✓ .nojekyll exists" || echo "✗ .nojekyll MISSING"
-          echo ""
-          echo "Checking index.html content (link verification):"
-          grep -o 'href="[^"]*".*View Lifting Demo' kaiserlift/index.html || echo "WARNING: Could not find View Lifting Demo link!"
-          echo ""
-          echo "Checking for OLD example.html reference:"
-          grep -q 'href="example.html"' kaiserlift/index.html && echo "ERROR: Old example.html link found!" || echo "✓ No example.html link found"
-          echo ""
-          echo "Git status:"
-          git status
-
-          # Stage ALL changes (the -f forces add of gitignored files if any)
-          git add -f -A
-
-          # Show what's being staged
-          echo "Files staged for commit:"
-          git diff --staged --name-status
-          echo ""
-          echo "Checking staged critical files:"
-          git diff --staged --name-only | grep "kaiserlift/index.html" || { echo "ERROR: index.html NOT staged!"; exit 1; }
-          git diff --staged --name-only | grep "kaiserlift/lifting/" || { echo "ERROR: No lifting/ files staged!"; exit 1; }
-          git diff --staged --name-only | grep "kaiserlift/running/" || { echo "ERROR: No running/ files staged!"; exit 1; }
-          echo ""
-          echo "Verifying .nojekyll in root:"
-          git diff --staged --name-only | grep "^\.nojekyll$" || { echo "ERROR: .nojekyll NOT staged in root!"; exit 1; }
-
-          # Commit if there are changes
-          if git diff --staged --quiet; then
-            echo "No changes to deploy"
-          else
-            git commit -m "Deploy kaiserlift from ${{ github.repository }}@${{ github.sha }}"
-
-            # Verify commit contents
-            echo "Verifying committed files:"
-            git show --name-status --format="" HEAD | head -20
-
-            # Push with retry logic
-            MAX_RETRIES=4
-            RETRY_COUNT=0
-            PUSH_SUCCESS=false
-
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              if git push origin main 2>&1; then
-                PUSH_SUCCESS=true
-                echo "Successfully deployed to GitHub Pages!"
-                break
-              else
-                RETRY_COUNT=$((RETRY_COUNT + 1))
-                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                  WAIT_TIME=$((2 ** RETRY_COUNT))
-                  echo "Push failed, retrying in ${WAIT_TIME}s ($RETRY_COUNT/$MAX_RETRIES)..."
-                  sleep $WAIT_TIME
-                  git pull --rebase origin main
-                fi
-              fi
-            done
-
-            if [ "$PUSH_SUCCESS" = false ]; then
-              echo "Failed to push after $MAX_RETRIES attempts"
-              exit 1
-            fi
-          fi
+      - name: Deploy to GitHub Pages repo using peaceiris action
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          personal_token: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          external_repository: douglastkaiser/douglastkaiser.github.io
+          publish_branch: main
+          publish_dir: ./tests/example_use/build
+          destination_dir: kaiserlift
+          keep_files: false  # This ensures old files are removed
+          force_orphan: true  # This forces a fresh deployment every time
 
       - name: Add deployment summary
         run: |

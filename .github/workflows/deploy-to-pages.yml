@@ -95,12 +95,18 @@ jobs:
           rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
             ${{ github.workspace }}/tests/example_use/build/ kaiserlift/
 
-          # Now explicitly add everything back (this forces Git to see them as new)
-          git add -f kaiserlift/
-
           # Ensure .nojekyll exists in repo root (not just kaiserlift subdir)
           # This prevents GitHub Pages from processing files through Jekyll
           touch .nojekyll
+
+          # Explicitly add all files and subdirectories (git add won't pick up new dirs without this)
+          git add -f kaiserlift/index.html
+          git add -f kaiserlift/main.js
+          git add -f kaiserlift/version.js
+          git add -f kaiserlift/.nojekyll
+          git add -f kaiserlift/lifting/
+          git add -f kaiserlift/running/
+          git add -f .nojekyll
 
           # Verify what we're about to commit
           echo "Files in kaiserlift directory:"

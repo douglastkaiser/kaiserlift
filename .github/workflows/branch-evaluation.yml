@@ -177,7 +177,7 @@ jobs:
       - name: Upload evaluation bundle
         uses: actions/upload-artifact@v4
         with:
-          name: evaluation-bundle-${{ github.sha }}
+          name: evaluation-bundle-${{ github.event.pull_request.head.sha || github.sha }}
           path: evaluation_bundle/
           retention-days: 30
 

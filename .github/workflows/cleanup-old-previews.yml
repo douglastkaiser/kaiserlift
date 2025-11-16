@@ -1,0 +1,124 @@
+name: Cleanup Old PR Previews
+
+on:
+  workflow_dispatch:
+    inputs:
+      days_old:
+        description: 'Remove previews for PRs closed more than N days ago'
+        required: false
+        default: '30'
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  cleanup-old:
+    name: Bulk cleanup old PR previews
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 1
+
+      - name: Find and remove old PR previews
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DAYS_OLD: ${{ inputs.days_old || '30' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          CUTOFF_DATE=$(date -d "$DAYS_OLD days ago" +%Y-%m-%d)
+          echo "Looking for PRs closed before: $CUTOFF_DATE"
+
+          REMOVED_COUNT=0
+          KEPT_COUNT=0
+
+          # Find all pr-* directories
+          for PR_DIR in pr-*/; do
+            if [ ! -d "$PR_DIR" ]; then
+              continue
+            fi
+
+            PR_NUMBER=$(echo "$PR_DIR" | sed 's/pr-//' | sed 's@/@@')
+            echo "Checking PR #$PR_NUMBER..."
+
+            # Check PR status via GitHub API
+            PR_INFO=$(curl -s \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER" || echo '{}')
+
+            STATE=$(echo "$PR_INFO" | jq -r '.state // "unknown"')
+            CLOSED_AT=$(echo "$PR_INFO" | jq -r '.closed_at // "null"')
+
+            if [ "$STATE" = "closed" ] && [ "$CLOSED_AT" != "null" ]; then
+              CLOSED_DATE=$(echo "$CLOSED_AT" | cut -d'T' -f1)
+
+              if [[ "$CLOSED_DATE" < "$CUTOFF_DATE" ]]; then
+                echo "  → Removing (closed on $CLOSED_DATE)"
+                git rm -rf "$PR_DIR"
+                REMOVED_COUNT=$((REMOVED_COUNT + 1))
+              else
+                echo "  → Keeping (closed recently on $CLOSED_DATE)"
+                KEPT_COUNT=$((KEPT_COUNT + 1))
+              fi
+            elif [ "$STATE" = "open" ]; then
+              echo "  → Keeping (still open)"
+              KEPT_COUNT=$((KEPT_COUNT + 1))
+            else
+              echo "  → Skipping (PR not found or API error)"
+            fi
+          done
+
+          echo "Summary: Removed $REMOVED_COUNT, Kept $KEPT_COUNT"
+
+          # Commit if any changes
+          if [ $REMOVED_COUNT -gt 0 ]; then
+            git commit -m "chore: bulk cleanup of $REMOVED_COUNT old PR preview(s)"
+
+            # Push with retry logic
+            MAX_RETRIES=3
+            RETRY_COUNT=0
+            PUSH_SUCCESS=false
+
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if git push origin gh-pages 2>&1; then
+                PUSH_SUCCESS=true
+                echo "Successfully cleaned up $REMOVED_COUNT preview(s)"
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                  echo "Push failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+                  sleep $((RETRY_COUNT * 2))
+                  git pull --rebase origin gh-pages
+                fi
+              fi
+            done
+
+            if [ "$PUSH_SUCCESS" = false ]; then
+              echo "Failed to push cleanup after $MAX_RETRIES attempts"
+              exit 1
+            fi
+          else
+            echo "No old previews to remove"
+          fi
+
+          # Save summary for next step
+          echo "REMOVED_COUNT=$REMOVED_COUNT" >> "$GITHUB_ENV"
+          echo "KEPT_COUNT=$KEPT_COUNT" >> "$GITHUB_ENV"
+
+      - name: Add cleanup summary
+        run: |
+          {
+            echo "### 🧹 Bulk Preview Cleanup";
+            echo "- **Removed:** ${{ env.REMOVED_COUNT }} preview(s)";
+            echo "- **Kept:** ${{ env.KEPT_COUNT }} preview(s)";
+            echo "- **Cutoff:** PRs closed before $(date -d '${{ inputs.days_old || 30 }} days ago' +%Y-%m-%d)";
+          } >> "$GITHUB_STEP_SUMMARY"

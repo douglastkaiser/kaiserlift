@@ -40,7 +40,15 @@ jobs:
           ls -la tests/example_use/build/
           echo ""
           echo "Subdirectories:"
-          ls -la tests/example_use/build/*/
+          ls -la tests/example_use/build/*/ 2>/dev/null || echo "Warning: No subdirectories found!"
+          echo ""
+          echo "Critical files check:"
+          [ -f "tests/example_use/build/index.html" ] && echo "✓ index.html exists" || (echo "✗ index.html MISSING" && exit 1)
+          [ -f "tests/example_use/build/lifting/index.html" ] && echo "✓ lifting/index.html exists" || (echo "✗ lifting/index.html MISSING" && exit 1)
+          [ -f "tests/example_use/build/running/index.html" ] && echo "✓ running/index.html exists" || (echo "✗ running/index.html MISSING" && exit 1)
+          [ -f "tests/example_use/build/.nojekyll" ] && echo "✓ .nojekyll exists" || (echo "✗ .nojekyll MISSING" && exit 1)
+          echo ""
+          echo "All critical files present!"
 
       - name: Deploy to GitHub Pages repo
         env:
@@ -77,6 +85,15 @@ jobs:
           # Verify what we're about to commit
           echo "Files in kaiserlift directory:"
           ls -la kaiserlift/
+          echo ""
+          echo "Subdirectories in kaiserlift:"
+          ls -la kaiserlift/*/  2>/dev/null || echo "No subdirectories found!"
+          echo ""
+          echo "Checking for critical files:"
+          [ -f "kaiserlift/index.html" ] && echo "✓ index.html exists" || echo "✗ index.html MISSING"
+          [ -f "kaiserlift/lifting/index.html" ] && echo "✓ lifting/index.html exists" || echo "✗ lifting/index.html MISSING"
+          [ -f "kaiserlift/running/index.html" ] && echo "✓ running/index.html exists" || echo "✗ running/index.html MISSING"
+          [ -f "kaiserlift/.nojekyll" ] && echo "✓ .nojekyll exists" || echo "✗ .nojekyll MISSING"
           echo ""
           echo "Git status:"
           git status

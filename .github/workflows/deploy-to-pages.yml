@@ -70,6 +70,10 @@ jobs:
           rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
             ${{ github.workspace }}/tests/example_use/build/ kaiserlift/
 
+          # Ensure .nojekyll exists in repo root (not just kaiserlift subdir)
+          # This prevents GitHub Pages from processing files through Jekyll
+          touch .nojekyll
+
           # Verify what we're about to commit
           echo "Files in kaiserlift directory:"
           ls -la kaiserlift/
@@ -78,7 +82,7 @@ jobs:
           git status
 
           # Stage changes
-          git add kaiserlift/
+          git add kaiserlift/ .nojekyll
 
           # Commit if there are changes
           if git diff --staged --quiet; then

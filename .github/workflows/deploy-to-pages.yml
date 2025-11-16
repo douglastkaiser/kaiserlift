@@ -75,11 +75,9 @@ jobs:
           echo "Current kaiserlift directory contents BEFORE cleanup:"
           ls -la kaiserlift/ || echo "Directory empty or doesn't exist"
 
-          # Use git rm to stage deletions (so Git tracks the removal)
-          git rm -rf kaiserlift/* || echo "No files to remove"
-
-          # Recreate the directory
-          mkdir -p kaiserlift
+          # Simple approach: just remove files from working directory
+          # Git will detect the changes when we add later
+          rm -rf kaiserlift/*
 
           echo "After cleanup:"
           ls -la kaiserlift/
@@ -123,20 +121,21 @@ jobs:
           echo "Git status:"
           git status
 
-          # Stage changes (force add all files including in subdirectories)
-          git add -A kaiserlift/ .nojekyll
+          # Stage ALL changes (additions, modifications, deletions)
+          # Using git add -A from repo root to catch everything
+          git add -A
 
           # Show what's being staged
           echo "Files staged for commit:"
           git diff --staged --name-status
           echo ""
           echo "Checking staged critical files:"
-          git diff --staged --name-only | grep "kaiserlift/index.html" || echo "WARNING: index.html NOT staged!"
-          git diff --staged --name-only | grep "kaiserlift/lifting/" || echo "WARNING: No lifting/ files staged!"
-          git diff --staged --name-only | grep "kaiserlift/running/" || echo "WARNING: No running/ files staged!"
+          git diff --staged --name-only | grep "kaiserlift/index.html" || { echo "ERROR: index.html NOT staged!"; exit 1; }
+          git diff --staged --name-only | grep "kaiserlift/lifting/" || { echo "ERROR: No lifting/ files staged!"; exit 1; }
+          git diff --staged --name-only | grep "kaiserlift/running/" || { echo "ERROR: No running/ files staged!"; exit 1; }
           echo ""
           echo "Verifying .nojekyll in root:"
-          git diff --staged --name-only | grep "^\.nojekyll$" || echo "WARNING: .nojekyll NOT staged in root!"
+          git diff --staged --name-only | grep "^\.nojekyll$" || { echo "ERROR: .nojekyll NOT staged in root!"; exit 1; }
 
           # Commit if there are changes
           if git diff --staged --quiet; then

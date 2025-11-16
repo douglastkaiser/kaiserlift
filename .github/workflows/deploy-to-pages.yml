@@ -74,6 +74,15 @@ jobs:
           # Remove old kaiserlift contents but keep the directory
           rm -rf kaiserlift/*
 
+          # Verify source build directory exists and has content
+          if [ ! -d "${{ github.workspace }}/tests/example_use/build" ]; then
+            echo "ERROR: Build directory does not exist!"
+            exit 1
+          fi
+
+          echo "Source build directory contents:"
+          ls -laR "${{ github.workspace }}/tests/example_use/build/"
+
           # Copy new build files to kaiserlift directory
           rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
             ${{ github.workspace }}/tests/example_use/build/ kaiserlift/
@@ -98,14 +107,26 @@ jobs:
           echo "Git status:"
           git status
 
-          # Stage changes
-          git add kaiserlift/ .nojekyll
+          # Stage changes (force add all files including in subdirectories)
+          git add -A kaiserlift/ .nojekyll
+
+          # Show what's being staged
+          echo "Files staged for commit:"
+          git diff --staged --name-status
+          echo ""
+          echo "Checking staged subdirectories:"
+          git diff --staged --name-only | grep "kaiserlift/lifting/" || echo "WARNING: No lifting/ files staged!"
+          git diff --staged --name-only | grep "kaiserlift/running/" || echo "WARNING: No running/ files staged!"
 
           # Commit if there are changes
           if git diff --staged --quiet; then
             echo "No changes to deploy"
           else
             git commit -m "Deploy kaiserlift from ${{ github.repository }}@${{ github.sha }}"
+
+            # Verify commit contents
+            echo "Verifying committed files:"
+            git show --name-status --format="" HEAD | head -20
 
             # Push with retry logic
             MAX_RETRIES=4

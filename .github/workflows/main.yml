@@ -100,12 +100,9 @@ jobs:
     name: Generate example HTML
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repo
@@ -127,13 +124,16 @@ jobs:
       - name: Generate example HTML
         run: uv run python tests/example_use/generate_example_html.py
 
-      - name: Upload HTML to Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Upload HTML as artifact (backup)
+        uses: actions/upload-artifact@v4
         with:
+          name: main-deployment
           path: tests/example_use/build
-      - id: pages
-        name: Check if Pages is enabled
-        shell: bash
+          retention-days: 30
+
+      - name: Check if Pages is enabled
+        id: pages_check
+        continue-on-error: true
         run: |
           status=$(curl -s -o /dev/null -w "%{http_code}" \
             -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
@@ -145,26 +145,106 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - id: deployment
-        if: steps.pages.outputs.enabled == 'true'
-        name: Deploy example HTML to Pages
-        uses: actions/deploy-pages@v4
+      # Deploy to gh-pages branch root (same approach as PR previews)
+      - name: Deploy to gh-pages root
+        if: steps.pages_check.outputs.enabled == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Save current branch
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+          # Save build content to temp directory
+          TEMP_BUILD="/tmp/main-deployment"
+          rm -rf "$TEMP_BUILD"
+          mkdir -p "$TEMP_BUILD"
+          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
+            tests/example_use/build/ "$TEMP_BUILD/"
+
+          # Fetch gh-pages branch or create it
+          git fetch origin gh-pages || true
+          git checkout gh-pages || git checkout --orphan gh-pages
+
+          # Clean working directory if orphan
+          if [ -z "$(git log --oneline -1 2>/dev/null)" ]; then
+            git rm -rf . 2>/dev/null || true
+          else
+            # Pull latest changes
+            git pull origin gh-pages || true
+          fi
+
+          # Get list of PR directories to preserve
+          PR_DIRS=$(find . -maxdepth 1 -type d -name 'pr-*' | sort)
+
+          # Clear root files but preserve PR directories
+          find . -maxdepth 1 -type f -not -name '.gitignore' -delete
+          find . -maxdepth 1 -type d -not -name '.' -not -name '..' -not -name '.git' -not -name 'pr-*' -exec rm -rf {} + 2>/dev/null || true
+
+          # Copy new build to root
+          rsync -av "$TEMP_BUILD/" ./
+
+          # Stage all changes
+          git add -A
+
+          # Commit if there are changes
+          git commit -m "Deploy main site to gh-pages root" || echo "No changes to commit"
+
+          # Push with retry logic
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+          PUSH_SUCCESS=false
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if git push origin gh-pages 2>&1; then
+              PUSH_SUCCESS=true
+              break
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Push failed, attempting to rebase and retry ($RETRY_COUNT/$MAX_RETRIES)..."
+                sleep $((RETRY_COUNT * 2))
+                git fetch origin gh-pages
+                git rebase origin/gh-pages || {
+                  echo "Rebase failed, resetting and trying fresh..."
+                  git rebase --abort 2>/dev/null || true
+                  git reset --hard origin/gh-pages
+                  # Re-apply build
+                  find . -maxdepth 1 -type f -not -name '.gitignore' -delete
+                  find . -maxdepth 1 -type d -not -name '.' -not -name '..' -not -name '.git' -not -name 'pr-*' -exec rm -rf {} + 2>/dev/null || true
+                  rsync -av "$TEMP_BUILD/" ./
+                  git add -A
+                  git commit -m "Deploy main site to gh-pages root" || true
+                }
+              fi
+            fi
+          done
+
+          if [ "$PUSH_SUCCESS" = false ]; then
+            echo "Failed to push after $MAX_RETRIES attempts"
+            exit 1
+          fi
+
+          # Switch back to original branch
+          git checkout "$CURRENT_BRANCH" || git checkout -
 
       - name: Add preview link to summary
-        if: steps.pages.outputs.enabled == 'true'
-        env:
-          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        if: steps.pages_check.outputs.enabled == 'true'
         run: |
+          REPO_OWNER=$(echo "${{ github.repository }}" | cut -d'/' -f1)
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           {
-            echo "### Example HTML";
-            echo "[View example.html](${PAGE_URL})";
+            echo "### 🌐 Main Site Deployed";
+            echo "- 🏋️ [Landing Page](https://${REPO_OWNER}.github.io/${REPO_NAME}/)";
+            echo "- 💪 [Lifting Example](https://${REPO_OWNER}.github.io/${REPO_NAME}/example.html)";
+            echo "- 🏃 [Running Example](https://${REPO_OWNER}.github.io/${REPO_NAME}/running/)";
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Note preview artifact
-        if: steps.pages.outputs.enabled != 'true'
+      - name: Note artifact availability
+        if: steps.pages_check.outputs.enabled != 'true'
         run: |
           {
             echo "### Example HTML";
             echo "GitHub Pages is not enabled for this repository.";
-            echo "Download the 'github-pages' artifact to view example.html.";
+            echo "Download the 'main-deployment' artifact to view example.html.";
           } >> "$GITHUB_STEP_SUMMARY"

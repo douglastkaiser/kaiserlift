@@ -224,9 +224,12 @@ jobs:
             const body = `## 🌐 Preview Deployment
 
             ${pagesEnabled ?
-              `### Live Preview
-              - 🏋️ [Lifting Example](${previewUrl}index.html)
-              - 🏃 [Running Example](${previewUrl}running/index.html)` :
+              `### 🏠 Landing Page
+              **[View Preview Landing Page](${previewUrl})**
+
+              ### 📊 Direct Links to Examples
+              - 🏋️ [Lifting Example](${previewUrl}example.html) - Weight training with 1RM calculations
+              - 🏃 [Running Example](${previewUrl}running/) - Running/cardio with pace predictions` :
               `### Artifact Preview
               GitHub Pages is not enabled. Download the preview artifact to view locally.`
             }

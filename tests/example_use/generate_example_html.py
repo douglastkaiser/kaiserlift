@@ -20,9 +20,17 @@ def main() -> None:
     out_dir.mkdir(exist_ok=True)
 
     # Generate lifting example
-    # Priority: use personal data from data/lifting.csv if available, else use example CSVs
+    # Priority order:
+    # 1. Pre-filtered CSV (fastest - already processed)
+    # 2. Personal raw CSV (process on-the-fly)
+    # 3. Example CSVs (fallback)
+    personal_lifting_filtered = data_dir / "lifting_filtered.csv"
     personal_lifting_csv = data_dir / "lifting.csv"
-    if personal_lifting_csv.exists():
+
+    if personal_lifting_filtered.exists():
+        print(f"⚡ Using pre-filtered lifting data from {personal_lifting_filtered}")
+        csv_files = [str(personal_lifting_filtered)]
+    elif personal_lifting_csv.exists():
         print(f"Using personal lifting data from {personal_lifting_csv}")
         csv_files = [str(personal_lifting_csv)]
     else:
@@ -34,9 +42,17 @@ def main() -> None:
     (out_dir / "example.html").write_text(lifting_html, encoding="utf-8")
 
     # Generate running example with clean URL (running/index.html -> /running)
-    # Priority: use personal data from data/running.csv if available, else use example CSV
+    # Priority order:
+    # 1. Pre-filtered running CSV (fastest)
+    # 2. Personal raw CSV (process on-the-fly)
+    # 3. Example CSV (fallback)
+    personal_running_filtered = data_dir / "running_filtered.csv"
     personal_running_csv = data_dir / "running.csv"
-    if personal_running_csv.exists():
+
+    if personal_running_filtered.exists():
+        print(f"⚡ Using pre-filtered running data from {personal_running_filtered}")
+        running_csv = personal_running_filtered
+    elif personal_running_csv.exists():
         print(f"Using personal running data from {personal_running_csv}")
         running_csv = personal_running_csv
     else:

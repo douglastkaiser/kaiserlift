@@ -11,7 +11,7 @@ export function initializeUI(root = document) {
   }
 
   // Check if DataTable is already initialized to prevent reinitialization error
-  const table = $.fn.DataTable.isDataTable(tableEl)
+  const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
     ? $(tableEl).DataTable()
     : $(tableEl).DataTable({ responsive: true });
   $(dropdownEl)

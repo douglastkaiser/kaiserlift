@@ -98,7 +98,7 @@ def main() -> None:
             <li>✅ Next workout targets</li>
         </ul>
         <p>
-            <strong>→ <a href="example.html">View Lifting Demo</a></strong>
+            <strong>→ <a href="lifting/">View Lifting Demo</a></strong>
         </p>
     </div>
 

@@ -130,9 +130,13 @@ jobs:
           echo "Files staged for commit:"
           git diff --staged --name-status
           echo ""
-          echo "Checking staged subdirectories:"
+          echo "Checking staged critical files:"
+          git diff --staged --name-only | grep "kaiserlift/index.html" || echo "WARNING: index.html NOT staged!"
           git diff --staged --name-only | grep "kaiserlift/lifting/" || echo "WARNING: No lifting/ files staged!"
           git diff --staged --name-only | grep "kaiserlift/running/" || echo "WARNING: No running/ files staged!"
+          echo ""
+          echo "Verifying .nojekyll in root:"
+          git diff --staged --name-only | grep "^\.nojekyll$" || echo "WARNING: .nojekyll NOT staged in root!"
 
           # Commit if there are changes
           if git diff --staged --quiet; then

@@ -177,12 +177,17 @@ jobs:
           # Get list of PR directories to preserve
           PR_DIRS=$(find . -maxdepth 1 -type d -name 'pr-*' | sort)
 
-          # Clear root files but preserve PR directories
-          find . -maxdepth 1 -type f -not -name '.gitignore' -delete
+          # Clear root files but preserve PR directories and CNAME
+          find . -maxdepth 1 -type f -not -name '.gitignore' -not -name 'CNAME' -delete
           find . -maxdepth 1 -type d -not -name '.' -not -name '..' -not -name '.git' -not -name 'pr-*' -exec rm -rf {} + 2>/dev/null || true
 
           # Copy new build to root
           rsync -av "$TEMP_BUILD/" ./
+
+          # Ensure CNAME file exists for custom domain
+          if [ ! -f CNAME ]; then
+            echo "www.douglastkaiser.com" > CNAME
+          fi
 
           # Stage all changes
           git add -A
@@ -210,9 +215,13 @@ jobs:
                   git rebase --abort 2>/dev/null || true
                   git reset --hard origin/gh-pages
                   # Re-apply build
-                  find . -maxdepth 1 -type f -not -name '.gitignore' -delete
+                  find . -maxdepth 1 -type f -not -name '.gitignore' -not -name 'CNAME' -delete
                   find . -maxdepth 1 -type d -not -name '.' -not -name '..' -not -name '.git' -not -name 'pr-*' -exec rm -rf {} + 2>/dev/null || true
                   rsync -av "$TEMP_BUILD/" ./
+                  # Ensure CNAME exists
+                  if [ ! -f CNAME ]; then
+                    echo "www.douglastkaiser.com" > CNAME
+                  fi
                   git add -A
                   git commit -m "Deploy main site to gh-pages root" || true
                 }

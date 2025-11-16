@@ -149,8 +149,13 @@ jobs:
           EOF
           fi
 
-          # Only add the PR directory and index, not preview/ or other files
-          git add pr-${{ github.event.pull_request.number }}/ index.html
+          # Ensure CNAME file exists for custom domain
+          if [ ! -f CNAME ]; then
+            echo "www.douglastkaiser.com" > CNAME
+          fi
+
+          # Only add the PR directory, index, and CNAME
+          git add pr-${{ github.event.pull_request.number }}/ index.html CNAME
           git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
 
           # Push with retry logic to handle concurrent deployments
@@ -173,8 +178,8 @@ jobs:
                 git rebase origin/gh-pages || {
                   echo "Rebase had conflicts, resolving by accepting our version..."
                   # Accept our version for all conflicts
-                  git checkout --ours pr-${{ github.event.pull_request.number }}/ index.html
-                  git add pr-${{ github.event.pull_request.number }}/ index.html
+                  git checkout --ours pr-${{ github.event.pull_request.number }}/ index.html CNAME 2>/dev/null || true
+                  git add pr-${{ github.event.pull_request.number }}/ index.html CNAME
                   git rebase --continue || {
                     echo "Rebase continue failed, aborting and trying fresh checkout..."
                     git rebase --abort 2>/dev/null || true
@@ -187,7 +192,11 @@ jobs:
                     if [ ! -f index.html ]; then
                       echo '<!DOCTYPE html><html><head><title>KaiserLift Previews</title></head><body><h1>KaiserLift Preview Deployments</h1><p>Preview deployments are organized by PR number.</p></body></html>' > index.html
                     fi
-                    git add pr-${{ github.event.pull_request.number }}/ index.html
+                    # Ensure CNAME exists
+                    if [ ! -f CNAME ]; then
+                      echo "www.douglastkaiser.com" > CNAME
+                    fi
+                    git add pr-${{ github.event.pull_request.number }}/ index.html CNAME
                     git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || true
                   }
                 }

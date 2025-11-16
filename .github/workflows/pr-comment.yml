@@ -48,8 +48,8 @@ jobs:
 
           # Count test results
           if [ -f test_results.txt ]; then
-            PASSED=$(grep -c "PASSED" test_results.txt || echo "0")
-            FAILED=$(grep -c "FAILED" test_results.txt || echo "0")
+            PASSED=$(grep -c "PASSED" test_results.txt) || PASSED=0
+            FAILED=$(grep -c "FAILED" test_results.txt) || FAILED=0
             echo "tests_passed=$PASSED" >> "$GITHUB_OUTPUT"
             echo "tests_failed=$FAILED" >> "$GITHUB_OUTPUT"
           else

@@ -130,7 +130,9 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         )
 
         # Target markers
-        target_one_rms = [calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)]
+        target_one_rms = [
+            calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
+        ]
         fig.add_trace(
             go.Scatter(
                 x=target_reps,

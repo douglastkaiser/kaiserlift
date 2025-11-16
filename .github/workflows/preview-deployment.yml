@@ -21,6 +21,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for setuptools-scm
 
       - uses: astral-sh/setup-uv@v6
 
@@ -30,7 +32,7 @@ jobs:
           uv pip install -e .
 
       - name: Inject version into client
-        run: uv run --no-project python scripts/inject_version.py
+        run: uv run --with setuptools-scm python scripts/inject_version.py
 
       - name: Generate HTML examples
         run: uv run python tests/example_use/generate_example_html.py

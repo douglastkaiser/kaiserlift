@@ -50,7 +50,7 @@ jobs:
           uv build
 
       - name: Inject version into client
-        run: uv run --no-project python scripts/inject_version.py
+        run: uv run --with setuptools-scm python scripts/inject_version.py
 
       - name: Copy wheel to evaluation bundle
         run: cp dist/*.whl evaluation_bundle/

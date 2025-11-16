@@ -75,11 +75,11 @@ jobs:
           echo "Current kaiserlift directory contents BEFORE cleanup:"
           ls -la kaiserlift/ || echo "Directory empty or doesn't exist"
 
-          # Remove old kaiserlift contents but keep the directory
-          rm -rf kaiserlift/*
+          # Use git rm to stage deletions (so Git tracks the removal)
+          git rm -rf kaiserlift/* || echo "No files to remove"
 
-          # Explicitly remove old example.html if it exists (legacy cleanup)
-          rm -f kaiserlift/example.html
+          # Recreate the directory
+          mkdir -p kaiserlift
 
           echo "After cleanup:"
           ls -la kaiserlift/

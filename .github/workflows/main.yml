@@ -115,6 +115,9 @@ jobs:
       - name: Inject version into client
         run: uv run --no-project python scripts/inject_version.py
 
+      - name: Preprocess CSV data for optimal loading
+        run: uv run python scripts/preprocess_data.py
+
       - name: Generate example HTML
         run: uv run python tests/example_use/generate_example_html.py
 

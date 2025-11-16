@@ -624,42 +624,16 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     // Wait for DOM to be ready
     document.addEventListener('DOMContentLoaded', function() {
       // Theme toggle
-      document.getElementById('themeToggle').addEventListener('click', () => {
-        const root = document.documentElement;
-        const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        root.setAttribute('data-theme', current);
-      });
-
-      // Initialize DataTable
-      const table = $('#exerciseTable').DataTable({
-        pageLength: 25,
-        order: [[0, 'asc']]
-      });
-
-      // Initialize Select2
-      $('#exerciseDropdown').select2({
-        placeholder: 'Select an exercise',
-        allowClear: true
-      });
-
-      // Handle exercise dropdown change
-      $('#exerciseDropdown').on('change', function() {
-        const selectedExercise = $(this).val();
-        const selectedSlug = $(this).find(':selected').data('fig');
-
-        // Filter DataTable
-        if (selectedExercise) {
-          table.column(0).search('^' + selectedExercise + '$', true, false).draw();
-        } else {
-          table.column(0).search('').draw();
-        }
-
-        // Show/hide figures
-        $('.exercise-figure').hide();
-        if (selectedSlug) {
-          $('#fig-' + selectedSlug + '-wrapper').show();
-        }
-      });
+      const themeToggleBtn = document.getElementById('themeToggle');
+      if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', () => {
+          const root = document.documentElement;
+          const current = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          root.setAttribute('data-theme', current);
+        });
+      }
+      // Note: DataTable and Select2 initialization is handled by main.js
+      // to avoid duplicate initialization
     });
     </script>
     """

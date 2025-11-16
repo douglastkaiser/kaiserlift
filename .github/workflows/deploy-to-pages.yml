@@ -75,12 +75,12 @@ jobs:
           echo "Current kaiserlift directory contents BEFORE cleanup:"
           ls -la kaiserlift/ || echo "Directory empty or doesn't exist"
 
-          # Simple approach: just remove files from working directory
-          # Git will detect the changes when we add later
-          rm -rf kaiserlift/*
+          # Force deletion by staging it with git rm
+          # This ensures Git tracks that we're removing everything
+          git rm -rf kaiserlift/* 2>/dev/null || echo "No files to remove via git"
 
-          echo "After cleanup:"
-          ls -la kaiserlift/
+          echo "After git rm:"
+          git status --short
 
           # Verify source build directory exists and has content
           if [ ! -d "${{ github.workspace }}/tests/example_use/build" ]; then
@@ -98,6 +98,15 @@ jobs:
           # Ensure .nojekyll exists in repo root (not just kaiserlift subdir)
           # This prevents GitHub Pages from processing files through Jekyll
           touch .nojekyll
+
+          # Explicitly add all files by full path (git add won't pick up new files without this)
+          git add -f kaiserlift/index.html
+          git add -f kaiserlift/main.js
+          git add -f kaiserlift/version.js
+          git add -f kaiserlift/.nojekyll
+          git add -f kaiserlift/lifting/index.html
+          git add -f kaiserlift/running/index.html
+          git add -f .nojekyll
 
           # Verify what we're about to commit
           echo "Files in kaiserlift directory:"
@@ -121,9 +130,8 @@ jobs:
           echo "Git status:"
           git status
 
-          # Stage ALL changes (additions, modifications, deletions)
-          # Using git add -A from repo root to catch everything
-          git add -A
+          # Stage ALL changes (the -f forces add of gitignored files if any)
+          git add -f -A
 
           # Show what's being staged
           echo "Files staged for commit:"

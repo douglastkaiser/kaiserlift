@@ -1,0 +1,129 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    name: Deploy to douglastkaiser.github.io
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout kaiserlift repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for setuptools-scm
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Inject version into client
+        run: uv run --with setuptools-scm python scripts/inject_version.py
+
+      - name: Preprocess CSV data for optimal loading
+        run: uv run python scripts/preprocess_data.py
+
+      - name: Generate example HTML
+        run: uv run python tests/example_use/generate_example_html.py
+
+      - name: Verify build output
+        run: |
+          echo "Build directory contents:"
+          ls -la tests/example_use/build/
+          echo ""
+          echo "Subdirectories:"
+          ls -la tests/example_use/build/*/
+
+      - name: Deploy to GitHub Pages repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Clone the GitHub Pages repository
+          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
+          TEMP_DIR="/tmp/pages-repo"
+          rm -rf "$TEMP_DIR"
+
+          # Use token authentication for cloning
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR"
+
+          cd "$TEMP_DIR"
+
+          # Create kaiserlift directory if it doesn't exist
+          mkdir -p kaiserlift
+
+          # Remove old kaiserlift contents but keep the directory
+          rm -rf kaiserlift/*
+
+          # Copy new build files to kaiserlift directory
+          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
+            ${{ github.workspace }}/tests/example_use/build/ kaiserlift/
+
+          # Verify what we're about to commit
+          echo "Files in kaiserlift directory:"
+          ls -la kaiserlift/
+          echo ""
+          echo "Git status:"
+          git status
+
+          # Stage changes
+          git add kaiserlift/
+
+          # Commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+          else
+            git commit -m "Deploy kaiserlift from ${{ github.repository }}@${{ github.sha }}"
+
+            # Push with retry logic
+            MAX_RETRIES=4
+            RETRY_COUNT=0
+            PUSH_SUCCESS=false
+
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if git push origin main 2>&1; then
+                PUSH_SUCCESS=true
+                echo "Successfully deployed to GitHub Pages!"
+                break
+              else
+                RETRY_COUNT=$((RETRY_COUNT + 1))
+                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                  WAIT_TIME=$((2 ** RETRY_COUNT))
+                  echo "Push failed, retrying in ${WAIT_TIME}s ($RETRY_COUNT/$MAX_RETRIES)..."
+                  sleep $WAIT_TIME
+                  git pull --rebase origin main
+                fi
+              fi
+            done
+
+            if [ "$PUSH_SUCCESS" = false ]; then
+              echo "Failed to push after $MAX_RETRIES attempts"
+              exit 1
+            fi
+          fi
+
+      - name: Add deployment summary
+        run: |
+          {
+            echo "### 🌐 Deployed to GitHub Pages";
+            echo "";
+            echo "✅ Successfully deployed to https://www.douglastkaiser.com/kaiserlift/";
+            echo "";
+            echo "**Available pages:**";
+            echo "- 🏠 [Landing Page](https://www.douglastkaiser.com/kaiserlift/)";
+            echo "- 🏋️ [Lifting Demo](https://www.douglastkaiser.com/kaiserlift/lifting/)";
+            echo "- 🏃 [Running Demo](https://www.douglastkaiser.com/kaiserlift/running/)";
+            echo "";
+            echo "**Commit:** \`${{ github.sha }}\`";
+          } >> "$GITHUB_STEP_SUMMARY"

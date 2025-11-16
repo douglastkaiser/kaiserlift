@@ -59,9 +59,65 @@ jobs:
             echo "No preview directory found for PR #${{ github.event.pull_request.number }}"
           fi
 
+      - name: Cleanup from external GitHub Pages repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Clone the GitHub Pages repository
+          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
+          TEMP_DIR="/tmp/pages-repo-cleanup"
+          rm -rf "$TEMP_DIR"
+
+          # Use token authentication for cloning
+          if git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR" 2>&1; then
+            cd "$TEMP_DIR"
+
+            PR_DIR="kaiserlift/pr-${{ github.event.pull_request.number }}"
+
+            if [ -d "$PR_DIR" ]; then
+              echo "Removing preview from external repo: $PR_DIR"
+              git rm -rf "$PR_DIR"
+              git commit -m "chore: cleanup preview for kaiserlift PR #${{ github.event.pull_request.number }}"
+
+              # Push with retry logic
+              MAX_RETRIES=3
+              RETRY_COUNT=0
+              PUSH_SUCCESS=false
+
+              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+                if git push origin main 2>&1; then
+                  PUSH_SUCCESS=true
+                  echo "Successfully removed preview from external repo"
+                  break
+                else
+                  RETRY_COUNT=$((RETRY_COUNT + 1))
+                  if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                    echo "Push failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
+                    sleep $((RETRY_COUNT * 2))
+                    git pull --rebase origin main
+                  fi
+                fi
+              done
+
+              if [ "$PUSH_SUCCESS" = false ]; then
+                echo "Warning: Failed to cleanup from external repo after $MAX_RETRIES attempts"
+              fi
+            else
+              echo "No preview directory found in external repo for PR #${{ github.event.pull_request.number }}"
+            fi
+          else
+            echo "Warning: Could not clone Pages repository for cleanup. Check PAGES_DEPLOY_TOKEN secret."
+          fi
+
       - name: Add cleanup summary
         run: |
           {
             echo "### 🧹 Preview Cleanup";
             echo "Removed preview for PR #${{ github.event.pull_request.number }}";
+            echo "- Cleaned from local gh-pages branch";
+            echo "- Cleaned from external GitHub Pages repo";
           } >> "$GITHUB_STEP_SUMMARY"

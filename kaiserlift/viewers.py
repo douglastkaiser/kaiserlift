@@ -24,46 +24,19 @@ def get_closest_exercise(df, Exercise):
         raise ValueError(f"No close match found for '{Exercise}'.")
 
 
-def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
-    df = df[df["Reps"] != 0]
+def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
+    if df_pareto is None or df_pareto.empty:
+        raise ValueError("df_pareto must be provided and non-empty")
 
     if Exercise is None:
-        exercises = df["Exercise"].unique()
-        fig = go.Figure()
-        for exercise in exercises:
-            exercise_df = df[df["Exercise"] == exercise]
-            max_reps = max(exercise_df["Reps"])
-            max_weight = max(exercise_df["Weight"])
-            fig.add_trace(
-                go.Scatter(
-                    x=exercise_df["Reps"] / max_reps,
-                    y=exercise_df["Weight"] / max_weight,
-                    mode="markers",
-                    name=exercise,
-                    hovertemplate="<b>%{fullData.name}</b><br>"
-                    + "Reps: %{customdata[0]}<br>"
-                    + "Weight: %{customdata[1]} lbs<extra></extra>",
-                    customdata=list(zip(exercise_df["Reps"], exercise_df["Weight"])),
-                )
-            )
-        fig.update_layout(
-            title="Weight vs. Reps for All Exercises",
-            xaxis_title="Reps (normalized)",
-            yaxis_title="Weight (normalized)",
-            hovermode="closest",
-        )
-        return fig
+        raise ValueError("Exercise must be specified")
 
-    closest_match = get_closest_exercise(df, Exercise)
-    df = df[df["Exercise"] == closest_match]
-    if df_pareto is not None:
-        df_pareto = df_pareto[df_pareto["Exercise"] == closest_match]
+    closest_match = get_closest_exercise(df_pareto, Exercise)
+    df_pareto = df_pareto[df_pareto["Exercise"] == closest_match]
     if df_targets is not None:
         df_targets = df_targets[df_targets["Exercise"] == closest_match]
 
-    rep_series = [df["Reps"]]
-    if df_pareto is not None and not df_pareto.empty:
-        rep_series.append(df_pareto["Reps"])
+    rep_series = [df_pareto["Reps"]]
     if df_targets is not None and not df_targets.empty:
         rep_series.append(df_targets["Reps"])
 
@@ -72,22 +45,6 @@ def plot_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     plot_max_rep = max_rep + 1
 
     fig = go.Figure()
-
-    # Plot raw data points first (so they appear in the background)
-    fig.add_trace(
-        go.Scatter(
-            x=df["Reps"],
-            y=df["Weight"],
-            mode="markers",
-            name="Data Points",
-            marker=dict(color="blue", size=8),
-            hovertemplate="<b>Data Point</b><br>"
-            + "Reps: %{x}<br>"
-            + "Weight: %{y} lbs<br>"
-            + "1RM: %{customdata:.1f}<extra></extra>",
-            customdata=[calculate_1rm(w, r) for w, r in zip(df["Weight"], df["Reps"])],
-        )
-    )
 
     if df_pareto is not None and not df_pareto.empty:
         pareto_points = list(zip(df_pareto["Reps"], df_pareto["Weight"]))
@@ -264,10 +221,10 @@ def render_table_fragment(df) -> str:
 
     figures_html: dict[str, str] = {}
 
-    exercise_slug = {ex: slugify(ex) for ex in df["Exercise"].unique()}
+    exercise_slug = {ex: slugify(ex) for ex in df_records["Exercise"].unique()}
 
     for exercise, slug in exercise_slug.items():
-        fig = plot_df(df, df_records, df_targets, Exercise=exercise)
+        fig = plot_df(df_records, df_targets, Exercise=exercise)
         # Convert Plotly figure to HTML div with wrapper
         img_html = plotly_figure_to_html_div(fig, slug, display="none")
         figures_html[exercise] = img_html
@@ -275,7 +232,7 @@ def render_table_fragment(df) -> str:
     all_figures_html = "\n".join(figures_html.values())
 
     exercise_column = "Exercise"  # Adjust if needed
-    exercise_options = sorted(df[exercise_column].dropna().unique())
+    exercise_options = sorted(df_records[exercise_column].dropna().unique())
 
     dropdown_html = """
     <label for="exerciseDropdown">Filter by Exercise:</label>

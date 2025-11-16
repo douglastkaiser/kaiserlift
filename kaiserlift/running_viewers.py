@@ -24,7 +24,7 @@ from .plot_utils import (
 )
 
 
-def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
+def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     """Plot running performance: Distance vs Speed.
 
     Similar to plot_df for lifting but with running metrics:
@@ -35,14 +35,12 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Full running data
     df_pareto : pd.DataFrame, optional
         Pareto front records
     df_targets : pd.DataFrame, optional
         Target running goals
     Exercise : str, optional
-        Specific exercise to plot. If None, plots all exercises normalized.
+        Specific exercise to plot. Must be specified.
 
     Returns
     -------
@@ -50,57 +48,11 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
         The generated interactive figure
     """
 
-    df = df[df["Distance"] > 0].copy()
-
-    # Add Speed column if not present (Speed = 3600 / Pace)
-    if "Speed" not in df.columns and "Pace" in df.columns:
-        df["Speed"] = df["Pace"].apply(
-            lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
-        )
+    if df_pareto is None or df_pareto.empty:
+        raise ValueError("df_pareto must be provided and non-empty")
 
     if Exercise is None:
-        # Plot all exercises normalized
-        exercises = df["Exercise"].unique()
-        fig = go.Figure()
-        for exercise in exercises:
-            ex_df = df[df["Exercise"] == exercise]
-            max_dist = max(ex_df["Distance"])
-            max_speed = max(ex_df["Speed"])
-            fig.add_trace(
-                go.Scatter(
-                    x=ex_df["Distance"] / max_dist,
-                    y=ex_df["Speed"] / max_speed,
-                    mode="markers",
-                    name=exercise,
-                    opacity=0.6,
-                    hovertemplate="<b>%{fullData.name}</b><br>"
-                    + "Distance: %{customdata[0]:.2f} mi<br>"
-                    + "Speed: %{customdata[1]:.2f} mph<extra></extra>",
-                    customdata=list(zip(ex_df["Distance"], ex_df["Speed"])),
-                )
-            )
-        fig.update_layout(
-            title="Speed vs. Distance for All Running Exercises",
-            xaxis_title="Distance (normalized)",
-            yaxis_title="Speed (normalized, higher=faster)",
-            hovermode="closest",
-            template="plotly_white",
-        )
-        return fig
-
-    # Filter to specific exercise
-    df = df[df["Exercise"] == Exercise]
-    if df.empty:
-        fig = go.Figure()
-        fig.add_annotation(
-            text=f"No data for {Exercise}",
-            xref="paper",
-            yref="paper",
-            x=0.5,
-            y=0.5,
-            showarrow=False,
-        )
-        return fig
+        raise ValueError("Exercise must be specified")
 
     # Add Speed to pareto and targets if needed
     if df_pareto is not None:
@@ -118,9 +70,7 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
             )
 
     # Calculate axis limits
-    distance_series = [df["Distance"]]
-    if df_pareto is not None and not df_pareto.empty:
-        distance_series.append(df_pareto["Distance"])
+    distance_series = [df_pareto["Distance"]]
     if df_targets is not None and not df_targets.empty:
         distance_series.append(df_targets["Distance"])
 
@@ -133,26 +83,6 @@ def plot_running_df(df, df_pareto=None, df_targets=None, Exercise: str = None):
     # Initialize pareto curve parameters
     best_pace = np.nan
     best_distance = np.nan
-
-    # Plot raw data first (blue dots)
-    pace_strings = [
-        seconds_to_pace_string(3600 / s) if s > 0 else "N/A" for s in df["Speed"]
-    ]
-    fig.add_trace(
-        go.Scatter(
-            x=df["Distance"],
-            y=df["Speed"],
-            mode="markers",
-            name="All Runs",
-            marker=dict(color="blue", size=8),
-            opacity=0.6,
-            hovertemplate="<b>Run</b><br>"
-            + "Distance: %{x:.2f} mi<br>"
-            + "Speed: %{y:.2f} mph<br>"
-            + "Pace: %{customdata}<extra></extra>",
-            customdata=pace_strings,
-        )
-    )
 
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
@@ -393,12 +323,12 @@ def render_running_table_fragment(df) -> str:
 
     figures_html: dict[str, str] = {}
 
-    exercise_slug = {ex: slugify(ex) for ex in df["Exercise"].unique()}
+    exercise_slug = {ex: slugify(ex) for ex in df_records["Exercise"].unique()}
 
     # Generate plots for each exercise
     for exercise, slug in exercise_slug.items():
         try:
-            fig = plot_running_df(df, df_records, df_targets, Exercise=exercise)
+            fig = plot_running_df(df_records, df_targets, Exercise=exercise)
             # Convert Plotly figure to HTML div with wrapper
             img_html = plotly_figure_to_html_div(
                 fig, slug, display="block", css_class="running-figure"

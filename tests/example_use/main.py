@@ -20,13 +20,13 @@ df = process_csv_files(csv_files)
 df_records = highest_weight_per_rep(df)
 df_targets = df_next_pareto(df_records)
 
-fig = plot_df(df, Exercise="Curl Pulldown Bicep")
+fig = plot_df(df_records, Exercise="Curl Pulldown Bicep")
 fig.savefig("build/Curl Pulldown Bicep.png")
 
-fig = plot_df(df, df_pareto=df_records, Exercise="Curl Pulldown Bicep")
+fig = plot_df(df_records, Exercise="Curl Pulldown Bicep")
 fig.savefig("build/Curl Pulldown Bicep Pareto.png")
 
-fig = plot_df(df, df_records, df_targets, Exercise="Curl Pulldown Bicep")
+fig = plot_df(df_records, df_targets, Exercise="Curl Pulldown Bicep")
 fig.savefig("build/Curl Pulldown Bicep Pareto and Targets.png")
 
 # Console print out with optional args

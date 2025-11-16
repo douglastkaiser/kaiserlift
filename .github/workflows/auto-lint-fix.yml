@@ -56,3 +56,36 @@ jobs:
           else
             echo "✨ No linting issues found" >> $GITHUB_STEP_SUMMARY
           fi
+
+  validate-lint:
+    name: Validate linting passes
+    runs-on: ubuntu-latest
+    needs: auto-fix-lint
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Run ruff check (no auto-fix)
+        run: |
+          uvx ruff check .
+
+      - name: Run ruff format check
+        run: |
+          uvx ruff format --check .
+
+      - name: Run pre-commit checks
+        env:
+          PRE_COMMIT_USE_UV: "1"
+        run: uvx pre-commit run --all-files
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "✅ All linting checks passed!" >> $GITHUB_STEP_SUMMARY

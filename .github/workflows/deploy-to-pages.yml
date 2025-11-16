@@ -75,12 +75,12 @@ jobs:
           echo "Current kaiserlift directory contents BEFORE cleanup:"
           ls -la kaiserlift/ || echo "Directory empty or doesn't exist"
 
-          # Simple approach: just remove files from working directory
-          # Git will detect the changes when we add later
-          rm -rf kaiserlift/*
+          # Force deletion by staging it with git rm
+          # This ensures Git tracks that we're removing everything
+          git rm -rf kaiserlift/* 2>/dev/null || echo "No files to remove via git"
 
-          echo "After cleanup:"
-          ls -la kaiserlift/
+          echo "After git rm:"
+          git status --short
 
           # Verify source build directory exists and has content
           if [ ! -d "${{ github.workspace }}/tests/example_use/build" ]; then
@@ -94,6 +94,9 @@ jobs:
           # Copy new build files to kaiserlift directory
           rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
             ${{ github.workspace }}/tests/example_use/build/ kaiserlift/
+
+          # Now explicitly add everything back (this forces Git to see them as new)
+          git add -f kaiserlift/
 
           # Ensure .nojekyll exists in repo root (not just kaiserlift subdir)
           # This prevents GitHub Pages from processing files through Jekyll
@@ -121,9 +124,8 @@ jobs:
           echo "Git status:"
           git status
 
-          # Stage ALL changes (additions, modifications, deletions)
-          # Using git add -A from repo root to catch everything
-          git add -A
+          # Stage ALL changes (the -f forces add of gitignored files if any)
+          git add -f -A
 
           # Show what's being staged
           echo "Files staged for commit:"

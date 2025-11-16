@@ -57,7 +57,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         max_1rm = max(one_rms)
 
         # Generate dotted Epley decay line
-        x_vals = np.linspace(min_rep, plot_max_rep, 10)
+        x_vals = np.linspace(min_rep, plot_max_rep, 100)
         y_vals = [estimate_weight_from_1rm(max_1rm, r) for r in x_vals]
         fig.add_trace(
             go.Scatter(
@@ -112,7 +112,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         min_1rm = min(one_rms)
 
         # Generate dotted Epley decay line for targets
-        x_vals = np.linspace(min_rep, plot_max_rep, 10)
+        x_vals = np.linspace(min_rep, plot_max_rep, 100)
         y_vals = [estimate_weight_from_1rm(min_1rm, r) for r in x_vals]
         fig.add_trace(
             go.Scatter(
@@ -130,10 +130,13 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         )
 
         # Target markers
+        target_one_rms = [
+            calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
+        ]
         fig.add_trace(
             go.Scatter(
-                x=df_targets["Reps"],
-                y=df_targets["Weight"],
+                x=target_reps,
+                y=target_weights,
                 mode="markers",
                 name="Targets",
                 marker=dict(color="green", size=12, symbol="x"),
@@ -141,10 +144,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 + "Reps: %{x}<br>"
                 + "Weight: %{y} lbs<br>"
                 + "1RM: %{customdata:.1f}<extra></extra>",
-                customdata=[
-                    calculate_1rm(w, r)
-                    for w, r in zip(df_targets["Weight"], df_targets["Reps"])
-                ],
+                customdata=target_one_rms,
             )
         )
 

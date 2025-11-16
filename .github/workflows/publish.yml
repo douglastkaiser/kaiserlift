@@ -2,8 +2,8 @@ name: Publish to PyPI
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 jobs:
   publish:
@@ -20,10 +20,29 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
 
-      - name: Verify tag version
+      - name: Bump version and create tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
-          echo "Publishing version: $TAG_VERSION"
+          git config user.email "github-actions@github.com"
+          git config user.name "github-actions"
+
+          # Get the latest tag or start at 0.1.0 if no tags exist
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+          echo "Latest tag: $latest_tag"
+
+          # Extract version without 'v' prefix
+          current=${latest_tag#v}
+          IFS='.' read -r major minor patch <<< "$current"
+
+          # Increment patch version
+          patch=$((patch + 1))
+          new="$major.$minor.$patch"
+          new_tag="v$new"
+
+          echo "Creating new tag: $new_tag"
+          git tag -a "$new_tag" -m "chore: bump version to $new"
+          git push origin "$new_tag"
 
       - name: Build package
         run: uv build

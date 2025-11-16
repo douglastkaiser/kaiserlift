@@ -10,7 +10,10 @@ export function initializeUI(root = document) {
     return;
   }
 
-  const table = $(tableEl).DataTable({ responsive: true });
+  // Check if DataTable is already initialized to prevent reinitialization error
+  const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
+    ? $(tableEl).DataTable()
+    : $(tableEl).DataTable({ responsive: true });
   $(dropdownEl)
     .select2({ placeholder: "Filter by Exercise", allowClear: true })
     .on("change", function () {

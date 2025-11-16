@@ -3,12 +3,14 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("kaiserlift")
 except PackageNotFoundError:  # pragma: no cover - fallback for dev environments
-    from pathlib import Path
-    import tomllib
+    try:
+        from setuptools_scm import get_version
+        from pathlib import Path
 
-    _pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
-    with _pyproject.open("rb") as _f:
-        __version__ = tomllib.load(_f)["project"]["version"]
+        _root = Path(__file__).resolve().parent.parent
+        __version__ = get_version(root=_root)
+    except Exception:
+        __version__ = "0.0.0.dev0"
 
 try:
     from .viewers import (

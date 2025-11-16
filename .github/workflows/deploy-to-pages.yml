@@ -50,6 +50,29 @@ jobs:
           echo ""
           echo "All critical files present!"
 
+      - name: Manually clean kaiserlift directory before deployment
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+        run: |
+          # Clone the Pages repo
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/douglastkaiser/douglastkaiser.github.io.git" /tmp/pages-cleanup
+          cd /tmp/pages-cleanup
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove ONLY the kaiserlift directory if it exists
+          if [ -d "kaiserlift" ]; then
+            echo "Removing old kaiserlift directory..."
+            git rm -rf kaiserlift
+            git commit -m "Clean kaiserlift directory before deployment"
+            git push origin main
+            echo "✓ Old kaiserlift directory removed"
+          else
+            echo "No kaiserlift directory to remove"
+          fi
+
       - name: Deploy to GitHub Pages repo using peaceiris action
         uses: peaceiris/actions-gh-pages@v4
         with:

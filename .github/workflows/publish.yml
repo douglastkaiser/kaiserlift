@@ -2,8 +2,8 @@ name: Publish to PyPI
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 jobs:
   publish:
@@ -11,39 +11,19 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for setuptools-scm
 
       - uses: astral-sh/setup-uv@v6
 
-      - name: Bump version
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify tag version
         run: |
-          current=$(grep '^version =' pyproject.toml | head -n1 | cut -d '"' -f2)
-          IFS='.' read -r major minor patch <<< "$current"
-          patch=$((patch + 1))
-          new="$major.$minor.$patch"
-          sed -i -E "s/^version = \"[0-9]+\.[0-9]+\.[0-9]+\"/version = \"$new\"/" pyproject.toml
-          uv lock
-          git config user.email "github-actions@github.com"
-          git config user.name "github-actions"
-          git commit -am "chore: bump version to $new [skip ci]" || echo "No changes to commit"
-
-          # Create and push branch for version bump
-          branch_name="automated-version-bump-$new"
-          git checkout -b "$branch_name"
-          git push -u origin "$branch_name"
-
-          # Create PR for version bump
-          gh pr create \
-            --title "chore: bump version to $new" \
-            --body "Automated version bump from $current to $new after publishing to PyPI." \
-            --base main \
-            --head "$branch_name"
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          echo "Publishing version: $TAG_VERSION"
 
       - name: Build package
         run: uv build

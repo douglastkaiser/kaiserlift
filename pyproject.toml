@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
+requires = ["setuptools>=61", "setuptools-scm>=8.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "kaiserlift"
-version = "0.1.62"
+dynamic = ["version"]
 description = "Science-based progressive overload system for weightlifting and running with Pareto optimization"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -76,3 +76,7 @@ skip_covered = false
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "no-local-version"

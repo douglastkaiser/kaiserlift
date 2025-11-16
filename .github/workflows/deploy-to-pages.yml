@@ -68,19 +68,19 @@ jobs:
 
           cd "$TEMP_DIR"
 
-          # Create kaiserlift directory if it doesn't exist
-          mkdir -p kaiserlift
-
           # Show what currently exists
           echo "Current kaiserlift directory contents BEFORE cleanup:"
-          ls -la kaiserlift/ || echo "Directory empty or doesn't exist"
+          ls -la kaiserlift/ 2>/dev/null || echo "Directory doesn't exist"
 
-          # Force deletion by staging it with git rm
-          # This ensures Git tracks that we're removing everything
-          git rm -rf kaiserlift/* 2>/dev/null || echo "No files to remove via git"
+          # Delete the ENTIRE kaiserlift directory (not just contents)
+          # This forces Git to see it as completely new when we re-add
+          git rm -rf kaiserlift 2>/dev/null || echo "No kaiserlift directory to remove"
 
           echo "After git rm:"
           git status --short
+
+          # Recreate the directory
+          mkdir -p kaiserlift
 
           # Verify source build directory exists and has content
           if [ ! -d "${{ github.workspace }}/tests/example_use/build" ]; then

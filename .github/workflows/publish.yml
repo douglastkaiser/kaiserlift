@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout code
@@ -31,7 +32,18 @@ jobs:
           git config user.email "github-actions@github.com"
           git config user.name "github-actions"
           git commit -am "chore: bump version to $new [skip ci]" || echo "No changes to commit"
-          git push
+
+          # Create and push branch for version bump
+          branch_name="automated-version-bump-$new"
+          git checkout -b "$branch_name"
+          git push -u origin "$branch_name"
+
+          # Create PR for version bump
+          gh pr create \
+            --title "chore: bump version to $new" \
+            --body "Automated version bump from $current to $new after publishing to PyPI." \
+            --base main \
+            --head "$branch_name"
 
       - name: Build package
         run: uv build

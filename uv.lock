@@ -1157,7 +1157,7 @@ wheels = [
 
 [[package]]
 name = "kaiserlift"
-version = "0.1.60"
+version = "0.1.61"
 source = { editable = "." }
 dependencies = [
     { name = "ipython", version = "8.12.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.9'" },

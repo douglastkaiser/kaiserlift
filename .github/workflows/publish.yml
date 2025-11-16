@@ -15,23 +15,46 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for setuptools-scm
 
       - uses: astral-sh/setup-uv@v6
 
-      - name: Bump version
+      - name: Bump version and create tag
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          current=$(grep '^version =' pyproject.toml | head -n1 | cut -d '"' -f2)
+          git config user.email "github-actions@github.com"
+          git config user.name "github-actions"
+
+          # Try to get the latest tag
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$latest_tag" ]; then
+            # No tags exist - query PyPI for current version
+            echo "No git tags found, querying PyPI for current version..."
+            pypi_version=$(curl -s https://pypi.org/pypi/kaiserlift/json | grep -oP '"version":"\K[^"]+' | head -1)
+            if [ -n "$pypi_version" ]; then
+              echo "Found version $pypi_version on PyPI"
+              current="$pypi_version"
+            else
+              echo "No version found on PyPI, starting at 0.1.0"
+              current="0.1.0"
+            fi
+          else
+            echo "Latest tag: $latest_tag"
+            current=${latest_tag#v}
+          fi
+
+          # Extract and increment version
           IFS='.' read -r major minor patch <<< "$current"
           patch=$((patch + 1))
           new="$major.$minor.$patch"
-          sed -i -E "s/^version = \"[0-9]+\.[0-9]+\.[0-9]+\"/version = \"$new\"/" pyproject.toml
-          uv lock
-          git config user.email "github-actions@github.com"
-          git config user.name "github-actions"
-          git commit -am "chore: bump version to $new [skip ci]" || echo "No changes to commit"
-          git push
+          new_tag="v$new"
+
+          echo "Creating new tag: $new_tag"
+          git tag -a "$new_tag" -m "chore: bump version to $new"
+          git push origin "$new_tag"
 
       - name: Build package
         run: uv build

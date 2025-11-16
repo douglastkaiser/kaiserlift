@@ -78,6 +78,10 @@ def main() -> None:
     for name in ("main.js", "version.js"):
         shutil.copy(client_dir / name, out_dir / name)
 
+    # Create .nojekyll to prevent GitHub Pages from processing through Jekyll
+    # This ensures clean URLs work properly (e.g., /lifting/ instead of /lifting/index.html)
+    (out_dir / ".nojekyll").write_text("", encoding="utf-8")
+
 
 if __name__ == "__main__":
     main()

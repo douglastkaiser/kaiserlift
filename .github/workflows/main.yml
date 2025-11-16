@@ -236,7 +236,7 @@ jobs:
           {
             echo "### 🌐 Main Site Deployed";
             echo "- 🏋️ [Landing Page](https://${REPO_OWNER}.github.io/${REPO_NAME}/)";
-            echo "- 💪 [Lifting Example](https://${REPO_OWNER}.github.io/${REPO_NAME}/example.html)";
+            echo "- 💪 [Lifting Example](https://${REPO_OWNER}.github.io/${REPO_NAME}/lifting/)";
             echo "- 🏃 [Running Example](https://${REPO_OWNER}.github.io/${REPO_NAME}/running/)";
           } >> "$GITHUB_STEP_SUMMARY"
 

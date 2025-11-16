@@ -39,7 +39,9 @@ def main() -> None:
 
     df = process_csv_files(csv_files)
     lifting_html = gen_html_viewer(df)
-    (out_dir / "example.html").write_text(lifting_html, encoding="utf-8")
+    lifting_dir = out_dir / "lifting"
+    lifting_dir.mkdir(exist_ok=True)
+    (lifting_dir / "index.html").write_text(lifting_html, encoding="utf-8")
 
     # Generate running example with clean URL (running/index.html -> /running)
     # Priority order:

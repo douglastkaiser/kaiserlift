@@ -58,8 +58,8 @@ jobs:
           publish_branch: main
           publish_dir: ./tests/example_use/build
           destination_dir: kaiserlift
-          keep_files: false  # This ensures old files are removed
-          force_orphan: true  # This forces a fresh deployment every time
+          keep_files: true  # IMPORTANT: Preserve other content in the repo
+          # force_orphan removed - we're deploying to an existing repo with other content
 
       - name: Add deployment summary
         run: |

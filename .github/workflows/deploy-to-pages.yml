@@ -114,6 +114,12 @@ jobs:
           [ -f "kaiserlift/running/index.html" ] && echo "✓ running/index.html exists" || echo "✗ running/index.html MISSING"
           [ -f "kaiserlift/.nojekyll" ] && echo "✓ .nojekyll exists" || echo "✗ .nojekyll MISSING"
           echo ""
+          echo "Checking index.html content (link verification):"
+          grep -o 'href="[^"]*".*View Lifting Demo' kaiserlift/index.html || echo "WARNING: Could not find View Lifting Demo link!"
+          echo ""
+          echo "Checking for OLD example.html reference:"
+          grep -q 'href="example.html"' kaiserlift/index.html && echo "ERROR: Old example.html link found!" || echo "✓ No example.html link found"
+          echo ""
           echo "Git status:"
           git status
 

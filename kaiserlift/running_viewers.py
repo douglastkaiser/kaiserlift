@@ -434,25 +434,38 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     * {
         transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        box-sizing: border-box;
     }
 
     body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        font-size: 34px;
-        padding: 28px;
+        font-size: clamp(16px, 2.5vw, 24px);
+        padding: clamp(12px, 3vw, 28px);
         background-color: var(--bg);
         color: var(--fg);
         line-height: 1.5;
+        margin: 0;
+        overflow-x: hidden;
     }
 
     h1 {
         font-weight: 700;
         margin-bottom: 24px;
+        font-size: clamp(1.5em, 4vw, 2em);
+    }
+
+    /* Table wrapper for horizontal scrolling on mobile */
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin-bottom: 16px;
     }
 
     table.dataTable {
-        font-size: 32px;
+        font-size: clamp(14px, 2vw, 20px);
         width: 100% !important;
+        min-width: 500px;
         word-wrap: break-word;
         background-color: var(--bg-alt);
         color: var(--fg);
@@ -465,12 +478,13 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     table.dataTable thead th {
         background-color: var(--bg);
         font-weight: 600;
-        padding: 12px;
+        padding: clamp(8px, 1.5vw, 12px);
         border-bottom: 2px solid var(--border);
+        white-space: nowrap;
     }
 
     table.dataTable tbody td {
-        padding: 10px 12px;
+        padding: clamp(6px, 1.5vw, 10px) clamp(8px, 1.5vw, 12px);
     }
 
     table.dataTable tbody tr {
@@ -481,8 +495,61 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         background-color: var(--bg);
     }
 
+    /* DataTables controls responsive styling */
+    .dataTables_wrapper {
+        font-size: clamp(14px, 2vw, 18px);
+    }
+
+    .dataTables_wrapper .dataTables_length,
+    .dataTables_wrapper .dataTables_filter {
+        margin-bottom: 12px;
+    }
+
+    .dataTables_wrapper .dataTables_filter input {
+        font-size: clamp(14px, 2vw, 18px);
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background-color: var(--bg-alt);
+        color: var(--fg);
+        min-height: 44px;
+    }
+
+    .dataTables_wrapper .dataTables_length select {
+        font-size: clamp(14px, 2vw, 18px);
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background-color: var(--bg-alt);
+        color: var(--fg);
+        min-height: 44px;
+    }
+
+    .dataTables_wrapper .dataTables_paginate {
+        margin-top: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+        padding: 8px 12px !important;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        font-size: clamp(14px, 2vw, 16px);
+    }
+
+    .dataTables_wrapper .dataTables_info {
+        font-size: clamp(12px, 1.8vw, 16px);
+        padding-top: 12px;
+    }
+
     label {
-        font-size: 34px;
+        font-size: clamp(16px, 2.5vw, 24px);
         color: var(--fg);
         font-weight: 500;
         margin-bottom: 8px;
@@ -490,12 +557,13 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
 
     select {
-        font-size: 34px;
+        font-size: clamp(16px, 2.5vw, 24px);
         color: var(--fg);
         background-color: var(--bg-alt);
         border: 2px solid var(--border);
         border-radius: 6px;
-        padding: 8px 12px;
+        padding: 10px 12px;
+        min-height: 44px;
     }
 
     select:focus {
@@ -504,7 +572,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
-    /* Dark mode overrides for DataTables and Select2 */
+    /* Dark mode overrides for DataTables */
     @media (prefers-color-scheme: dark) {
         .dataTables_wrapper .dataTables_filter input,
         .dataTables_wrapper .dataTables_length select {
@@ -542,22 +610,25 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     .upload-controls {
         display: flex;
+        flex-wrap: wrap;
         gap: 12px;
         align-items: center;
         margin-bottom: 16px;
     }
 
     #uploadButton {
-        padding: 10px 20px;
+        padding: 12px 20px;
         border: none;
         border-radius: 8px;
         background-color: var(--primary);
         color: #ffffff;
         cursor: pointer;
         font-weight: 600;
-        font-size: 28px;
+        font-size: clamp(16px, 2vw, 20px);
         box-shadow: var(--shadow);
         transition: all 0.2s ease;
+        min-height: 44px;
+        white-space: nowrap;
     }
 
     #uploadButton:hover {
@@ -576,7 +647,9 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         border-radius: 6px;
         background-color: var(--bg-alt);
         color: var(--fg);
-        font-size: 28px;
+        font-size: clamp(14px, 2vw, 18px);
+        min-height: 44px;
+        max-width: 100%;
     }
 
     #csvFile:focus {
@@ -587,6 +660,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     #uploadProgress {
         flex: 1;
+        min-width: 100px;
     }
 
     .theme-toggle {
@@ -594,7 +668,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         top: 16px;
         right: 16px;
         padding: 10px 14px;
-        font-size: 24px;
+        font-size: clamp(18px, 2.5vw, 24px);
         cursor: pointer;
         background-color: var(--bg-alt);
         color: var(--fg);
@@ -603,6 +677,8 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         box-shadow: var(--shadow);
         transition: all 0.2s ease;
         z-index: 1000;
+        min-width: 44px;
+        min-height: 44px;
     }
 
     .theme-toggle:hover {
@@ -610,12 +686,25 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
     }
 
+    /* Chart container responsive styling */
     .running-figure {
         border-radius: 8px;
         box-shadow: var(--shadow);
         margin: 20px 0;
         opacity: 0;
         animation: fadeIn 0.3s ease-in forwards;
+        width: 100%;
+        overflow: hidden;
+    }
+
+    .running-figure .js-plotly-plot,
+    .running-figure .plotly {
+        width: 100% !important;
+    }
+
+    .running-figure .main-svg {
+        width: 100% !important;
+        height: auto !important;
     }
 
     @keyframes fadeIn {
@@ -635,39 +724,60 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         display: block;
     }
 
-    @media only screen and (max-width: 600px) {
-        body {
-            padding: 16px;
-        }
-
-        h1 {
-            font-size: 2em;
-        }
-
-        table.dataTable {
-            font-size: 28px;
-        }
-
-        label {
-            font-size: 30px;
-        }
-
-        select {
-            font-size: 30px;
-        }
-
-        #uploadButton {
-            font-size: 26px;
-            padding: 12px 20px;
-        }
-
-        #csvFile {
-            font-size: 26px;
-        }
-
+    /* Tablet breakpoint */
+    @media only screen and (max-width: 768px) {
         .upload-controls {
             flex-direction: column;
             align-items: stretch;
+        }
+
+        #csvFile {
+            width: 100%;
+        }
+
+        #uploadButton {
+            width: 100%;
+            text-align: center;
+        }
+
+        .dataTables_wrapper .dataTables_length,
+        .dataTables_wrapper .dataTables_filter {
+            float: none;
+            text-align: left;
+            width: 100%;
+        }
+
+        .dataTables_wrapper .dataTables_filter input {
+            width: 100%;
+            margin-left: 0;
+            margin-top: 8px;
+        }
+
+        h1 {
+            padding-right: 50px;
+        }
+    }
+
+    /* Mobile breakpoint */
+    @media only screen and (max-width: 480px) {
+        body {
+            padding: 10px;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            padding: 6px 10px !important;
+            min-width: 40px;
+            font-size: 14px;
+        }
+
+        .dataTables_wrapper .dataTables_info {
+            text-align: center;
+            width: 100%;
+        }
+
+        .dataTables_wrapper .dataTables_paginate {
+            justify-content: center;
+            width: 100%;
         }
     }
     </style>

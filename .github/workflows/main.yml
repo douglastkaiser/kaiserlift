@@ -251,17 +251,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
-          # Debug: Check current state
-          echo "Current branch: $(git rev-parse --abbrev-ref HEAD)"
-          echo "Current directory: $(pwd)"
-          echo "Checking if build directory exists..."
-          ls -la tests/example_use/ || echo "tests/example_use not found!"
-
-          if [ ! -d "tests/example_use/build" ]; then
-            echo "ERROR: Build directory does not exist at this point!"
-            echo "This suggests the gh-pages deployment may have left us on wrong branch"
+          # The build may be in /tmp/main-deployment (saved by gh-pages deploy step)
+          # or in the original location (if gh-pages step was skipped)
+          if [ -d "/tmp/main-deployment" ]; then
+            BUILD_SOURCE="/tmp/main-deployment"
+            echo "Using build from temp location (gh-pages step ran): $BUILD_SOURCE"
+          elif [ -d "tests/example_use/build" ]; then
+            BUILD_SOURCE="tests/example_use/build"
+            echo "Using build from original location (gh-pages step skipped): $BUILD_SOURCE"
+          else
+            echo "ERROR: Build directory not found in either location!"
+            echo "Checked: /tmp/main-deployment and tests/example_use/build"
             exit 1
           fi
+
+          ls -la "$BUILD_SOURCE"
 
           # Configure git
           git config --global user.name "github-actions[bot]"
@@ -280,9 +284,9 @@ jobs:
             rm -rf kaiserlift
             mkdir -p kaiserlift
 
-            # Copy new build files
+            # Copy new build files from the temp location
             rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-              ${{ github.workspace }}/tests/example_use/build/ \
+              "$BUILD_SOURCE/" \
               kaiserlift/
 
             # Stage changes

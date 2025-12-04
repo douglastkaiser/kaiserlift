@@ -122,7 +122,23 @@ jobs:
         run: uv run python scripts/preprocess_data.py
 
       - name: Generate example HTML
-        run: uv run python tests/example_use/generate_example_html.py
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Contents of tests/example_use:"
+          ls -la tests/example_use/
+          echo "Running generate script..."
+          uv run python tests/example_use/generate_example_html.py
+          echo "Script completed with exit code: $?"
+
+      - name: Verify build directory exists
+        run: |
+          if [ ! -d "tests/example_use/build" ]; then
+            echo "ERROR: Build directory was not created!"
+            echo "Check the 'Generate example HTML' step for errors."
+            exit 1
+          fi
+          echo "Build directory contents:"
+          ls -la tests/example_use/build/
 
       - name: Upload HTML as artifact (backup)
         uses: actions/upload-artifact@v4
@@ -231,9 +247,26 @@ jobs:
       # Deploy to external GitHub Pages repo (www.douglastkaiser.com)
       - name: Deploy to douglastkaiser.github.io
         id: external_deploy
+        if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
+          # The build may be in /tmp/main-deployment (saved by gh-pages deploy step)
+          # or in the original location (if gh-pages step was skipped)
+          if [ -d "/tmp/main-deployment" ]; then
+            BUILD_SOURCE="/tmp/main-deployment"
+            echo "Using build from temp location (gh-pages step ran): $BUILD_SOURCE"
+          elif [ -d "tests/example_use/build" ]; then
+            BUILD_SOURCE="tests/example_use/build"
+            echo "Using build from original location (gh-pages step skipped): $BUILD_SOURCE"
+          else
+            echo "ERROR: Build directory not found in either location!"
+            echo "Checked: /tmp/main-deployment and tests/example_use/build"
+            exit 1
+          fi
+
+          ls -la "$BUILD_SOURCE"
+
           # Configure git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -251,9 +284,9 @@ jobs:
             rm -rf kaiserlift
             mkdir -p kaiserlift
 
-            # Copy new build files
+            # Copy new build files from the temp location
             rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-              ${{ github.workspace }}/tests/example_use/build/ \
+              "$BUILD_SOURCE/" \
               kaiserlift/
 
             # Stage changes

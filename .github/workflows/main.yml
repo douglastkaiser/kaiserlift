@@ -122,7 +122,13 @@ jobs:
         run: uv run python scripts/preprocess_data.py
 
       - name: Generate example HTML
-        run: uv run python tests/example_use/generate_example_html.py
+        run: |
+          echo "Current working directory: $(pwd)"
+          echo "Contents of tests/example_use:"
+          ls -la tests/example_use/
+          echo "Running generate script..."
+          uv run python tests/example_use/generate_example_html.py
+          echo "Script completed with exit code: $?"
 
       - name: Verify build directory exists
         run: |
@@ -245,6 +251,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
+          # Debug: Check current state
+          echo "Current branch: $(git rev-parse --abbrev-ref HEAD)"
+          echo "Current directory: $(pwd)"
+          echo "Checking if build directory exists..."
+          ls -la tests/example_use/ || echo "tests/example_use not found!"
+
+          if [ ! -d "tests/example_use/build" ]; then
+            echo "ERROR: Build directory does not exist at this point!"
+            echo "This suggests the gh-pages deployment may have left us on wrong branch"
+            exit 1
+          fi
+
           # Configure git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"

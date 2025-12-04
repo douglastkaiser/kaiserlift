@@ -124,6 +124,16 @@ jobs:
       - name: Generate example HTML
         run: uv run python tests/example_use/generate_example_html.py
 
+      - name: Verify build directory exists
+        run: |
+          if [ ! -d "tests/example_use/build" ]; then
+            echo "ERROR: Build directory was not created!"
+            echo "Check the 'Generate example HTML' step for errors."
+            exit 1
+          fi
+          echo "Build directory contents:"
+          ls -la tests/example_use/build/
+
       - name: Upload HTML as artifact (backup)
         uses: actions/upload-artifact@v4
         with:
@@ -231,6 +241,7 @@ jobs:
       # Deploy to external GitHub Pages repo (www.douglastkaiser.com)
       - name: Deploy to douglastkaiser.github.io
         id: external_deploy
+        if: success()
         env:
           GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
         run: |

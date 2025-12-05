@@ -249,54 +249,166 @@ jobs:
         id: external_deploy
         if: success()
         env:
-          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
+          PAGES_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # The build may be in /tmp/main-deployment (saved by gh-pages deploy step)
-          # or in the original location (if gh-pages step was skipped)
+          echo "=============================================="
+          echo "EXTERNAL DEPLOYMENT DEBUG INFO"
+          echo "=============================================="
+
+          # Determine which token we're using
+          if [ -n "$PAGES_TOKEN" ]; then
+            echo "✅ PAGES_DEPLOY_TOKEN secret is SET"
+            DEPLOY_TOKEN="$PAGES_TOKEN"
+            TOKEN_SOURCE="PAGES_DEPLOY_TOKEN"
+            # Show token info without exposing it
+            TOKEN_LENGTH=${#DEPLOY_TOKEN}
+            TOKEN_PREFIX="${DEPLOY_TOKEN:0:4}"
+            echo "   Token length: $TOKEN_LENGTH characters"
+            echo "   Token prefix: ${TOKEN_PREFIX}..."
+          else
+            echo "⚠️  PAGES_DEPLOY_TOKEN secret is NOT SET - using GITHUB_TOKEN fallback"
+            echo "   Note: GITHUB_TOKEN cannot push to external repos!"
+            DEPLOY_TOKEN="$FALLBACK_TOKEN"
+            TOKEN_SOURCE="GITHUB_TOKEN (fallback)"
+          fi
+          echo "   Token source: $TOKEN_SOURCE"
+          echo ""
+
+          # Test token validity with GitHub API
+          echo "Testing token validity against GitHub API..."
+          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
+
+          API_RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $DEPLOY_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${PAGES_REPO}")
+
+          HTTP_CODE=$(echo "$API_RESPONSE" | tail -n1)
+          API_BODY=$(echo "$API_RESPONSE" | sed '$d')
+
+          echo "   API Response Code: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Token has READ access to ${PAGES_REPO}"
+            REPO_PERMISSIONS=$(echo "$API_BODY" | jq -r '.permissions // empty')
+            if [ -n "$REPO_PERMISSIONS" ]; then
+              echo "   Permissions: $REPO_PERMISSIONS"
+              HAS_PUSH=$(echo "$REPO_PERMISSIONS" | jq -r '.push // false')
+              if [ "$HAS_PUSH" = "true" ]; then
+                echo "✅ Token has PUSH (write) access"
+              else
+                echo "❌ Token does NOT have PUSH access - deployment will fail!"
+                echo "   Fix: Create a PAT with 'Contents: Read and write' permission for ${PAGES_REPO}"
+              fi
+            fi
+          elif [ "$HTTP_CODE" = "404" ]; then
+            echo "❌ Repository not found or token has no access to ${PAGES_REPO}"
+            echo "   This could mean:"
+            echo "   1. The repository doesn't exist"
+            echo "   2. The token doesn't have access to this repo"
+            echo "   3. The token is invalid"
+          elif [ "$HTTP_CODE" = "401" ]; then
+            echo "❌ Token is invalid or expired (401 Unauthorized)"
+            echo "   Fix: Generate a new Personal Access Token"
+          else
+            echo "⚠️  Unexpected API response: $HTTP_CODE"
+            echo "   Response: $(echo "$API_BODY" | head -c 200)"
+          fi
+          echo ""
+
+          # Find build source
+          echo "Locating build directory..."
           if [ -d "/tmp/main-deployment" ]; then
             BUILD_SOURCE="/tmp/main-deployment"
-            echo "Using build from temp location (gh-pages step ran): $BUILD_SOURCE"
+            echo "✅ Using build from: $BUILD_SOURCE (temp location from gh-pages step)"
           elif [ -d "tests/example_use/build" ]; then
             BUILD_SOURCE="tests/example_use/build"
-            echo "Using build from original location (gh-pages step skipped): $BUILD_SOURCE"
+            echo "✅ Using build from: $BUILD_SOURCE (original location)"
           else
-            echo "ERROR: Build directory not found in either location!"
-            echo "Checked: /tmp/main-deployment and tests/example_use/build"
+            echo "❌ ERROR: Build directory not found!"
+            echo "   Checked: /tmp/main-deployment"
+            echo "   Checked: tests/example_use/build"
             exit 1
           fi
 
+          echo ""
+          echo "Build directory contents:"
           ls -la "$BUILD_SOURCE"
+          echo ""
+          echo "Checking for expected files:"
+          for f in index.html lifting/index.html running/index.html main.js .nojekyll; do
+            if [ -e "$BUILD_SOURCE/$f" ]; then
+              echo "  ✅ $f exists"
+            else
+              echo "  ❌ $f MISSING"
+            fi
+          done
+          echo ""
 
           # Configure git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
           # Clone the GitHub Pages repository
-          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
           TEMP_DIR="/tmp/pages-repo-main"
           rm -rf "$TEMP_DIR"
 
-          # Use token authentication for cloning
-          if git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR" 2>&1; then
+          echo "Cloning ${PAGES_REPO}..."
+          CLONE_OUTPUT=$(git clone "https://x-access-token:${DEPLOY_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR" 2>&1)
+          CLONE_EXIT=$?
+
+          if [ $CLONE_EXIT -eq 0 ]; then
+            echo "✅ Successfully cloned repository"
             cd "$TEMP_DIR"
 
+            echo ""
+            echo "Current state of kaiserlift/ in target repo:"
+            if [ -d "kaiserlift" ]; then
+              ls -la kaiserlift/ | head -20
+              echo ""
+              echo "Checking what links the current landing page has:"
+              if [ -f "kaiserlift/index.html" ]; then
+                grep -o 'href="[^"]*"' kaiserlift/index.html | head -10 || echo "  (no hrefs found)"
+              fi
+            else
+              echo "  (kaiserlift/ directory doesn't exist yet)"
+            fi
+            echo ""
+
             # Remove old kaiserlift directory and replace with new build
+            echo "Replacing kaiserlift/ with fresh build..."
             rm -rf kaiserlift
             mkdir -p kaiserlift
 
-            # Copy new build files from the temp location
             rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
               "$BUILD_SOURCE/" \
               kaiserlift/
 
+            echo ""
+            echo "New kaiserlift/ contents after copy:"
+            ls -la kaiserlift/
+            echo ""
+            echo "Verifying new landing page links:"
+            grep -o 'href="[^"]*"' kaiserlift/index.html | head -10 || echo "  (no hrefs found)"
+            echo ""
+
             # Stage changes
             git add kaiserlift/
 
+            # Show what will be committed
+            echo "Staged changes summary:"
+            git diff --staged --stat | tail -20
+
             # Commit if there are changes
             if git diff --staged --quiet; then
-              echo "No changes to deploy"
+              echo ""
+              echo "⚠️  No changes detected - nothing to deploy"
+              echo "   This means the external repo already has identical content"
               echo "deployed=false" >> "$GITHUB_OUTPUT"
             else
+              echo ""
+              echo "Committing changes..."
               git commit -m "Deploy main kaiserlift site from commit ${{ github.sha }}"
 
               # Push with retry logic
@@ -304,17 +416,32 @@ jobs:
               RETRY_COUNT=0
               PUSH_SUCCESS=false
 
+              echo "Pushing to ${PAGES_REPO}..."
               while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-                if git push origin main 2>&1; then
+                PUSH_OUTPUT=$(git push origin main 2>&1)
+                PUSH_EXIT=$?
+
+                if [ $PUSH_EXIT -eq 0 ]; then
                   PUSH_SUCCESS=true
                   echo "deployed=true" >> "$GITHUB_OUTPUT"
-                  echo "Successfully deployed to www.douglastkaiser.com/kaiserlift/!"
+                  echo ""
+                  echo "=============================================="
+                  echo "✅ DEPLOYMENT SUCCESSFUL!"
+                  echo "=============================================="
+                  echo "Site should be live at:"
+                  echo "  - https://www.douglastkaiser.com/kaiserlift/"
+                  echo "  - https://www.douglastkaiser.com/kaiserlift/lifting/"
+                  echo "  - https://www.douglastkaiser.com/kaiserlift/running/"
+                  echo ""
+                  echo "Note: GitHub Pages may take 1-2 minutes to update"
                   break
                 else
                   RETRY_COUNT=$((RETRY_COUNT + 1))
+                  echo "❌ Push failed (attempt $RETRY_COUNT/$MAX_RETRIES)"
+                  echo "   Error: $PUSH_OUTPUT"
                   if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
                     WAIT_TIME=$((2 ** RETRY_COUNT))
-                    echo "Push failed, retrying in ${WAIT_TIME}s..."
+                    echo "   Retrying in ${WAIT_TIME}s..."
                     sleep $WAIT_TIME
                     git pull --rebase origin main
                   fi
@@ -323,12 +450,32 @@ jobs:
 
               if [ "$PUSH_SUCCESS" = false ]; then
                 echo "deployed=false" >> "$GITHUB_OUTPUT"
-                echo "Warning: Failed to push to external repo after $MAX_RETRIES attempts"
+                echo ""
+                echo "=============================================="
+                echo "❌ DEPLOYMENT FAILED"
+                echo "=============================================="
+                echo "Failed to push after $MAX_RETRIES attempts"
+                echo "Common causes:"
+                echo "  1. Token lacks write permission"
+                echo "  2. Branch protection rules"
+                echo "  3. Network issues"
               fi
             fi
           else
             echo "deployed=false" >> "$GITHUB_OUTPUT"
-            echo "Warning: Could not clone Pages repository. Check PAGES_DEPLOY_TOKEN secret."
+            echo ""
+            echo "=============================================="
+            echo "❌ CLONE FAILED"
+            echo "=============================================="
+            echo "Could not clone ${PAGES_REPO}"
+            echo "Error output: $CLONE_OUTPUT"
+            echo ""
+            echo "Troubleshooting:"
+            echo "  1. Verify PAGES_DEPLOY_TOKEN is set in repository secrets"
+            echo "  2. Token must be a Personal Access Token (PAT), not GITHUB_TOKEN"
+            echo "  3. For fine-grained PAT: grant 'Contents: Read and write' on ${PAGES_REPO}"
+            echo "  4. For classic PAT: grant 'repo' scope"
+            echo "  5. Ensure the token hasn't expired"
           fi
 
       - name: Add deployment summary

@@ -244,117 +244,16 @@ jobs:
           # Switch back to original branch
           git checkout "$CURRENT_BRANCH" || git checkout -
 
-      # Deploy to external GitHub Pages repo (www.douglastkaiser.com)
-      - name: Deploy to douglastkaiser.github.io
-        id: external_deploy
-        if: success()
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          # The build may be in /tmp/main-deployment (saved by gh-pages deploy step)
-          # or in the original location (if gh-pages step was skipped)
-          if [ -d "/tmp/main-deployment" ]; then
-            BUILD_SOURCE="/tmp/main-deployment"
-            echo "Using build from temp location (gh-pages step ran): $BUILD_SOURCE"
-          elif [ -d "tests/example_use/build" ]; then
-            BUILD_SOURCE="tests/example_use/build"
-            echo "Using build from original location (gh-pages step skipped): $BUILD_SOURCE"
-          else
-            echo "ERROR: Build directory not found in either location!"
-            echo "Checked: /tmp/main-deployment and tests/example_use/build"
-            exit 1
-          fi
-
-          ls -la "$BUILD_SOURCE"
-
-          # Configure git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Clone the GitHub Pages repository
-          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
-          TEMP_DIR="/tmp/pages-repo-main"
-          rm -rf "$TEMP_DIR"
-
-          # Use token authentication for cloning
-          if git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR" 2>&1; then
-            cd "$TEMP_DIR"
-
-            # Remove old kaiserlift directory and replace with new build
-            rm -rf kaiserlift
-            mkdir -p kaiserlift
-
-            # Copy new build files from the temp location
-            rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-              "$BUILD_SOURCE/" \
-              kaiserlift/
-
-            # Stage changes
-            git add kaiserlift/
-
-            # Commit if there are changes
-            if git diff --staged --quiet; then
-              echo "No changes to deploy"
-              echo "deployed=false" >> "$GITHUB_OUTPUT"
-            else
-              git commit -m "Deploy main kaiserlift site from commit ${{ github.sha }}"
-
-              # Push with retry logic
-              MAX_RETRIES=4
-              RETRY_COUNT=0
-              PUSH_SUCCESS=false
-
-              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-                if git push origin main 2>&1; then
-                  PUSH_SUCCESS=true
-                  echo "deployed=true" >> "$GITHUB_OUTPUT"
-                  echo "Successfully deployed to www.douglastkaiser.com/kaiserlift/!"
-                  break
-                else
-                  RETRY_COUNT=$((RETRY_COUNT + 1))
-                  if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                    WAIT_TIME=$((2 ** RETRY_COUNT))
-                    echo "Push failed, retrying in ${WAIT_TIME}s..."
-                    sleep $WAIT_TIME
-                    git pull --rebase origin main
-                  fi
-                fi
-              done
-
-              if [ "$PUSH_SUCCESS" = false ]; then
-                echo "deployed=false" >> "$GITHUB_OUTPUT"
-                echo "Warning: Failed to push to external repo after $MAX_RETRIES attempts"
-              fi
-            fi
-          else
-            echo "deployed=false" >> "$GITHUB_OUTPUT"
-            echo "Warning: Could not clone Pages repository. Check PAGES_DEPLOY_TOKEN secret."
-          fi
-
       - name: Add deployment summary
+        if: steps.pages_check.outputs.enabled == 'true'
         run: |
-          REPO_OWNER=$(echo "${{ github.repository }}" | cut -d'/' -f1)
-          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
-          EXTERNAL_DEPLOYED="${{ steps.external_deploy.outputs.deployed }}"
-          PAGES_ENABLED="${{ steps.pages_check.outputs.enabled }}"
-
           {
-            echo "### 🌐 Main Site Deployed";
+            echo "### 🌐 Site Deployed to GitHub Pages";
             echo "";
-            if [ "$EXTERNAL_DEPLOYED" = "true" ]; then
-              echo "✅ **Primary Site (www.douglastkaiser.com)**";
-              echo "- 🏠 [Landing Page](https://www.douglastkaiser.com/kaiserlift/)";
-              echo "- 🏋️ [Lifting Demo](https://www.douglastkaiser.com/kaiserlift/lifting/)";
-              echo "- 🏃 [Running Demo](https://www.douglastkaiser.com/kaiserlift/running/)";
-              echo "";
-            fi
-            if [ "$PAGES_ENABLED" = "true" ]; then
-              echo "📦 **Fallback Site (GitHub Pages)**";
-              echo "- 🏠 [Landing Page](https://${REPO_OWNER}.github.io/${REPO_NAME}/)";
-              echo "- 🏋️ [Lifting Demo](https://${REPO_OWNER}.github.io/${REPO_NAME}/lifting/)";
-              echo "- 🏃 [Running Demo](https://${REPO_OWNER}.github.io/${REPO_NAME}/running/)";
-            else
-              echo "⚠️ GitHub Pages is not enabled for this repository.";
-              echo "Download the 'main-deployment' artifact to view locally.";
-            fi
+            echo "✅ **Live Site**";
+            echo "- 🏠 [Landing Page](https://www.douglastkaiser.com/kaiserlift/)";
+            echo "- 🏋️ [Lifting Demo](https://www.douglastkaiser.com/kaiserlift/lifting/)";
+            echo "- 🏃 [Running Demo](https://www.douglastkaiser.com/kaiserlift/running/)";
+            echo "";
+            echo "Note: GitHub Pages may take 1-2 minutes to update";
           } >> "$GITHUB_STEP_SUMMARY"

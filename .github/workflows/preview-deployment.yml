@@ -203,118 +203,27 @@ jobs:
           # Switch back to original branch
           git checkout "$CURRENT_BRANCH" || git checkout -
 
-      # Deploy to external GitHub Pages repo
-      - name: Deploy preview to douglastkaiser.github.io
-        id: external_deploy
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          # Configure git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Clone the GitHub Pages repository
-          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
-          TEMP_DIR="/tmp/pages-repo-pr"
-          rm -rf "$TEMP_DIR"
-
-          # Use token authentication for cloning
-          if git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR" 2>&1; then
-            cd "$TEMP_DIR"
-
-            # Create kaiserlift/pr-X directory
-            mkdir -p "kaiserlift/pr-${{ github.event.pull_request.number }}"
-
-            # Remove old preview contents
-            rm -rf "kaiserlift/pr-${{ github.event.pull_request.number }}/*"
-
-            # Copy new build files
-            rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-              ${{ github.workspace }}/tests/example_use/build/ \
-              "kaiserlift/pr-${{ github.event.pull_request.number }}/"
-
-            # Stage changes
-            git add "kaiserlift/pr-${{ github.event.pull_request.number }}/"
-
-            # Commit if there are changes
-            if git diff --staged --quiet; then
-              echo "No changes to deploy"
-              echo "deployed=false" >> "$GITHUB_OUTPUT"
-            else
-              git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }} from kaiserlift"
-
-              # Push with retry logic
-              MAX_RETRIES=4
-              RETRY_COUNT=0
-              PUSH_SUCCESS=false
-
-              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-                if git push origin main 2>&1; then
-                  PUSH_SUCCESS=true
-                  echo "deployed=true" >> "$GITHUB_OUTPUT"
-                  echo "Successfully deployed preview!"
-                  break
-                else
-                  RETRY_COUNT=$((RETRY_COUNT + 1))
-                  if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                    WAIT_TIME=$((2 ** RETRY_COUNT))
-                    echo "Push failed, retrying in ${WAIT_TIME}s..."
-                    sleep $WAIT_TIME
-                    git pull --rebase origin main
-                  fi
-                fi
-              done
-
-              if [ "$PUSH_SUCCESS" = false ]; then
-                echo "deployed=false" >> "$GITHUB_OUTPUT"
-                echo "Warning: Failed to push preview after $MAX_RETRIES attempts"
-              fi
-            fi
-          else
-            echo "deployed=false" >> "$GITHUB_OUTPUT"
-            echo "Warning: Could not clone Pages repository. Check PAGES_DEPLOY_TOKEN secret."
-          fi
-
       # Comment on PR with preview link
       - name: Comment preview link
+        if: steps.pages_check.outputs.enabled == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = ${{ github.event.pull_request.number }};
             const runId = ${{ github.run_id }};
-            const pagesEnabled = '${{ steps.pages_check.outputs.enabled }}' === 'true';
-            const externalDeployed = '${{ steps.external_deploy.outputs.deployed }}' === 'true';
 
-            // Primary preview URL (external GitHub Pages)
+            // Preview URL - served from gh-pages branch via custom domain
             const previewUrl = `https://www.douglastkaiser.com/kaiserlift/pr-${prNumber}/`;
-
-            // Fallback URL (internal gh-pages)
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const fallbackUrl = `https://${owner}.github.io/${repo}/pr-${prNumber}/`;
 
             const body = `## 🌐 Preview Deployment
 
-            ${externalDeployed ?
-              `### 🏠 Live Preview
-              **[View Preview Landing Page](${previewUrl})**
+            ### 🏠 Live Preview
+            **[View Preview Landing Page](${previewUrl})**
 
-              ### 📊 Direct Links to Examples
-              - 🏋️ [Lifting Example](${previewUrl}lifting/) - Weight training with 1RM calculations
-              - 🏃 [Running Example](${previewUrl}running/) - Running/cardio with pace predictions` :
-              pagesEnabled ?
-              `### 🏠 Landing Page
-              **[View Preview Landing Page](${fallbackUrl})**
-
-              ### 📊 Direct Links to Examples
-              - 🏋️ [Lifting Example](${fallbackUrl}lifting/) - Weight training with 1RM calculations
-              - 🏃 [Running Example](${fallbackUrl}running/) - Running/cardio with pace predictions
-
-              ⚠️ External deployment unavailable. Using fallback URL.` :
-              `### Artifact Preview
-              GitHub Pages is not enabled. Download the preview artifact to view locally.`
-            }
+            ### 📊 Direct Links to Examples
+            - 🏋️ [Lifting Example](${previewUrl}lifting/) - Weight training with 1RM calculations
+            - 🏃 [Running Example](${previewUrl}running/) - Running/cardio with pace predictions
 
             ### 📥 Download Preview
             [Download Preview Artifact](https://github.com/${{ github.repository }}/actions/runs/${runId})

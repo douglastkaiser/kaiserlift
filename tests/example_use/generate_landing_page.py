@@ -130,6 +130,17 @@ def main() -> None:
         <li><a href="https://pypi.org/project/kaiserlift/">PyPI Package</a></li>
         <li><a href="https://www.douglastkaiser.com/projects/#workoutPlanner">Project Overview</a></li>
     </ul>
+
+    <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.85em; color: var(--fg); opacity: 0.7;">
+        <span id="version-info">Loading version...</span>
+    </footer>
+
+    <script type="module">
+        import { VERSION, GIT_HASH, GIT_HASH_FULL } from './version.js';
+        const versionEl = document.getElementById('version-info');
+        const commitUrl = `https://github.com/douglastkaiser/kaiserlift/commit/${GIT_HASH_FULL}`;
+        versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--link);">${GIT_HASH}</a>)`;
+    </script>
 </body>
 </html>"""
 

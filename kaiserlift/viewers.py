@@ -743,7 +743,22 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     });
     </script>
     """
+    version_footer = """
+    <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.85em; color: var(--fg); opacity: 0.7;">
+        <span id="version-info">Loading version...</span>
+    </footer>
+    <script type="module">
+        import { VERSION, GIT_HASH, GIT_HASH_FULL } from '../version.js';
+        const versionEl = document.getElementById('version-info');
+        const commitUrl = `https://github.com/douglastkaiser/kaiserlift/commit/${GIT_HASH_FULL}`;
+        versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--link);">${GIT_HASH}</a>)`;
+    </script>
+    """
     body_html = (
-        toggle_html + upload_html + f'<div id="result">{fragment}</div>' + theme_script
+        toggle_html
+        + upload_html
+        + f'<div id="result">{fragment}</div>'
+        + theme_script
+        + version_footer
     )
     return f"<html><head>{head_html}</head><body>{body_html}</body></html>"

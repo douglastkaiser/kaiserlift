@@ -4,14 +4,14 @@ This document explains how the KaiserLift project deploys to GitHub Pages.
 
 ## Overview
 
-KaiserLift deploys to `douglastkaiser.github.io` under the `/kaiserlift` subdirectory, allowing the main domain to remain hosted from the `douglastkaiser/douglastkaiser.github.io` repository while this repo manages only its subdirectory.
+KaiserLift uses GitHub Actions with the official GitHub Pages deployment actions to deploy directly to the repository's GitHub Pages. The site is accessible via custom domain at `www.douglastkaiser.com/kaiserlift/`.
 
 ## Deployment Structure
 
 ### Main Deployment (Production)
 - **Trigger**: Push to `main` branch
-- **Workflow**: `.github/workflows/deploy-to-pages.yml`
-- **Destination**: `douglastkaiser.github.io/kaiserlift/`
+- **Workflow**: `.github/workflows/main.yml` (generate-example-html job)
+- **Method**: Official GitHub Pages actions (`actions/deploy-pages`)
 - **URLs**:
   - Landing: https://www.douglastkaiser.com/kaiserlift/
   - Lifting: https://www.douglastkaiser.com/kaiserlift/lifting/
@@ -20,40 +20,15 @@ KaiserLift deploys to `douglastkaiser.github.io` under the `/kaiserlift` subdire
 ### PR Preview Deployments
 - **Trigger**: Pull request opened/updated
 - **Workflow**: `.github/workflows/preview-deployment.yml`
-- **Destination**: `douglastkaiser.github.io/kaiserlift/pr-{number}/`
+- **Method**: Builds both main site + PR preview, deploys together
 - **URLs**: https://www.douglastkaiser.com/kaiserlift/pr-{number}/
 - **Cleanup**: Automatic when PR is closed (`.github/workflows/cleanup-preview.yml`)
-
-## Required GitHub Secrets
-
-### PAGES_DEPLOY_TOKEN
-A Personal Access Token (PAT) with permissions to push to the `douglastkaiser/douglastkaiser.github.io` repository.
-
-**To create this token:**
-
-1. Go to GitHub Settings → Developer settings → Personal access tokens → Fine-grained tokens
-2. Click "Generate new token"
-3. Configure:
-   - **Name**: `kaiserlift-pages-deploy`
-   - **Expiration**: 1 year (or custom)
-   - **Repository access**: Only select repositories → `douglastkaiser/douglastkaiser.github.io`
-   - **Permissions**:
-     - Repository permissions:
-       - Contents: Read and write
-4. Generate token and copy it
-5. Add to this repository's secrets:
-   - Go to `douglastkaiser/kaiserlift` → Settings → Secrets and variables → Actions
-   - Click "New repository secret"
-   - Name: `PAGES_DEPLOY_TOKEN`
-   - Value: [paste the token]
-
-**Fallback**: If `PAGES_DEPLOY_TOKEN` is not configured, workflows will attempt to use the default `GITHUB_TOKEN`, but this will fail when trying to push to the external repository.
 
 ## How It Works
 
 ### Main Deployment Flow
 
-1. **Build Phase**:
+1. **Build Phase** (in `main.yml`):
    - Install dependencies via `uv`
    - Inject version info into client files
    - Preprocess CSV data for optimal loading
@@ -62,49 +37,37 @@ A Personal Access Token (PAT) with permissions to push to the `douglastkaiser/do
      - `lifting/index.html` (lifting demo)
      - `running/index.html` (running demo)
 
-2. **Deploy Phase**:
-   - Clone `douglastkaiser/douglastkaiser.github.io` repo
-   - Clear `/kaiserlift` directory
-   - Copy new build files to `/kaiserlift`
-   - Commit and push changes
-   - Retry logic handles concurrent deployments
+2. **Deploy Phase** (main branch only):
+   - Configure GitHub Pages (`actions/configure-pages`)
+   - Upload build artifact (`actions/upload-pages-artifact`)
+   - Deploy to GitHub Pages (`actions/deploy-pages`)
 
 ### PR Preview Flow
 
-1. **Build Phase**: Same as main deployment
+1. **Build Phase**:
+   - Build main site from `main` branch
+   - Build PR preview from PR branch
+   - Combine into single deployment directory
 
 2. **Deploy Phase**:
-   - Clone `douglastkaiser/douglastkaiser.github.io` repo
-   - Create/update `/kaiserlift/pr-{number}` directory
-   - Copy preview files
-   - Commit and push
+   - Deploy combined site (main + PR preview) to GitHub Pages
    - Post comment on PR with preview links
 
 3. **Cleanup Phase** (on PR close):
-   - Remove `/kaiserlift/pr-{number}` directory from external repo
-   - Remove `pr-{number}` directory from local gh-pages branch
+   - Redeploy main site only (removes PR preview)
 
-## File Structure in External Repo
+## File Structure (Generated)
 
 ```
-douglastkaiser.github.io/
-├── index.html              (your main site)
-├── projects/               (your projects)
-├── ...                     (other main site files)
-└── kaiserlift/             (managed by this repo)
-    ├── index.html          (landing page)
-    ├── lifting/
-    │   └── index.html
-    ├── running/
-    │   └── index.html
-    ├── main.js
-    ├── version.js
-    ├── pr-123/             (preview deployments)
-    │   ├── index.html
-    │   ├── lifting/
-    │   └── running/
-    └── pr-456/
-        └── ...
+tests/example_use/build/
+├── index.html          (landing page)
+├── lifting/
+│   └── index.html      (lifting demo)
+├── running/
+│   └── index.html      (running demo)
+├── main.js             (client JavaScript)
+├── version.js          (version info)
+└── .nojekyll           (bypass Jekyll processing)
 ```
 
 ## Troubleshooting
@@ -113,36 +76,25 @@ douglastkaiser.github.io/
 
 If you see 404 errors after deployment:
 
-1. **Check the external repo**: Visit https://github.com/douglastkaiser/douglastkaiser.github.io and verify the `/kaiserlift` directory exists with the expected files
-2. **Check GitHub Pages settings**: Ensure GitHub Pages is enabled for `douglastkaiser.github.io` and serving from the correct branch (usually `main`)
-3. **Wait for Pages rebuild**: GitHub Pages may take 1-2 minutes to rebuild after a push
-4. **Check workflow logs**: Review the deployment workflow logs for any errors
+1. **Check GitHub Pages settings**: Go to repository Settings → Pages and verify:
+   - Source is set to "GitHub Actions"
+   - Custom domain is configured if using one
+2. **Wait for Pages rebuild**: GitHub Pages may take 1-2 minutes to rebuild
+3. **Check workflow logs**: Review the deployment workflow logs for any errors
+4. **Clear browser cache**: Old cached content may cause issues
 
-### Token Permission Issues
+### Deployment Not Running
 
-If you see authentication errors:
+If the main deployment doesn't run after a merge:
 
-1. Verify `PAGES_DEPLOY_TOKEN` is configured in repository secrets
-2. Check token hasn't expired
-3. Verify token has write access to `douglastkaiser/douglastkaiser.github.io`
-4. Regenerate token if necessary
+1. Verify the workflow trigger: `main.yml` runs on `on: push`
+2. Check if there's a concurrency conflict (group: `pages-deployment`)
+3. The cleanup-preview workflow also deploys - check if it ran instead
+4. Manually trigger by pushing a small change to main
 
-### Deployment Conflicts
+### Concurrency Issues
 
-If deployments fail due to conflicts:
-
-- The workflows include retry logic with exponential backoff
-- Failed pushes will automatically pull latest changes and retry
-- Maximum 4 retry attempts with 2s, 4s, 8s, 16s delays
-
-## Manual Deployment
-
-To manually trigger a deployment:
-
-1. Go to Actions → "Deploy to GitHub Pages"
-2. Click "Run workflow"
-3. Select branch (usually `main`)
-4. Click "Run workflow"
+All Pages deployments use the same concurrency group (`pages-deployment`) to prevent conflicts. Only one deployment can run at a time.
 
 ## Local Testing
 

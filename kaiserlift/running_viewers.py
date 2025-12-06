@@ -826,7 +826,18 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <meta name="description" content="KaiserLift running analysis - Data-driven pace optimization with Pareto front">
     """
-    body_html = upload_html + f'<div id="result">{fragment}</div>'
+    version_footer = """
+    <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.85em; color: var(--fg); opacity: 0.7;">
+        <span id="version-info">Loading version...</span>
+    </footer>
+    <script type="module">
+        import { VERSION, GIT_HASH, GIT_HASH_FULL } from '../version.js';
+        const versionEl = document.getElementById('version-info');
+        const commitUrl = `https://github.com/douglastkaiser/kaiserlift/commit/${GIT_HASH_FULL}`;
+        versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--link);">${GIT_HASH}</a>)`;
+    </script>
+    """
+    body_html = upload_html + f'<div id="result">{fragment}</div>' + version_footer
     return (
         f"<html><head>{meta}{js_and_css}</head><body>{body_html}{scripts}</body></html>"
     )

@@ -100,12 +100,15 @@ jobs:
     name: Generate example HTML
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages-deployment
+      cancel-in-progress: false
 
     steps:
       - name: Checkout repo
@@ -165,103 +168,6 @@ jobs:
         if: github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Check if Pages is enabled
-        id: pages_check
-        continue-on-error: true
-        run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/pages)
-          if [[ "$status" == "200" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      # Deploy to gh-pages branch root (same approach as PR previews)
-      - name: Deploy to gh-pages root
-        if: steps.pages_check.outputs.enabled == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Save current branch
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-          # Save build content to temp directory
-          TEMP_BUILD="/tmp/main-deployment"
-          rm -rf "$TEMP_BUILD"
-          mkdir -p "$TEMP_BUILD"
-          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-            tests/example_use/build/ "$TEMP_BUILD/"
-
-          # Fetch gh-pages branch or create it
-          git fetch origin gh-pages || true
-          git checkout gh-pages || git checkout --orphan gh-pages
-
-          # Clean working directory if orphan
-          if [ -z "$(git log --oneline -1 2>/dev/null)" ]; then
-            git rm -rf . 2>/dev/null || true
-          else
-            # Pull latest changes
-            git pull origin gh-pages || true
-          fi
-
-          # Get list of PR directories to preserve
-          PR_DIRS=$(find . -maxdepth 1 -type d -name 'pr-*' | sort)
-
-          # Clear root files but preserve PR directories
-          find . -maxdepth 1 -type f -not -name '.gitignore' -delete
-          find . -maxdepth 1 -type d -not -name '.' -not -name '..' -not -name '.git' -not -name 'pr-*' -exec rm -rf {} + 2>/dev/null || true
-
-          # Copy new build to root
-          rsync -av "$TEMP_BUILD/" ./
-
-          # Stage all changes
-          git add -A
-
-          # Commit if there are changes
-          git commit -m "Deploy main site to gh-pages root" || echo "No changes to commit"
-
-          # Push with retry logic
-          MAX_RETRIES=5
-          RETRY_COUNT=0
-          PUSH_SUCCESS=false
-
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if git push origin gh-pages 2>&1; then
-              PUSH_SUCCESS=true
-              break
-            else
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "Push failed, attempting to rebase and retry ($RETRY_COUNT/$MAX_RETRIES)..."
-                sleep $((RETRY_COUNT * 2))
-                git fetch origin gh-pages
-                git rebase origin/gh-pages || {
-                  echo "Rebase failed, resetting and trying fresh..."
-                  git rebase --abort 2>/dev/null || true
-                  git reset --hard origin/gh-pages
-                  # Re-apply build
-                  find . -maxdepth 1 -type f -not -name '.gitignore' -delete
-                  find . -maxdepth 1 -type d -not -name '.' -not -name '..' -not -name '.git' -not -name 'pr-*' -exec rm -rf {} + 2>/dev/null || true
-                  rsync -av "$TEMP_BUILD/" ./
-                  git add -A
-                  git commit -m "Deploy main site to gh-pages root" || true
-                }
-              fi
-            fi
-          done
-
-          if [ "$PUSH_SUCCESS" = false ]; then
-            echo "Failed to push after $MAX_RETRIES attempts"
-            exit 1
-          fi
-
-          # Switch back to original branch
-          git checkout "$CURRENT_BRANCH" || git checkout -
 
       - name: Add deployment summary
         if: github.ref == 'refs/heads/main' && steps.deployment.outputs.page_url != ''

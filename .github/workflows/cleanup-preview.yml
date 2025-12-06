@@ -5,119 +5,56 @@ on:
     types: [closed]
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  cleanup:
-    name: Remove PR preview from gh-pages
+  redeploy-main:
+    name: Redeploy main site (remove PR preview)
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages-deployment
+      cancel-in-progress: false
 
     steps:
-      - name: Checkout gh-pages branch
+      - name: Checkout main branch
         uses: actions/checkout@v4
         with:
-          ref: gh-pages
-          fetch-depth: 1
+          ref: main
+          fetch-depth: 0
 
-      - name: Remove PR preview directory
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build main site
         run: |
-          PR_DIR="pr-${{ github.event.pull_request.number }}"
+          uv venv
+          uv pip install -e .
+          uv run --with setuptools-scm python scripts/inject_version.py
+          uv run python scripts/preprocess_data.py
+          uv run python tests/example_use/generate_example_html.py
 
-          if [ -d "$PR_DIR" ]; then
-            echo "Removing preview directory: $PR_DIR"
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-            git rm -rf "$PR_DIR"
-            git commit -m "chore: cleanup preview for PR #${{ github.event.pull_request.number }}"
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: tests/example_use/build
 
-            # Push with retry logic
-            MAX_RETRIES=3
-            RETRY_COUNT=0
-            PUSH_SUCCESS=false
-
-            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-              if git push origin gh-pages 2>&1; then
-                PUSH_SUCCESS=true
-                echo "Successfully removed preview directory"
-                break
-              else
-                RETRY_COUNT=$((RETRY_COUNT + 1))
-                if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                  echo "Push failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
-                  sleep $((RETRY_COUNT * 2))
-                  git pull --rebase origin gh-pages
-                fi
-              fi
-            done
-
-            if [ "$PUSH_SUCCESS" = false ]; then
-              echo "Failed to push cleanup after $MAX_RETRIES attempts"
-              exit 1
-            fi
-          else
-            echo "No preview directory found for PR #${{ github.event.pull_request.number }}"
-          fi
-
-      - name: Cleanup from external GitHub Pages repo
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
-        run: |
-          # Configure git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Clone the GitHub Pages repository
-          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
-          TEMP_DIR="/tmp/pages-repo-cleanup"
-          rm -rf "$TEMP_DIR"
-
-          # Use token authentication for cloning
-          if git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR" 2>&1; then
-            cd "$TEMP_DIR"
-
-            PR_DIR="kaiserlift/pr-${{ github.event.pull_request.number }}"
-
-            if [ -d "$PR_DIR" ]; then
-              echo "Removing preview from external repo: $PR_DIR"
-              git rm -rf "$PR_DIR"
-              git commit -m "chore: cleanup preview for kaiserlift PR #${{ github.event.pull_request.number }}"
-
-              # Push with retry logic
-              MAX_RETRIES=3
-              RETRY_COUNT=0
-              PUSH_SUCCESS=false
-
-              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-                if git push origin main 2>&1; then
-                  PUSH_SUCCESS=true
-                  echo "Successfully removed preview from external repo"
-                  break
-                else
-                  RETRY_COUNT=$((RETRY_COUNT + 1))
-                  if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                    echo "Push failed, retrying ($RETRY_COUNT/$MAX_RETRIES)..."
-                    sleep $((RETRY_COUNT * 2))
-                    git pull --rebase origin main
-                  fi
-                fi
-              done
-
-              if [ "$PUSH_SUCCESS" = false ]; then
-                echo "Warning: Failed to cleanup from external repo after $MAX_RETRIES attempts"
-              fi
-            else
-              echo "No preview directory found in external repo for PR #${{ github.event.pull_request.number }}"
-            fi
-          else
-            echo "Warning: Could not clone Pages repository for cleanup. Check PAGES_DEPLOY_TOKEN secret."
-          fi
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Add cleanup summary
         run: |
           {
-            echo "### 🧹 Preview Cleanup";
-            echo "Removed preview for PR #${{ github.event.pull_request.number }}";
-            echo "- Cleaned from local gh-pages branch";
-            echo "- Cleaned from external GitHub Pages repo";
+            echo "### 🧹 Preview Cleanup Complete";
+            echo "";
+            echo "PR #${{ github.event.pull_request.number }} was closed.";
+            echo "";
+            echo "Main site redeployed to: ${{ steps.deployment.outputs.page_url }}";
           } >> "$GITHUB_STEP_SUMMARY"

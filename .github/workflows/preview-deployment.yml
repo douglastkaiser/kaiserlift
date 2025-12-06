@@ -5,7 +5,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
   pages: write
   id-token: write
@@ -14,219 +14,111 @@ jobs:
   deploy-preview:
     name: Deploy Preview
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}pr-${{ github.event.pull_request.number }}/
     concurrency:
-      group: preview-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
+      group: pages-deployment
+      cancel-in-progress: false
 
     steps:
-      - name: Checkout repo
+      # First, build the main site from main branch
+      - name: Checkout main branch
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history needed for setuptools-scm
+          ref: main
+          fetch-depth: 0
+          path: main-site
 
       - uses: astral-sh/setup-uv@v6
 
-      - name: Install dependencies
+      - name: Build main site
+        working-directory: main-site
         run: |
           uv venv
           uv pip install -e .
+          uv run --with setuptools-scm python scripts/inject_version.py
+          uv run python scripts/preprocess_data.py
+          uv run python tests/example_use/generate_example_html.py
 
-      - name: Inject version into client
-        run: uv run --with setuptools-scm python scripts/inject_version.py
+      # Now build the PR preview
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: pr-site
 
-      - name: Generate HTML examples
-        run: uv run python tests/example_use/generate_example_html.py
-
-      - name: Prepare preview deployment
+      - name: Build PR preview
+        working-directory: pr-site
         run: |
-          mkdir -p preview
-          mkdir -p preview/pr-${{ github.event.pull_request.number }}
-          # Copy build files, excluding __pycache__ and other unwanted files
-          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-            tests/example_use/build/ preview/pr-${{ github.event.pull_request.number }}/
+          uv venv
+          uv pip install -e .
+          uv run --with setuptools-scm python scripts/inject_version.py
+          uv run python scripts/preprocess_data.py
+          uv run python tests/example_use/generate_example_html.py
 
-          # Create index page for preview
-          cat > preview/pr-${{ github.event.pull_request.number }}/PREVIEW.md << 'EOL'
-          # Preview Deployment
+      # Combine main site + PR preview
+      - name: Prepare combined deployment
+        run: |
+          mkdir -p deployment
 
-          This is a preview deployment for PR #${{ github.event.pull_request.number }}
+          # Copy main site to root
+          cp -r main-site/tests/example_use/build/* deployment/
 
-          ## Available Examples
-          - [Lifting Example](lifting/)
-          - [Running Example](running/)
+          # Copy PR preview to pr-X directory
+          mkdir -p deployment/pr-${{ github.event.pull_request.number }}
+          cp -r pr-site/tests/example_use/build/* deployment/pr-${{ github.event.pull_request.number }}/
 
-          ## PR Information
-          - **Title:** ${{ github.event.pull_request.title }}
-          - **Branch:** ${{ github.head_ref }}
-          - **Commit:** ${{ github.event.pull_request.head.sha }}
+          echo "Deployment contents:"
+          ls -la deployment/
+          echo "PR preview contents:"
+          ls -la deployment/pr-${{ github.event.pull_request.number }}/
 
-          [View PR](${{ github.event.pull_request.html_url }})
-          EOL
-
-      # Upload as artifact (always available)
+      # Upload as artifact for download
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4
         with:
           name: preview-pr-${{ github.event.pull_request.number }}
-          path: preview/pr-${{ github.event.pull_request.number }}
+          path: deployment/pr-${{ github.event.pull_request.number }}
           retention-days: 30
 
-      # Option 1: Deploy to GitHub Pages (if enabled)
-      - name: Check if Pages is enabled
-        id: pages_check
-        continue-on-error: true
-        run: |
-          status=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer ${{secrets.GITHUB_TOKEN}}" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/pages)
-          if [[ "$status" == "200" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
+      # Deploy to GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-      # Deploy to gh-pages branch with PR-specific directory
-      - name: Deploy to gh-pages branch
-        if: steps.pages_check.outputs.enabled == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: deployment
 
-          # Save current branch
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-          # Save preview content to temp directory (outside git working tree)
-          # This ensures it survives git reset operations
-          TEMP_PREVIEW="/tmp/pr-preview-${{ github.event.pull_request.number }}"
-          rm -rf "$TEMP_PREVIEW"
-          mkdir -p "$TEMP_PREVIEW"
-          rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-            preview/pr-${{ github.event.pull_request.number }}/ "$TEMP_PREVIEW/"
-
-          # Fetch gh-pages branch or create it
-          git fetch origin gh-pages || true
-          git checkout gh-pages || git checkout --orphan gh-pages
-
-          # Clean working directory if orphan
-          if [ -z "$(git log --oneline -1 2>/dev/null)" ]; then
-            git rm -rf . 2>/dev/null || true
-          else
-            # Pull latest changes to avoid non-fast-forward errors
-            git pull origin gh-pages || true
-          fi
-
-          # Create PR directory and copy files from temp location
-          mkdir -p pr-${{ github.event.pull_request.number }}
-          rsync -av "$TEMP_PREVIEW/" pr-${{ github.event.pull_request.number }}/
-
-          # Create or update index
-          if [ ! -f index.html ]; then
-            cat > index.html <<'EOF'
-          <!DOCTYPE html>
-          <html>
-          <head><title>KaiserLift Previews</title></head>
-          <body>
-            <h1>KaiserLift Preview Deployments</h1>
-            <p>Preview deployments are organized by PR number.</p>
-            <ul id="pr-list"></ul>
-            <script>
-              // List PR directories
-              fetch('.')
-                .then(r => r.text())
-                .then(html => {
-                  const dirs = [...html.matchAll(/pr-(\d+)/g)].map(m => m[1]);
-                  const list = document.getElementById('pr-list');
-                  [...new Set(dirs)].sort((a,b) => b-a).forEach(pr => {
-                    const li = document.createElement('li');
-                    li.innerHTML = '<a href="pr-' + pr + '/">PR #' + pr + '</a>';
-                    list.appendChild(li);
-                  });
-                });
-            </script>
-          </body>
-          </html>
-          EOF
-          fi
-
-          # Only add the PR directory and index, not preview/ or other files
-          git add pr-${{ github.event.pull_request.number }}/ index.html
-          git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
-
-          # Push with retry logic to handle concurrent deployments
-          MAX_RETRIES=5
-          RETRY_COUNT=0
-          PUSH_SUCCESS=false
-
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if git push origin gh-pages 2>&1; then
-              PUSH_SUCCESS=true
-              break
-            else
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "Push failed, attempting to rebase and retry ($RETRY_COUNT/$MAX_RETRIES)..."
-                sleep $((RETRY_COUNT * 2))  # Exponential backoff: 2s, 4s, 6s, 8s
-                git fetch origin gh-pages
-
-                # Try rebase with automatic conflict resolution (favor our version)
-                git rebase origin/gh-pages || {
-                  echo "Rebase had conflicts, resolving by accepting our version..."
-                  # Accept our version for all conflicts
-                  git checkout --ours pr-${{ github.event.pull_request.number }}/ index.html
-                  git add pr-${{ github.event.pull_request.number }}/ index.html
-                  git rebase --continue || {
-                    echo "Rebase continue failed, aborting and trying fresh checkout..."
-                    git rebase --abort 2>/dev/null || true
-                    # Start fresh from origin/gh-pages
-                    git reset --hard origin/gh-pages
-                    # Re-apply our changes from temp directory
-                    mkdir -p pr-${{ github.event.pull_request.number }}
-                    rsync -av "$TEMP_PREVIEW/" pr-${{ github.event.pull_request.number }}/
-                    # Ensure index exists (create minimal version if needed)
-                    if [ ! -f index.html ]; then
-                      echo '<!DOCTYPE html><html><head><title>KaiserLift Previews</title></head><body><h1>KaiserLift Preview Deployments</h1><p>Preview deployments are organized by PR number.</p></body></html>' > index.html
-                    fi
-                    git add pr-${{ github.event.pull_request.number }}/ index.html
-                    git commit -m "Deploy preview for PR #${{ github.event.pull_request.number }}" || true
-                  }
-                }
-              fi
-            fi
-          done
-
-          if [ "$PUSH_SUCCESS" = false ]; then
-            echo "Failed to push after $MAX_RETRIES attempts"
-            exit 1
-          fi
-
-          # Switch back to original branch
-          git checkout "$CURRENT_BRANCH" || git checkout -
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       # Comment on PR with preview link
       - name: Comment preview link
-        if: steps.pages_check.outputs.enabled == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = ${{ github.event.pull_request.number }};
             const runId = ${{ github.run_id }};
-
-            // Preview URL - served from gh-pages branch via custom domain
-            const previewUrl = `https://www.douglastkaiser.com/kaiserlift/pr-${prNumber}/`;
+            const pageUrl = '${{ steps.deployment.outputs.page_url }}';
+            const previewUrl = `${pageUrl}pr-${prNumber}/`;
 
             const body = `## 🌐 Preview Deployment
 
-            ### 🏠 Live Preview
-            **[View Preview Landing Page](${previewUrl})**
+            ### 🔍 PR Preview
+            **[View Preview](${previewUrl})**
 
-            ### 📊 Direct Links to Examples
-            - 🏋️ [Lifting Example](${previewUrl}lifting/) - Weight training with 1RM calculations
-            - 🏃 [Running Example](${previewUrl}running/) - Running/cardio with pace predictions
+            ### 📊 Direct Links
+            - 🏋️ [Lifting Example](${previewUrl}lifting/)
+            - 🏃 [Running Example](${previewUrl}running/)
 
-            ### 📥 Download Preview
-            [Download Preview Artifact](https://github.com/${{ github.repository }}/actions/runs/${runId})
+            ### 🏠 Main Site (for comparison)
+            - [Landing Page](${pageUrl})
+            - [Lifting Demo](${pageUrl}lifting/)
+            - [Running Demo](${pageUrl}running/)
 
             ---
             <sub>Updated: ${new Date().toISOString()} | [Workflow Run](https://github.com/${{ github.repository }}/actions/runs/${runId})</sub>`;

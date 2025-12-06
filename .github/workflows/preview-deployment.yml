@@ -203,197 +203,27 @@ jobs:
           # Switch back to original branch
           git checkout "$CURRENT_BRANCH" || git checkout -
 
-      # Deploy to external GitHub Pages repo
-      - name: Deploy preview to douglastkaiser.github.io
-        id: external_deploy
-        env:
-          PAGES_TOKEN: ${{ secrets.PAGES_DEPLOY_TOKEN }}
-          FALLBACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUM="${{ github.event.pull_request.number }}"
-          echo "=============================================="
-          echo "PREVIEW DEPLOYMENT DEBUG INFO (PR #${PR_NUM})"
-          echo "=============================================="
-
-          # Determine which token we're using
-          if [ -n "$PAGES_TOKEN" ]; then
-            echo "✅ PAGES_DEPLOY_TOKEN secret is SET"
-            DEPLOY_TOKEN="$PAGES_TOKEN"
-            TOKEN_SOURCE="PAGES_DEPLOY_TOKEN"
-            TOKEN_LENGTH=${#DEPLOY_TOKEN}
-            TOKEN_PREFIX="${DEPLOY_TOKEN:0:4}"
-            echo "   Token length: $TOKEN_LENGTH characters"
-            echo "   Token prefix: ${TOKEN_PREFIX}..."
-          else
-            echo "⚠️  PAGES_DEPLOY_TOKEN secret is NOT SET - using GITHUB_TOKEN fallback"
-            echo "   Note: GITHUB_TOKEN cannot push to external repos!"
-            DEPLOY_TOKEN="$FALLBACK_TOKEN"
-            TOKEN_SOURCE="GITHUB_TOKEN (fallback)"
-          fi
-          echo "   Token source: $TOKEN_SOURCE"
-          echo ""
-
-          # Test token validity with GitHub API
-          PAGES_REPO="douglastkaiser/douglastkaiser.github.io"
-          echo "Testing token validity against GitHub API..."
-
-          API_RESPONSE=$(curl -s -w "\n%{http_code}" \
-            -H "Authorization: Bearer $DEPLOY_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${PAGES_REPO}")
-
-          HTTP_CODE=$(echo "$API_RESPONSE" | tail -n1)
-          API_BODY=$(echo "$API_RESPONSE" | sed '$d')
-
-          echo "   API Response Code: $HTTP_CODE"
-
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Token has READ access to ${PAGES_REPO}"
-            REPO_PERMISSIONS=$(echo "$API_BODY" | jq -r '.permissions // empty')
-            if [ -n "$REPO_PERMISSIONS" ]; then
-              HAS_PUSH=$(echo "$REPO_PERMISSIONS" | jq -r '.push // false')
-              if [ "$HAS_PUSH" = "true" ]; then
-                echo "✅ Token has PUSH (write) access"
-              else
-                echo "❌ Token does NOT have PUSH access - deployment will fail!"
-              fi
-            fi
-          elif [ "$HTTP_CODE" = "404" ]; then
-            echo "❌ Repository not found or token has no access"
-          elif [ "$HTTP_CODE" = "401" ]; then
-            echo "❌ Token is invalid or expired"
-          fi
-          echo ""
-
-          # Configure git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-          TEMP_DIR="/tmp/pages-repo-pr"
-          rm -rf "$TEMP_DIR"
-
-          echo "Cloning ${PAGES_REPO}..."
-          CLONE_OUTPUT=$(git clone "https://x-access-token:${DEPLOY_TOKEN}@github.com/${PAGES_REPO}.git" "$TEMP_DIR" 2>&1)
-          CLONE_EXIT=$?
-
-          if [ $CLONE_EXIT -eq 0 ]; then
-            echo "✅ Successfully cloned repository"
-            cd "$TEMP_DIR"
-
-            # Create kaiserlift/pr-X directory
-            mkdir -p "kaiserlift/pr-${PR_NUM}"
-
-            # Remove old preview contents
-            rm -rf "kaiserlift/pr-${PR_NUM}/"*
-
-            # Copy new build files
-            echo "Copying build files..."
-            rsync -av --exclude='__pycache__' --exclude='*.pyc' --exclude='*.pyo' \
-              ${{ github.workspace }}/tests/example_use/build/ \
-              "kaiserlift/pr-${PR_NUM}/"
-
-            echo ""
-            echo "Preview directory contents:"
-            ls -la "kaiserlift/pr-${PR_NUM}/"
-            echo ""
-
-            # Stage changes
-            git add "kaiserlift/pr-${PR_NUM}/"
-
-            # Commit if there are changes
-            if git diff --staged --quiet; then
-              echo "⚠️  No changes to deploy"
-              echo "deployed=false" >> "$GITHUB_OUTPUT"
-            else
-              git commit -m "Deploy preview for PR #${PR_NUM} from kaiserlift"
-
-              # Push with retry logic
-              MAX_RETRIES=4
-              RETRY_COUNT=0
-              PUSH_SUCCESS=false
-
-              echo "Pushing to ${PAGES_REPO}..."
-              while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-                PUSH_OUTPUT=$(git push origin main 2>&1)
-                PUSH_EXIT=$?
-
-                if [ $PUSH_EXIT -eq 0 ]; then
-                  PUSH_SUCCESS=true
-                  echo "deployed=true" >> "$GITHUB_OUTPUT"
-                  echo ""
-                  echo "✅ PREVIEW DEPLOYMENT SUCCESSFUL!"
-                  echo "Preview URL: https://www.douglastkaiser.com/kaiserlift/pr-${PR_NUM}/"
-                  break
-                else
-                  RETRY_COUNT=$((RETRY_COUNT + 1))
-                  echo "❌ Push failed (attempt $RETRY_COUNT/$MAX_RETRIES)"
-                  echo "   Error: $PUSH_OUTPUT"
-                  if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                    WAIT_TIME=$((2 ** RETRY_COUNT))
-                    echo "   Retrying in ${WAIT_TIME}s..."
-                    sleep $WAIT_TIME
-                    git pull --rebase origin main
-                  fi
-                fi
-              done
-
-              if [ "$PUSH_SUCCESS" = false ]; then
-                echo "deployed=false" >> "$GITHUB_OUTPUT"
-                echo "❌ PREVIEW DEPLOYMENT FAILED after $MAX_RETRIES attempts"
-              fi
-            fi
-          else
-            echo "deployed=false" >> "$GITHUB_OUTPUT"
-            echo ""
-            echo "❌ CLONE FAILED"
-            echo "Error: $CLONE_OUTPUT"
-            echo ""
-            echo "Troubleshooting:"
-            echo "  1. Verify PAGES_DEPLOY_TOKEN is set in repository secrets"
-            echo "  2. Token must be a Personal Access Token (PAT)"
-            echo "  3. For fine-grained PAT: grant 'Contents: Read and write' on ${PAGES_REPO}"
-          fi
-
       # Comment on PR with preview link
       - name: Comment preview link
+        if: steps.pages_check.outputs.enabled == 'true'
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const prNumber = ${{ github.event.pull_request.number }};
             const runId = ${{ github.run_id }};
-            const pagesEnabled = '${{ steps.pages_check.outputs.enabled }}' === 'true';
-            const externalDeployed = '${{ steps.external_deploy.outputs.deployed }}' === 'true';
 
-            // Primary preview URL (external GitHub Pages)
+            // Preview URL - served from gh-pages branch via custom domain
             const previewUrl = `https://www.douglastkaiser.com/kaiserlift/pr-${prNumber}/`;
-
-            // Fallback URL (internal gh-pages)
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const fallbackUrl = `https://${owner}.github.io/${repo}/pr-${prNumber}/`;
 
             const body = `## 🌐 Preview Deployment
 
-            ${externalDeployed ?
-              `### 🏠 Live Preview
-              **[View Preview Landing Page](${previewUrl})**
+            ### 🏠 Live Preview
+            **[View Preview Landing Page](${previewUrl})**
 
-              ### 📊 Direct Links to Examples
-              - 🏋️ [Lifting Example](${previewUrl}lifting/) - Weight training with 1RM calculations
-              - 🏃 [Running Example](${previewUrl}running/) - Running/cardio with pace predictions` :
-              pagesEnabled ?
-              `### 🏠 Landing Page
-              **[View Preview Landing Page](${fallbackUrl})**
-
-              ### 📊 Direct Links to Examples
-              - 🏋️ [Lifting Example](${fallbackUrl}lifting/) - Weight training with 1RM calculations
-              - 🏃 [Running Example](${fallbackUrl}running/) - Running/cardio with pace predictions
-
-              ⚠️ External deployment unavailable. Using fallback URL.` :
-              `### Artifact Preview
-              GitHub Pages is not enabled. Download the preview artifact to view locally.`
-            }
+            ### 📊 Direct Links to Examples
+            - 🏋️ [Lifting Example](${previewUrl}lifting/) - Weight training with 1RM calculations
+            - 🏃 [Running Example](${previewUrl}running/) - Running/cardio with pace predictions
 
             ### 📥 Download Preview
             [Download Preview Artifact](https://github.com/${{ github.repository }}/actions/runs/${runId})

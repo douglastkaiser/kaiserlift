@@ -103,6 +103,9 @@ jobs:
       contents: write
       pages: write
       id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repo
@@ -146,6 +149,22 @@ jobs:
           name: main-deployment
           path: tests/example_use/build
           retention-days: 30
+
+      # GitHub Pages deployment using official actions (for main branch only)
+      - name: Setup Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: tests/example_use/build
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        id: deployment
+        uses: actions/deploy-pages@v4
 
       - name: Check if Pages is enabled
         id: pages_check
@@ -245,15 +264,15 @@ jobs:
           git checkout "$CURRENT_BRANCH" || git checkout -
 
       - name: Add deployment summary
-        if: steps.pages_check.outputs.enabled == 'true'
+        if: github.ref == 'refs/heads/main' && steps.deployment.outputs.page_url != ''
         run: |
           {
             echo "### 🌐 Site Deployed to GitHub Pages";
             echo "";
-            echo "✅ **Live Site**";
-            echo "- 🏠 [Landing Page](https://www.douglastkaiser.com/kaiserlift/)";
-            echo "- 🏋️ [Lifting Demo](https://www.douglastkaiser.com/kaiserlift/lifting/)";
-            echo "- 🏃 [Running Demo](https://www.douglastkaiser.com/kaiserlift/running/)";
+            echo "✅ **Live Site**: ${{ steps.deployment.outputs.page_url }}";
             echo "";
-            echo "Note: GitHub Pages may take 1-2 minutes to update";
+            echo "**Pages:**";
+            echo "- 🏠 [Landing Page](${{ steps.deployment.outputs.page_url }})";
+            echo "- 🏋️ [Lifting Demo](${{ steps.deployment.outputs.page_url }}lifting/)";
+            echo "- 🏃 [Running Demo](${{ steps.deployment.outputs.page_url }}running/)";
           } >> "$GITHUB_STEP_SUMMARY"

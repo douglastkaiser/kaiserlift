@@ -36,43 +36,27 @@ async def index() -> HTMLResponse:
             <head>
                 <title>KaiserLift - Data-Driven Workout Optimization</title>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet">
                 <style>
                     :root {
-                        --bg: #fafafa;
-                        --fg: #1a1a1a;
+                        --primary-green: #4a7c59;
+                        --primary-green-hover: #3d6a4a;
+                        --bg: #f9f9f9;
+                        --fg: #444444;
+                        --fg-light: #666666;
                         --bg-alt: #ffffff;
-                        --border: #e5e7eb;
-                        --primary: #3b82f6;
-                        --primary-hover: #2563eb;
+                        --border: #e0e0e0;
+                        --shadow: 0 2px 4px rgba(0,0,0,0.1);
                     }
-                    @media (prefers-color-scheme: dark) {
-                        :root {
-                            --bg: #0f0f0f;
-                            --fg: #e5e5e5;
-                            --bg-alt: #1a1a1a;
-                            --border: #2a2a2a;
-                            --primary: #60a5fa;
-                            --primary-hover: #3b82f6;
-                        }
-                    }
-                    [data-theme="dark"] {
-                        --bg: #0f0f0f;
-                        --fg: #e5e5e5;
-                        --bg-alt: #1a1a1a;
-                        --border: #2a2a2a;
-                        --primary: #60a5fa;
-                        --primary-hover: #3b82f6;
-                    }
-                    [data-theme="light"] {
-                        --bg: #fafafa;
-                        --fg: #1a1a1a;
-                        --bg-alt: #ffffff;
-                        --border: #e5e7eb;
-                        --primary: #3b82f6;
-                        --primary-hover: #2563eb;
+                    * {
+                        margin: 0;
+                        padding: 0;
+                        box-sizing: border-box;
                     }
                     body {
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                         background-color: var(--bg);
                         color: var(--fg);
                         display: flex;
@@ -80,44 +64,73 @@ async def index() -> HTMLResponse:
                         align-items: center;
                         justify-content: center;
                         min-height: 100vh;
-                        padding: 20px;
+                        padding: 40px 20px;
                         text-align: center;
-                        transition: background-color 0.3s ease, color 0.3s ease;
+                        line-height: 1.6;
                     }
                     .hero {
-                        margin-bottom: 40px;
+                        margin-bottom: 50px;
                     }
                     .hero h1 {
-                        font-size: 2.5em;
-                        margin-bottom: 10px;
+                        font-family: 'Oswald', sans-serif;
+                        font-size: 3.5em;
+                        font-weight: 400;
+                        letter-spacing: 2px;
+                        margin-bottom: 15px;
+                        text-transform: uppercase;
+                    }
+                    .hero h1 .brand-name {
+                        color: var(--fg);
+                    }
+                    .hero h1 .brand-accent {
+                        color: var(--primary-green);
                     }
                     .tagline {
-                        font-size: 1.2em;
-                        opacity: 0.8;
-                        margin-bottom: 20px;
+                        font-size: 1.1em;
+                        font-style: italic;
+                        font-weight: 300;
+                        color: var(--fg-light);
+                        margin-bottom: 30px;
                     }
                     .demo-button {
-                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        background-color: var(--primary-green);
                         color: white;
-                        padding: 14px 28px;
+                        padding: 14px 32px;
                         border: none;
-                        border-radius: 8px;
-                        font-size: 1.1em;
+                        border-radius: 4px;
+                        font-family: 'Lato', sans-serif;
+                        font-size: 1em;
+                        font-weight: 700;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
                         cursor: pointer;
-                        margin: 10px;
-                        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                         transition: all 0.2s ease;
-                        font-weight: 600;
                     }
                     .demo-button:hover {
-                        transform: translateY(-2px);
-                        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+                        background-color: var(--primary-green-hover);
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
                     }
                     .upload-section {
-                        margin-top: 40px;
+                        margin-top: 30px;
+                        width: 100%;
+                        max-width: 500px;
                     }
                     .upload-section h2 {
-                        font-size: 1.5em;
+                        font-family: 'Oswald', sans-serif;
+                        font-size: 1.3em;
+                        font-weight: 400;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        color: var(--fg);
+                        margin-bottom: 25px;
+                    }
+                    .upload-section h3 {
+                        font-family: 'Lato', sans-serif;
+                        font-size: 1em;
+                        font-weight: 700;
+                        color: var(--fg);
+                        margin-top: 20px;
                         margin-bottom: 10px;
                     }
                     form {
@@ -127,52 +140,102 @@ async def index() -> HTMLResponse:
                         padding: 20px;
                         background-color: var(--bg-alt);
                         border: 1px solid var(--border);
-                        border-radius: 8px;
-                        margin: 10px;
-                        max-width: 400px;
+                        border-radius: 4px;
+                        margin: 10px 0;
                     }
                     input[type="file"] {
                         color: var(--fg);
-                        padding: 8px;
+                        padding: 10px;
+                        font-family: 'Lato', sans-serif;
                     }
                     input[type="submit"] {
-                        padding: 10px 20px;
-                        background-color: var(--primary);
+                        padding: 12px 24px;
+                        background-color: var(--primary-green);
                         color: white;
                         border: none;
                         border-radius: 4px;
                         cursor: pointer;
-                        font-weight: 500;
-                        transition: background-color 0.2s ease;
+                        font-family: 'Lato', sans-serif;
+                        font-weight: 700;
+                        font-size: 0.9em;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        transition: all 0.2s ease;
                     }
                     input[type="submit"]:hover {
-                        background-color: var(--primary-hover);
+                        background-color: var(--primary-green-hover);
                     }
                     .loading {
                         display: none;
-                        margin: 20px;
+                        margin: 30px;
                     }
                     .spinner {
-                        border: 4px solid var(--border);
-                        border-top: 4px solid var(--primary);
+                        border: 3px solid var(--border);
+                        border-top: 3px solid var(--primary-green);
                         border-radius: 50%;
                         width: 40px;
                         height: 40px;
                         animation: spin 1s linear infinite;
-                        margin: 0 auto;
+                        margin: 0 auto 15px;
+                    }
+                    .loading p {
+                        font-style: italic;
+                        color: var(--fg-light);
                     }
                     @keyframes spin {
                         0% { transform: rotate(0deg); }
                         100% { transform: rotate(360deg); }
                     }
+                    .social-links {
+                        margin-top: 40px;
+                        display: flex;
+                        gap: 15px;
+                        justify-content: center;
+                    }
+                    .social-link {
+                        width: 45px;
+                        height: 45px;
+                        border-radius: 50%;
+                        background-color: #555;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: white;
+                        text-decoration: none;
+                        font-size: 1.2em;
+                        transition: background-color 0.2s ease;
+                    }
+                    .social-link:hover {
+                        background-color: var(--primary-green);
+                    }
+                    footer {
+                        margin-top: 50px;
+                        font-size: 0.85em;
+                        color: var(--fg-light);
+                    }
+                    footer a {
+                        color: var(--primary-green);
+                        text-decoration: none;
+                    }
+                    footer a:hover {
+                        text-decoration: underline;
+                    }
+                    @media (max-width: 600px) {
+                        .hero h1 {
+                            font-size: 2.5em;
+                        }
+                        .upload-section {
+                            padding: 0 10px;
+                        }
+                    }
                 </style>
             </head>
             <body>
                 <div class="hero">
-                    <h1>🏋️ KaiserLift</h1>
-                    <p class="tagline">Never guess your next workout again</p>
+                    <h1><span class="brand-name">KAISER</span><span class="brand-accent">LIFT</span></h1>
+                    <p class="tagline">Data-driven workout optimization. Never guess your next workout again.</p>
                     <button class="demo-button" onclick="loadDemo()">
-                        ✨ Try Demo with Sample Data
+                        Try Demo with Sample Data
                     </button>
                 </div>
 
@@ -196,6 +259,18 @@ async def index() -> HTMLResponse:
                     <div class="spinner"></div>
                     <p>Loading demo data...</p>
                 </div>
+
+                <div class="social-links">
+                    <a href="https://github.com/douglastkaiser/kaiserlift" class="social-link" target="_blank" title="GitHub">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                        </svg>
+                    </a>
+                </div>
+
+                <footer>
+                    <a href="https://douglastkaiser.github.io" target="_blank">douglastkaiser.github.io</a>
+                </footer>
 
                 <div id="result"></div>
 

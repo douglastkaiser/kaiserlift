@@ -376,6 +376,9 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     <link rel="preconnect" href="https://code.jquery.com">
     <link rel="preconnect" href="https://cdn.datatables.net">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet">
     """
         + get_plotly_preconnect_html()
         + "\n"
@@ -387,71 +390,68 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
     <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js" defer></script>
 
-    <!-- Custom Styling for Mobile -->
+    <!-- Custom Styling -->
     <style>
     :root {
-        --bg: #fafafa;
-        --fg: #1a1a1a;
+        --primary-green: #4a7c59;
+        --primary-green-hover: #3d6a4a;
+        --bg: #f9f9f9;
+        --fg: #444444;
+        --fg-light: #666666;
         --bg-alt: #ffffff;
-        --border: #e5e7eb;
-        --primary: #3b82f6;
-        --primary-hover: #2563eb;
-        --success: #10b981;
-        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
-    }
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --bg: #0f0f0f;
-            --fg: #e5e5e5;
-            --bg-alt: #1a1a1a;
-            --border: #2a2a2a;
-            --primary: #60a5fa;
-            --primary-hover: #3b82f6;
-            --success: #34d399;
-            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
-        }
-    }
-    [data-theme="dark"] {
-        --bg: #0f0f0f;
-        --fg: #e5e5e5;
-        --bg-alt: #1a1a1a;
-        --border: #2a2a2a;
-        --primary: #60a5fa;
-        --primary-hover: #3b82f6;
-        --success: #34d399;
-        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.3);
-    }
-    [data-theme="light"] {
-        --bg: #fafafa;
-        --fg: #1a1a1a;
-        --bg-alt: #ffffff;
-        --border: #e5e7eb;
-        --primary: #3b82f6;
-        --primary-hover: #2563eb;
-        --success: #10b981;
-        --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+        --border: #e0e0e0;
+        --shadow: 0 2px 4px rgba(0,0,0,0.1);
+        --link: #4a7c59;
     }
 
     * {
-        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+        margin: 0;
+        padding: 0;
         box-sizing: border-box;
     }
 
     body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        font-size: clamp(16px, 2.5vw, 24px);
-        padding: clamp(12px, 3vw, 28px);
+        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 16px;
+        padding: 30px;
         background-color: var(--bg);
         color: var(--fg);
-        line-height: 1.5;
-        margin: 0;
-        overflow-x: hidden;
+        line-height: 1.6;
+        max-width: 1400px;
+        margin: 0 auto;
     }
 
-    h1 {
-        font-weight: 700;
-        margin-bottom: 24px;
-        font-size: clamp(1.5em, 4vw, 2em);
+    h1, h2, h3 {
+        font-family: 'Oswald', sans-serif;
+        font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .page-header {
+        text-align: center;
+        margin-bottom: 40px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .page-header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+    }
+
+    .page-header h1 .brand-name {
+        color: var(--fg);
+    }
+
+    .page-header h1 .brand-accent {
+        color: var(--primary-green);
+    }
+
+    .page-header .subtitle {
+        font-style: italic;
+        font-weight: 300;
+        color: var(--fg-light);
     }
 
     /* Table wrapper for horizontal scrolling on mobile */
@@ -463,70 +463,84 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
 
     table.dataTable {
-        font-size: clamp(14px, 2vw, 20px);
+        font-size: 14px;
         width: 100% !important;
         min-width: 500px;
         word-wrap: break-word;
         background-color: var(--bg-alt);
         color: var(--fg);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 4px;
         overflow: hidden;
         box-shadow: var(--shadow);
     }
 
     table.dataTable thead th {
-        background-color: var(--bg);
-        font-weight: 600;
-        padding: clamp(8px, 1.5vw, 12px);
-        border-bottom: 2px solid var(--border);
+        background-color: var(--primary-green);
+        color: white;
+        font-family: 'Lato', sans-serif;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.85em;
+        letter-spacing: 0.5px;
+        padding: 12px 10px;
+        border-bottom: none;
         white-space: nowrap;
     }
 
     table.dataTable tbody td {
-        padding: clamp(6px, 1.5vw, 10px) clamp(8px, 1.5vw, 12px);
-    }
-
-    table.dataTable tbody tr {
+        padding: 10px;
         border-bottom: 1px solid var(--border);
     }
 
     table.dataTable tbody tr:hover {
-        background-color: var(--bg);
+        background-color: rgba(74, 124, 89, 0.05);
     }
 
-    /* DataTables controls responsive styling */
+    table.dataTable tbody tr:nth-child(even) {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    /* DataTables controls styling */
     .dataTables_wrapper {
-        font-size: clamp(14px, 2vw, 18px);
+        font-size: 14px;
     }
 
     .dataTables_wrapper .dataTables_length,
     .dataTables_wrapper .dataTables_filter {
-        margin-bottom: 12px;
+        margin-bottom: 15px;
     }
 
     .dataTables_wrapper .dataTables_filter input {
-        font-size: clamp(14px, 2vw, 18px);
+        font-family: 'Lato', sans-serif;
+        font-size: 14px;
         padding: 8px 12px;
-        border-radius: 6px;
+        border-radius: 4px;
         border: 1px solid var(--border);
         background-color: var(--bg-alt);
         color: var(--fg);
-        min-height: 44px;
+        min-height: 40px;
+    }
+
+    .dataTables_wrapper .dataTables_filter input:focus {
+        outline: none;
+        border-color: var(--primary-green);
+        box-shadow: 0 0 0 2px rgba(74, 124, 89, 0.1);
     }
 
     .dataTables_wrapper .dataTables_length select {
-        font-size: clamp(14px, 2vw, 18px);
+        font-family: 'Lato', sans-serif;
+        font-size: 14px;
         padding: 8px;
-        border-radius: 6px;
+        border-radius: 4px;
         border: 1px solid var(--border);
         background-color: var(--bg-alt);
         color: var(--fg);
-        min-height: 44px;
+        min-height: 40px;
     }
 
     .dataTables_wrapper .dataTables_paginate {
-        margin-top: 12px;
+        margin-top: 15px;
         display: flex;
         flex-wrap: wrap;
         gap: 4px;
@@ -534,78 +548,61 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     .dataTables_wrapper .dataTables_paginate .paginate_button {
         padding: 8px 12px !important;
-        min-width: 44px;
-        min-height: 44px;
+        min-width: 40px;
+        min-height: 40px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 6px;
-        font-size: clamp(14px, 2vw, 16px);
+        border-radius: 4px;
+        font-size: 14px;
+        background-color: var(--bg-alt) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--fg) !important;
+        transition: all 0.2s ease;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+        background-color: var(--primary-green) !important;
+        color: white !important;
+        border-color: var(--primary-green) !important;
+    }
+
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current {
+        background-color: var(--primary-green) !important;
+        color: white !important;
+        border-color: var(--primary-green) !important;
     }
 
     .dataTables_wrapper .dataTables_info {
-        font-size: clamp(12px, 1.8vw, 16px);
-        padding-top: 12px;
+        font-size: 13px;
+        padding-top: 15px;
+        color: var(--fg-light);
     }
 
     label {
-        font-size: clamp(16px, 2.5vw, 24px);
+        font-family: 'Lato', sans-serif;
+        font-size: 14px;
+        font-weight: 700;
         color: var(--fg);
-        font-weight: 500;
         margin-bottom: 8px;
         display: inline-block;
     }
 
     select {
-        font-size: clamp(16px, 2.5vw, 24px);
+        font-family: 'Lato', sans-serif;
+        font-size: 14px;
         color: var(--fg);
         background-color: var(--bg-alt);
-        border: 2px solid var(--border);
-        border-radius: 6px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
         padding: 10px 12px;
-        min-height: 44px;
+        min-height: 40px;
     }
 
     select:focus {
         outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    /* Dark mode overrides for DataTables */
-    @media (prefers-color-scheme: dark) {
-        .dataTables_wrapper .dataTables_filter input,
-        .dataTables_wrapper .dataTables_length select {
-            background-color: var(--bg);
-            color: var(--fg);
-            border: 1px solid var(--border);
-        }
-        .dataTables_wrapper .dataTables_paginate .paginate_button {
-            background-color: var(--bg);
-            color: var(--fg) !important;
-            border: 1px solid var(--border);
-        }
-        .dataTables_wrapper .dataTables_paginate .paginate_button.current,
-        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-            background-color: var(--bg-alt) !important;
-            color: var(--fg) !important;
-        }
-    }
-    html[data-theme="dark"] .dataTables_wrapper .dataTables_filter input,
-    html[data-theme="dark"] .dataTables_wrapper .dataTables_length select {
-        background-color: var(--bg);
-        color: var(--fg);
-        border: 1px solid var(--border);
-    }
-    html[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button {
-        background-color: var(--bg);
-        color: var(--fg) !important;
-        border: 1px solid var(--border);
-    }
-    html[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button.current,
-    html[data-theme="dark"] .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-        background-color: var(--bg-alt) !important;
-        color: var(--fg) !important;
+        border-color: var(--primary-green);
+        box-shadow: 0 0 0 2px rgba(74, 124, 89, 0.1);
     }
 
     .upload-controls {
@@ -613,28 +610,35 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         flex-wrap: wrap;
         gap: 12px;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 25px;
+        padding: 20px;
+        background-color: var(--bg-alt);
+        border: 1px solid var(--border);
+        border-radius: 4px;
     }
 
     #uploadButton {
-        padding: 12px 20px;
+        padding: 10px 24px;
         border: none;
-        border-radius: 8px;
-        background-color: var(--primary);
-        color: #ffffff;
+        border-radius: 4px;
+        background-color: var(--primary-green);
+        color: white;
         cursor: pointer;
-        font-weight: 600;
-        font-size: clamp(16px, 2vw, 20px);
+        font-family: 'Lato', sans-serif;
+        font-weight: 700;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
         box-shadow: var(--shadow);
         transition: all 0.2s ease;
-        min-height: 44px;
+        min-height: 40px;
         white-space: nowrap;
     }
 
     #uploadButton:hover {
-        background-color: var(--primary-hover);
+        background-color: var(--primary-green-hover);
         transform: translateY(-1px);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
 
     #uploadButton:active {
@@ -642,20 +646,20 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
 
     #csvFile {
-        padding: 10px;
-        border: 2px solid var(--border);
-        border-radius: 6px;
-        background-color: var(--bg-alt);
+        padding: 8px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background-color: var(--bg);
         color: var(--fg);
-        font-size: clamp(14px, 2vw, 18px);
-        min-height: 44px;
+        font-family: 'Lato', sans-serif;
+        font-size: 14px;
+        min-height: 40px;
         max-width: 100%;
     }
 
     #csvFile:focus {
         outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        border-color: var(--primary-green);
     }
 
     #uploadProgress {
@@ -663,38 +667,32 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         min-width: 100px;
     }
 
-    .theme-toggle {
-        position: fixed;
-        top: 16px;
-        right: 16px;
-        padding: 10px 14px;
-        font-size: clamp(18px, 2.5vw, 24px);
-        cursor: pointer;
-        background-color: var(--bg-alt);
-        color: var(--fg);
-        border: 2px solid var(--border);
-        border-radius: 8px;
-        box-shadow: var(--shadow);
-        transition: all 0.2s ease;
-        z-index: 1000;
-        min-width: 44px;
-        min-height: 44px;
+    /* Back link styling */
+    .back-link {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: var(--primary-green);
+        text-decoration: none;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.9em;
+        letter-spacing: 1px;
     }
 
-    .theme-toggle:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    .back-link:hover {
+        text-decoration: underline;
     }
 
-    /* Chart container responsive styling */
+    /* Chart container styling */
     .running-figure {
-        border-radius: 8px;
+        border-radius: 4px;
         box-shadow: var(--shadow);
-        margin: 20px 0;
+        margin: 25px 0;
         opacity: 0;
         animation: fadeIn 0.3s ease-in forwards;
         width: 100%;
         overflow: hidden;
+        background-color: var(--bg-alt);
     }
 
     .running-figure .js-plotly-plot,
@@ -726,6 +724,14 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     /* Tablet breakpoint */
     @media only screen and (max-width: 768px) {
+        body {
+            padding: 20px 15px;
+        }
+
+        .page-header h1 {
+            font-size: 2em;
+        }
+
         .upload-controls {
             flex-direction: column;
             align-items: stretch;
@@ -752,22 +758,22 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
             margin-left: 0;
             margin-top: 8px;
         }
-
-        h1 {
-            padding-right: 50px;
-        }
     }
 
     /* Mobile breakpoint */
     @media only screen and (max-width: 480px) {
         body {
-            padding: 10px;
+            padding: 15px 10px;
+        }
+
+        .page-header h1 {
+            font-size: 1.75em;
         }
 
         .dataTables_wrapper .dataTables_paginate .paginate_button {
             padding: 6px 10px !important;
-            min-width: 40px;
-            font-size: 14px;
+            min-width: 36px;
+            font-size: 13px;
         }
 
         .dataTables_wrapper .dataTables_info {
@@ -785,11 +791,14 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     )
 
     upload_html = """
-    <button class="theme-toggle" id="themeToggle">🌙</button>
-    <h1>KaiserLift - Running Data</h1>
+    <a href="/" class="back-link">&larr; Back to Home</a>
+    <div class="page-header">
+        <h1><span class="brand-name">KAISER</span><span class="brand-accent">LIFT</span></h1>
+        <p class="subtitle">Running Data Analysis</p>
+    </div>
     <div class="upload-controls">
         <input type="file" id="csvFile" accept=".csv">
-        <button id="uploadButton">Upload Running Data</button>
+        <button id="uploadButton">Upload</button>
         <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
     </div>
     """
@@ -803,20 +812,6 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
             pageLength: 25,
             order: [[4, 'desc']]  // Sort by "Distance Below Pareto" column (index 4) - easiest targets first
         });
-
-        // Theme toggle
-        const themeToggle = document.getElementById('themeToggle');
-        const currentTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        themeToggle.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
-
-        themeToggle.addEventListener('click', function() {
-            const theme = document.documentElement.getAttribute('data-theme');
-            const newTheme = theme === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            themeToggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
-        });
     });
     </script>
     """
@@ -827,14 +822,16 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     <meta name="description" content="KaiserLift running analysis - Data-driven pace optimization with Pareto front">
     """
     version_footer = """
-    <footer style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.85em; color: var(--fg); opacity: 0.7;">
+    <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.85em; color: var(--fg-light); text-align: center;">
         <span id="version-info">Loading version...</span>
+        <span style="margin: 0 10px;">|</span>
+        <a href="https://douglastkaiser.github.io" target="_blank" style="color: var(--primary-green); text-decoration: none;">douglastkaiser.github.io</a>
     </footer>
     <script type="module">
         import { VERSION, GIT_HASH, GIT_HASH_FULL } from '../version.js';
         const versionEl = document.getElementById('version-info');
         const commitUrl = `https://github.com/douglastkaiser/kaiserlift/commit/${GIT_HASH_FULL}`;
-        versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--link);">${GIT_HASH}</a>)`;
+        versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--primary-green);">${GIT_HASH}</a>)`;
     </script>
     """
     body_html = upload_html + f'<div id="result">{fragment}</div>' + version_footer

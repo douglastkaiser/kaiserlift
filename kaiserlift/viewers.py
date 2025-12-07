@@ -785,9 +785,5 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--primary-green);">${GIT_HASH}</a>)`;
     </script>
     """
-    body_html = (
-        upload_html
-        + f'<div id="result">{fragment}</div>'
-        + version_footer
-    )
+    body_html = upload_html + f'<div id="result">{fragment}</div>' + version_footer
     return f"<html><head>{head_html}</head><body>{body_html}</body></html>"

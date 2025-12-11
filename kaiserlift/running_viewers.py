@@ -357,7 +357,16 @@ def render_running_table_fragment(df) -> str:
         classes="display compact cell-border", table_id="runningTable", index=False
     )
 
-    return table_html + all_figures_html
+    return """
+    <div class="content-card">
+        <div class="table-wrapper">
+            {table_html}
+        </div>
+    </div>
+    <div class="figures-grid">
+        {all_figures_html}
+    </div>
+    """.format(table_html=table_html, all_figures_html=all_figures_html)
 
 
 def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
@@ -425,11 +434,12 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     body {
         font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 16px;
-        padding: 30px;
+        padding: clamp(16px, 4vw, 32px);
         background-color: var(--bg);
         color: var(--fg);
         line-height: 1.6;
-        max-width: 1400px;
+        max-width: 1200px;
+        width: 100%;
         margin: 0 auto;
     }
 
@@ -474,10 +484,33 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         margin-bottom: 16px;
     }
 
+    .content-card {
+        background-color: var(--bg-alt);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+        margin-bottom: 20px;
+        width: min(100%, 1100px);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .figures-grid {
+        display: grid;
+        gap: clamp(12px, 2vw, 20px);
+    }
+
+    @media (min-width: 720px) {
+        .figures-grid {
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        }
+    }
+
     table.dataTable {
         font-size: 14px;
         width: 100% !important;
-        min-width: 500px;
+        min-width: min(720px, 100%);
         word-wrap: break-word;
         background-color: var(--bg-alt);
         color: var(--fg);
@@ -485,6 +518,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         border-radius: 4px;
         overflow: hidden;
         box-shadow: var(--shadow);
+        table-layout: auto;
     }
 
     table.dataTable thead th {
@@ -503,6 +537,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     table.dataTable tbody td {
         padding: 10px;
         border-bottom: 1px solid var(--border);
+        word-break: break-word;
     }
 
     table.dataTable tbody tr:hover {
@@ -618,8 +653,8 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
 
     .upload-controls {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 12px;
         align-items: center;
         margin-bottom: 25px;
@@ -627,6 +662,12 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         background-color: var(--bg-alt);
         border: 1px solid var(--border);
         border-radius: 4px;
+    }
+
+    @media (min-width: 700px) {
+        .upload-controls {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
     }
 
     #uploadButton {
@@ -744,15 +785,15 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
             font-size: 2em;
         }
 
+        .content-card {
+            padding: 16px;
+        }
+
         .upload-controls {
-            flex-direction: column;
-            align-items: stretch;
+            grid-template-columns: minmax(0, 1fr);
         }
 
-        #csvFile {
-            width: 100%;
-        }
-
+        #csvFile,
         #uploadButton {
             width: 100%;
             text-align: center;
@@ -769,6 +810,10 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
             width: 100%;
             margin-left: 0;
             margin-top: 8px;
+        }
+
+        table.dataTable {
+            min-width: 100%;
         }
     }
 
@@ -808,10 +853,12 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         <h1><span class="brand-name">KAISER</span><span class="brand-accent">LIFT</span></h1>
         <p class="subtitle">Running Data Analysis</p>
     </div>
-    <div class="upload-controls">
-        <input type="file" id="csvFile" accept=".csv">
-        <button id="uploadButton">Upload</button>
-        <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
+    <div class="content-card">
+        <div class="upload-controls">
+            <input type="file" id="csvFile" accept=".csv">
+            <button id="uploadButton">Upload</button>
+            <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
+        </div>
     </div>
     """
 
@@ -822,6 +869,8 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         // Initialize DataTable
         $('#runningTable').DataTable({
             pageLength: 25,
+            responsive: true,
+            autoWidth: false,
             order: [[4, 'desc']]  // Sort by "Distance Below Pareto" column (index 4) - easiest targets first
         });
     });

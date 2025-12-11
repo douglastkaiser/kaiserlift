@@ -250,24 +250,39 @@ def render_table_fragment(df) -> str:
     exercise_options = sorted(df_records[exercise_column].dropna().unique())
 
     dropdown_html = """
-    <label for="exerciseDropdown">Filter by Exercise:</label>
-    <select id="exerciseDropdown">
-    <option value="">All</option>
+    <div class="control-stack">
+        <label for="exerciseDropdown">Filter by Exercise:</label>
+        <select id="exerciseDropdown">
+            <option value="">All</option>
     """
     dropdown_html += "".join(
         f'<option value="{x}" data-fig="{exercise_slug.get(x, "")}">{x}</option>'
         for x in exercise_options
     )
     dropdown_html += """
-    </select>
-    <br><br>
+        </select>
+    </div>
     """
 
     table_html = df_targets.to_html(
         classes="display compact cell-border", table_id="exerciseTable", index=False
     )
 
-    return dropdown_html + table_html + all_figures_html
+    return """
+    <div class="content-card">
+        {dropdown_html}
+        <div class="table-wrapper">
+            {table_html}
+        </div>
+    </div>
+    <div class="figures-grid">
+        {all_figures_html}
+    </div>
+    """.format(
+        dropdown_html=dropdown_html,
+        table_html=table_html,
+        all_figures_html=all_figures_html,
+    )
 
 
 def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
@@ -334,11 +349,12 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     body {
         font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         font-size: 16px;
-        padding: 30px;
+        padding: clamp(16px, 4vw, 32px);
         background-color: var(--bg);
         color: var(--fg);
         line-height: 1.6;
-        max-width: 1400px;
+        max-width: 1200px;
+        width: 100%;
         margin: 0 auto;
     }
 
@@ -383,10 +399,40 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         margin-bottom: 16px;
     }
 
+    .content-card {
+        background-color: var(--bg-alt);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+        margin-bottom: 20px;
+        width: min(100%, 1100px);
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .control-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .figures-grid {
+        display: grid;
+        gap: clamp(12px, 2vw, 20px);
+    }
+
+    @media (min-width: 720px) {
+        .figures-grid {
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        }
+    }
+
     table.dataTable {
         font-size: 14px;
         width: 100% !important;
-        min-width: 500px;
+        min-width: min(720px, 100%);
         word-wrap: break-word;
         background-color: var(--bg-alt);
         color: var(--fg);
@@ -394,6 +440,7 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         border-radius: 4px;
         overflow: hidden;
         box-shadow: var(--shadow);
+        table-layout: auto;
     }
 
     table.dataTable thead th {
@@ -412,6 +459,7 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     table.dataTable tbody td {
         padding: 10px;
         border-bottom: 1px solid var(--border);
+        word-break: break-word;
     }
 
     table.dataTable tbody tr:hover {
@@ -520,6 +568,10 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         min-height: 40px;
     }
 
+    #exerciseDropdown {
+        width: 100%;
+    }
+
     select:focus {
         outline: none;
         border-color: var(--primary-green);
@@ -537,6 +589,10 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         line-height: 40px;
         padding-left: 12px;
         color: var(--fg);
+    }
+
+    .select2-container {
+        width: 100% !important;
     }
 
     .select2-container--default .select2-selection--single .select2-selection__arrow {
@@ -558,8 +614,8 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
 
     .upload-controls {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 12px;
         align-items: center;
         margin-bottom: 25px;
@@ -567,6 +623,12 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         background-color: var(--bg-alt);
         border: 1px solid var(--border);
         border-radius: 4px;
+    }
+
+    @media (min-width: 700px) {
+        .upload-controls {
+            grid-template-columns: minmax(0, 1fr) auto auto;
+        }
     }
 
     #uploadButton {
@@ -700,15 +762,15 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
             font-size: 2em;
         }
 
+        .content-card {
+            padding: 16px;
+        }
+
         .upload-controls {
-            flex-direction: column;
-            align-items: stretch;
+            grid-template-columns: minmax(0, 1fr);
         }
 
-        #csvFile {
-            width: 100%;
-        }
-
+        #csvFile,
         #uploadButton,
         #clearButton {
             width: 100%;
@@ -730,6 +792,10 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
 
         #exerciseDropdown {
             max-width: 100%;
+        }
+
+        table.dataTable {
+            min-width: 100%;
         }
     }
 
@@ -769,11 +835,13 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         <h1><span class="brand-name">KAISER</span><span class="brand-accent">LIFT</span></h1>
         <p class="subtitle">Lifting Data Analysis</p>
     </div>
-    <div class="upload-controls">
-        <input type="file" id="csvFile">
-        <button id="uploadButton">Upload</button>
-        <button id="clearButton">Clear</button>
-        <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
+    <div class="content-card">
+        <div class="upload-controls">
+            <input type="file" id="csvFile">
+            <button id="uploadButton">Upload</button>
+            <button id="clearButton">Clear</button>
+            <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
+        </div>
     </div>
     """
 

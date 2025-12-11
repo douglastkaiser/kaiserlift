@@ -256,6 +256,18 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         xaxis=dict(range=[np.log10(min_dist * 0.9), np.log10(plot_max_dist)]),
         hovermode="closest",
         template="plotly_white",
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.25,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="rgba(0,0,0,0.1)",
+            borderwidth=1,
+        ),
+        height=540,
+        margin=dict(t=120, l=60, r=20, b=150),
     )
 
     return fig

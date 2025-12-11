@@ -167,61 +167,48 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         target_points = list(zip(df_targets["Distance"], df_targets["Speed"]))
         target_dists, target_speeds = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Find the target furthest below the pareto curve (easiest to achieve)
-        if not np.isnan(best_pace):
-            # Find target with maximum distance below pareto curve
-            max_distance_below_pareto = -float("inf")
-            furthest_below_idx = 0
+        # Pick the easiest curve among all green targets (lowest overall speeds)
+        # by sampling each candidate Riegel curve and choosing the minimal mean.
+        def curve_score(
+            anchor_distance: float, anchor_speed: float
+        ) -> tuple[list, list, float]:
+            anchor_pace = 3600 / anchor_speed if anchor_speed > 0 else np.nan
+            if np.isnan(anchor_pace):
+                return [], [], np.inf
 
-            for i, (t_dist, t_speed) in enumerate(zip(target_dists, target_speeds)):
-                # Estimate pareto speed at this target distance
-                pareto_pace_est = estimate_pace_at_distance(
-                    best_pace, best_distance, t_dist
-                )
-                if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
-                    pareto_speed_est = 3600 / pareto_pace_est
-                    # Calculate how far below the pareto curve this target is
-                    # Positive value means target is below pareto (easier to achieve)
-                    distance_below = pareto_speed_est - t_speed
-                    if distance_below > max_distance_below_pareto:
-                        max_distance_below_pareto = distance_below
-                        furthest_below_idx = i
+            sample_points = np.linspace(min_dist, plot_max_dist, 100).tolist()
+            sample_points.extend([float(d) for d in target_dists])
+            sample_points.append(float(anchor_distance))
+            sample_points = sorted(set(sample_points))
 
-            target_pace = (
-                3600 / target_speeds[furthest_below_idx]
-                if target_speeds[furthest_below_idx] > 0
-                else np.nan
-            )
-            target_distance = target_dists[furthest_below_idx]
-        else:
-            # Fallback: use max speed (original behavior)
-            max_target_speed = max(target_speeds)
-            max_target_idx = target_speeds.index(max_target_speed)
-            target_pace = 3600 / max_target_speed if max_target_speed > 0 else np.nan
-            target_distance = target_dists[max_target_idx]
-
-        # Generate dotted target speed curve
-        if not np.isnan(target_pace):
-            x_vals = np.linspace(min_dist, plot_max_dist, 100).tolist()
-            x_vals.extend([float(d) for d in target_dists])
-            x_vals = sorted(set(x_vals))
-
-            y_vals = []
-            for d in x_vals:
-                pace_est = estimate_pace_at_distance(target_pace, target_distance, d)
+            y_vals: list[float] = []
+            for d in sample_points:
+                pace_est = estimate_pace_at_distance(anchor_pace, anchor_distance, d)
                 if pace_est > 0 and not np.isnan(pace_est):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
 
-            # Ensure target speed curve intersects chosen target
-            anchor_idx = x_vals.index(target_distance)
-            y_vals[anchor_idx] = target_speeds[furthest_below_idx]
+            finite_vals = [y for y in y_vals if not np.isnan(y)]
+            mean_speed = float(np.mean(finite_vals)) if finite_vals else np.inf
+            return sample_points, y_vals, mean_speed
 
-            # Ensure the curve honors all target markers
-            for t_dist, t_speed in zip(target_dists, target_speeds):
-                if t_dist in x_vals:
-                    y_vals[x_vals.index(t_dist)] = t_speed
+        best_curve = ([], [], np.inf)
+        anchor_idx = 0
+        for i, (t_dist, t_speed) in enumerate(zip(target_dists, target_speeds)):
+            x_curve, y_curve, score = curve_score(t_dist, t_speed)
+            if score < best_curve[2]:
+                best_curve = (x_curve, y_curve, score)
+                anchor_idx = i
+
+        x_vals, y_vals, _ = best_curve
+        if x_vals:
+            # Ensure target speed curve intersects the selected target anchor
+            anchor_distance = target_dists[anchor_idx]
+            anchor_speed = target_speeds[anchor_idx]
+            anchor_pace = 3600 / anchor_speed if anchor_speed > 0 else np.nan
+            if anchor_distance in x_vals:
+                y_vals[x_vals.index(anchor_distance)] = anchor_speed
 
             fig.add_trace(
                 go.Scatter(
@@ -234,7 +221,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     hovertemplate="<b>Target Speed Curve</b><br>"
                     + "Distance: %{x:.2f} mi<br>"
                     + "Speed: %{y:.2f} mph<br>"
-                    + f"Pace: {seconds_to_pace_string(target_pace)}<extra></extra>",
+                    + f"Pace: {seconds_to_pace_string(anchor_pace)}<extra></extra>",
                 )
             )
 

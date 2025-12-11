@@ -165,17 +165,29 @@ def test_df_next_running_targets():
 
     targets = df_next_running_targets(df_records)
 
-    assert len(targets) == 1
+    assert len(targets) == 3
     assert "Speed" in targets.columns
 
-    target = targets.iloc[0]
+    sorted_targets = targets.sort_values("Distance").reset_index(drop=True)
+
+    left_target = sorted_targets.iloc[0]
+    middle_target = sorted_targets.iloc[1]
+    right_target = sorted_targets.iloc[2]
+
+    # Left edge target should sit just beyond the first Pareto distance
+    assert 5.0 < left_target["Distance"] < 7.0
+    assert 6.0 < left_target["Speed"] < 6.32
 
     # Target should sit between the two Pareto distances (25% toward the right)
-    assert abs(target["Distance"] - 6.25) < 1e-6
+    assert abs(middle_target["Distance"] - 6.25) < 1e-6
 
-    # Target speed should be faster than the longer-distance point but below the shorter
-    target_speed = target["Speed"]
+    # Middle target speed should be faster than the longer-distance point but below the shorter
+    target_speed = middle_target["Speed"]
     assert 6.0 < target_speed < 6.315
+
+    # Right edge target should sit just beyond the longest Pareto distance and below the front
+    assert right_target["Distance"] > 10.0
+    assert right_target["Speed"] < 6.0
 
 
 def test_df_next_running_targets_gap_filling():
@@ -190,12 +202,15 @@ def test_df_next_running_targets_gap_filling():
 
     targets = df_next_running_targets(df_records)
 
-    # Target should be positioned between the Pareto points
+    # Targets should be positioned between and around the Pareto points
     gap_fillers = targets[(targets["Distance"] > 3.0) & (targets["Distance"] < 10.0)]
-    assert len(gap_fillers) == 1
-    filler = gap_fillers.iloc[0]
-    assert 4.5 < filler["Distance"] < 5.0
+    assert len(gap_fillers) == 2
+    filler = gap_fillers.sort_values("Distance").iloc[0]
+    assert 3.5 < filler["Distance"] < 5.0
     assert filler["Speed"] > 5.8
+
+    edge_targets = targets[(targets["Distance"] <= 3.0) | (targets["Distance"] >= 10.0)]
+    assert len(edge_targets) == 1
 
 
 def test_df_next_running_targets_empty():

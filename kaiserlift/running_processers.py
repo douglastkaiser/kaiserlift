@@ -340,6 +340,16 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
 
         speeds = [3600 / p if pd.notna(p) and p > 0 else np.nan for p in paces]
 
+        # Left endpoint target (slightly farther than the first Pareto point
+        # and nudged inside the front between the first two speeds)
+        first_gap = distances[1] - distances[0]
+        left_target_distance = distances[0] + 0.15 * first_gap if first_gap > 0 else distances[0]
+        left_target_speed = speeds[0] * 0.98
+        if pd.notna(speeds[1]) and speeds[1] > 0:
+            left_target_speed = max(left_target_speed, speeds[1] * 1.05)
+        if left_target_speed > 0 and pd.notna(left_target_speed):
+            rows.append((ex, left_target_distance, 3600 / left_target_speed))
+
         for i in range(len(distances) - 1):
             left_distance = distances[i]
             right_distance = distances[i + 1]
@@ -367,6 +377,17 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
 
             target_pace = 3600 / target_speed
             rows.append((ex, target_distance, target_pace))
+
+        # Right endpoint target (a bit farther than the longest Pareto distance
+        # and slightly slower to keep it nested below the front)
+        last_gap = distances[-1] - distances[-2]
+        bump = last_gap if last_gap > 0 else distances[-1] * 0.1
+        right_target_distance = distances[-1] + 0.1 * bump
+        right_target_speed = speeds[-1] * 0.97
+        if pd.notna(speeds[-2]) and speeds[-2] > 0:
+            right_target_speed = min(right_target_speed, speeds[-2] * 0.99)
+        if right_target_speed > 0 and pd.notna(right_target_speed):
+            rows.append((ex, right_target_distance, 3600 / right_target_speed))
 
     target_df = pd.DataFrame(rows, columns=["Exercise", "Distance", "Pace"])
     return add_speed_metric_column(target_df)

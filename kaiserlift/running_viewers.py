@@ -137,7 +137,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 y=list(pareto_speeds),
                 mode="lines",
                 name="Pareto Front (Best Speeds)",
-                line=dict(color="red", shape="hv", width=2),
+                line=dict(color="red", shape="vh", width=2),
                 hovertemplate="<b>Pareto Front</b><extra></extra>",
             )
         )

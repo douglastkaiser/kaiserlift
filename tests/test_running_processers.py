@@ -165,22 +165,29 @@ def test_df_next_running_targets():
 
     targets = df_next_running_targets(df_records)
 
-    # Should have at least:
-    # 1. Faster pace at 5.0 miles (570 * 0.98 = 558.6)
-    # 2. Gap filler(s) between 5.0 and 10.0
-    # 3. Longer distance at 11.0 miles (10.0 is in 5-13 range, so +1 mile)
-    assert len(targets) >= 3
+    assert len(targets) == 3
     assert "Speed" in targets.columns
 
-    # Check shortest distance target (2% improvement)
-    shortest_target = targets[targets["Distance"] == 5.0]
-    assert len(shortest_target) == 1
-    assert abs(shortest_target["Pace"].values[0] - 570 * 0.98) < 0.1
+    sorted_targets = targets.sort_values("Distance").reset_index(drop=True)
 
-    # Check longest distance target (+1.0 mile for 5-13 mile range)
-    longest_target = targets[targets["Distance"] == 11.0]
-    assert len(longest_target) == 1
-    assert longest_target["Pace"].values[0] == 600
+    left_target = sorted_targets.iloc[0]
+    middle_target = sorted_targets.iloc[1]
+    right_target = sorted_targets.iloc[2]
+
+    # Left edge target should sit directly above the first Pareto distance
+    assert left_target["Distance"] == 5.0
+    assert left_target["Speed"] > 6.4
+
+    # Target should sit between the two Pareto distances (10% toward the right)
+    assert abs(middle_target["Distance"] - 5.5) < 1e-6
+
+    # Middle target speed should be faster than the longer-distance point but below the shorter
+    target_speed = middle_target["Speed"]
+    assert 6.0 < target_speed < 6.29
+
+    # Right edge target should sit just beyond the longest Pareto distance at the same speed
+    assert abs(right_target["Distance"] - 10.5) < 1e-6
+    assert abs(right_target["Speed"] - 6.0) < 1e-6
 
 
 def test_df_next_running_targets_gap_filling():
@@ -195,9 +202,15 @@ def test_df_next_running_targets_gap_filling():
 
     targets = df_next_running_targets(df_records)
 
-    # Should have multiple gap fillers (0.5 mi increments)
+    # Targets should be positioned between and around the Pareto points
     gap_fillers = targets[(targets["Distance"] > 3.0) & (targets["Distance"] < 10.0)]
-    assert len(gap_fillers) > 0
+    assert len(gap_fillers) == 1
+    filler = gap_fillers.sort_values("Distance").iloc[0]
+    assert 3.6 < filler["Distance"] < 3.8
+    assert 6.0 < filler["Speed"] < 6.7
+
+    edge_targets = targets[(targets["Distance"] <= 3.0) | (targets["Distance"] >= 10.0)]
+    assert len(edge_targets) == 2
 
 
 def test_df_next_running_targets_empty():

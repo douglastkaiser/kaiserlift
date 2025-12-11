@@ -300,13 +300,15 @@ def add_speed_metric_column(df: pd.DataFrame) -> pd.DataFrame:
 def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     """Generate next achievable running targets based on Pareto front.
 
-    For each exercise, generates three types of targets:
-    1. Shortest distance target: 2% faster at minimum distance
-    2. Gap fillers: distances between existing Pareto points (0.5 mi increments)
-    3. Longest distance target: variable increment based on distance
-       - Under 5 miles: +0.5 miles
-       - 5-13 miles: +1 mile
-       - 13+ miles: +10%
+    Targets are nestled between neighboring Pareto points using local deltas
+    so they stay visually inside the front on the log-scale chart:
+
+    - Mid-gap targets: +10% of the distance delta to the right and +10% of the
+      speed delta above the slower point, capped just below the faster point.
+    - Left endpoint: same distance as the fastest/shortest Pareto point but
+      faster using 10% of the first speed gap (with a small minimum bump).
+    - Right endpoint: same speed as the longest Pareto point but 10% farther
+      than the last distance gap.
 
     Parameters
     ----------
@@ -320,11 +322,8 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
 
     Examples
     --------
-    Given PRs at 5.0 mi @ 9:30 and 10.0 mi @ 10:00, generates:
-    - 5.0 mi @ 9:18 (2% faster at short distance)
-    - 5.5 mi @ estimated pace (gap filler)
-    - ... more gap fillers up to 10.0 mi
-    - 11.0 mi @ 10:00 (extend longest distance by 1 mile)
+    Given PRs at 5.0 mi @ 9:30 and 10.0 mi @ 10:00, generates a target
+    around 5.5 mi at a pace between the two PRs using the 10% deltas.
     """
 
     rows = []
@@ -338,28 +337,60 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
         distances = ed["Distance"].tolist()
         paces = ed["Pace"].tolist()
 
-        # Type 1: Shortest distance target (2% faster pace)
-        min_pace_improved = paces[0] * 0.98
-        rows.append((ex, distances[0], min_pace_improved))
+        if len(distances) < 2:
+            continue
 
-        # Type 2: Gap fillers (between consecutive distances)
+        speeds = [3600 / p if pd.notna(p) and p > 0 else np.nan for p in paces]
+
+        # Left endpoint target (same distance as fastest, slightly faster)
+        left_target_distance = distances[0]
+        first_gap = (
+            speeds[0] - speeds[1] if pd.notna(speeds[0]) and pd.notna(speeds[1]) else 0
+        )
+        left_speed_bump = max(first_gap * 0.10, speeds[0] * 0.02)
+        left_target_speed = speeds[0] + left_speed_bump
+        if left_target_speed > 0 and pd.notna(left_target_speed):
+            rows.append((ex, left_target_distance, 3600 / left_target_speed))
+
         for i in range(len(distances) - 1):
-            if distances[i + 1] > distances[i] + 0.5:  # Gap of 0.5+ miles
-                new_dist = distances[i] + 0.5
-                # Estimate pace at new distance using Riegel's formula
-                new_pace = estimate_pace_at_distance(paces[i], distances[i], new_dist)
-                if not pd.isna(new_pace):
-                    rows.append((ex, new_dist, new_pace))
+            left_distance = distances[i]
+            right_distance = distances[i + 1]
+            left_speed = speeds[i]
+            right_speed = speeds[i + 1]
 
-        # Type 3: Longest distance target (variable increment)
-        max_distance = distances[-1]
-        if max_distance < 5:
-            new_distance = max_distance + 0.5
-        elif max_distance < 13:
-            new_distance = max_distance + 1.0
-        else:
-            new_distance = max_distance * 1.10
-        rows.append((ex, new_distance, paces[-1]))
+            distance_gap = right_distance - left_distance
+            if distance_gap <= 0:
+                continue
+
+            # Position target between the two Pareto points (10% of the gap)
+            target_distance = left_distance + 0.10 * distance_gap
+
+            right_speed_safe = right_speed if pd.notna(right_speed) else 0
+            left_speed_safe = left_speed if pd.notna(left_speed) else 0
+
+            speed_gap = max(left_speed_safe - right_speed_safe, 0)
+            target_speed = right_speed_safe + 0.10 * speed_gap
+
+            if pd.notna(left_speed_safe) and left_speed_safe > 0:
+                target_speed = min(target_speed, left_speed_safe * 0.995)
+
+            if target_speed <= right_speed_safe:
+                target_speed = min(left_speed_safe * 0.995, right_speed_safe * 1.02)
+
+            if target_speed <= 0 or pd.isna(target_speed):
+                continue
+
+            target_pace = 3600 / target_speed
+            rows.append((ex, target_distance, target_pace))
+
+        # Right endpoint target (longer distance at the same speed as the
+        # longest Pareto effort so it sits directly to the right)
+        last_gap = distances[-1] - distances[-2]
+        bump = last_gap if last_gap > 0 else distances[-1] * 0.1
+        right_target_distance = distances[-1] + 0.1 * bump
+        right_target_speed = speeds[-1]
+        if right_target_speed > 0 and pd.notna(right_target_speed):
+            rows.append((ex, right_target_distance, 3600 / right_target_speed))
 
     target_df = pd.DataFrame(rows, columns=["Exercise", "Distance", "Pace"])
     return add_speed_metric_column(target_df)

@@ -81,7 +81,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 y=pareto_weights,
                 mode="lines",
                 name="Pareto Front",
-                line=dict(color="red", shape="hv", width=2),
+                line=dict(color="red", shape="vh", width=2),
                 hovertemplate="<b>Pareto Front</b><extra></extra>",
             )
         )
@@ -107,23 +107,30 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         target_points = list(zip(df_targets["Reps"], df_targets["Weight"]))
         target_reps, target_weights = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Draw a dashed step line that passes through the proposed targets so the
-        # green line and markers stay aligned.
+        target_one_rms = [
+            calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
+        ]
+
+        # Lowest target 1RM equivalence line
+        min_target_1rm = min(target_one_rms)
+        x_vals = np.linspace(min_rep, plot_max_rep, 100)
+        target_curve = [estimate_weight_from_1rm(min_target_1rm, r) for r in x_vals]
         fig.add_trace(
             go.Scatter(
-                x=target_reps,
-                y=target_weights,
+                x=x_vals,
+                y=target_curve,
                 mode="lines",
-                name="Target Plan",
-                line=dict(color="green", dash="dashdot", width=2, shape="hv"),
-                hovertemplate="<b>Target Plan</b><extra></extra>",
+                name="Lowest Target 1RM",
+                line=dict(color="green", dash="dot", width=2),
+                opacity=0.7,
+                hovertemplate="<b>Target 1RM Curve</b><br>"
+                + "Reps: %{x}<br>"
+                + "Weight: %{y:.1f} lbs<br>"
+                + f"1RM: {min_target_1rm:.1f}<extra></extra>",
             )
         )
 
         # Target markers
-        target_one_rms = [
-            calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
-        ]
         fig.add_trace(
             go.Scatter(
                 x=target_reps,

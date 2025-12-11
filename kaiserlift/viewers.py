@@ -81,7 +81,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 y=pareto_weights,
                 mode="lines",
                 name="Pareto Front",
-                line=dict(color="red", shape="hv", width=2),
+                line=dict(color="red", shape="vh", width=2),
                 hovertemplate="<b>Pareto Front</b><extra></extra>",
             )
         )
@@ -107,32 +107,30 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         target_points = list(zip(df_targets["Reps"], df_targets["Weight"]))
         target_reps, target_weights = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Compute best 1RM from targets
-        one_rms = [calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)]
-        min_1rm = min(one_rms)
+        target_one_rms = [
+            calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
+        ]
 
-        # Generate dotted Epley decay line for targets
+        # Lowest target 1RM equivalence line
+        min_target_1rm = min(target_one_rms)
         x_vals = np.linspace(min_rep, plot_max_rep, 100)
-        y_vals = [estimate_weight_from_1rm(min_1rm, r) for r in x_vals]
+        target_curve = [estimate_weight_from_1rm(min_target_1rm, r) for r in x_vals]
         fig.add_trace(
             go.Scatter(
                 x=x_vals,
-                y=y_vals,
+                y=target_curve,
                 mode="lines",
-                name="Min Target 1RM",
-                line=dict(color="green", dash="dashdot", width=2),
+                name="Lowest Target 1RM",
+                line=dict(color="green", dash="dot", width=2),
                 opacity=0.7,
                 hovertemplate="<b>Target 1RM Curve</b><br>"
                 + "Reps: %{x}<br>"
                 + "Weight: %{y:.1f} lbs<br>"
-                + f"1RM: {min_1rm:.1f}<extra></extra>",
+                + f"1RM: {min_target_1rm:.1f}<extra></extra>",
             )
         )
 
         # Target markers
-        target_one_rms = [
-            calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
-        ]
         fig.add_trace(
             go.Scatter(
                 x=target_reps,
@@ -785,5 +783,40 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--primary-green);">${GIT_HASH}</a>)`;
     </script>
     """
-    body_html = upload_html + f'<div id="result">{fragment}</div>' + version_footer
+    interactive_script = """
+    <script>
+    $(document).ready(function() {
+        const tableEl = $('#exerciseTable');
+        const dropdownEl = $('#exerciseDropdown');
+
+        const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
+            ? tableEl.DataTable()
+            : tableEl.DataTable({ responsive: true });
+
+        dropdownEl
+            .select2({ placeholder: 'Filter by Exercise', allowClear: true })
+            .on('change', function() {
+                const val = $.fn.dataTable.util.escapeRegex($(this).val());
+                table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
+                $('.exercise-figure').hide();
+                const figId = $(this).find('option:selected').data('fig');
+                if (figId) {
+                    $('#fig-' + figId + '-wrapper').show();
+                }
+            });
+
+        const initialFig = dropdownEl.find('option:selected').data('fig');
+        if (initialFig) {
+            $('#fig-' + initialFig + '-wrapper').show();
+        }
+    });
+    </script>
+    """
+
+    body_html = (
+        upload_html
+        + f'<div id="result">{fragment}</div>'
+        + interactive_script
+        + version_footer
+    )
     return f"<html><head>{head_html}</head><body>{body_html}</body></html>"

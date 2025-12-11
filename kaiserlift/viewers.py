@@ -107,25 +107,16 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         target_points = list(zip(df_targets["Reps"], df_targets["Weight"]))
         target_reps, target_weights = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Compute best 1RM from targets
-        one_rms = [calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)]
-        min_1rm = min(one_rms)
-
-        # Generate dotted Epley decay line for targets
-        x_vals = np.linspace(min_rep, plot_max_rep, 100)
-        y_vals = [estimate_weight_from_1rm(min_1rm, r) for r in x_vals]
+        # Draw a dashed step line that passes through the proposed targets so the
+        # green line and markers stay aligned.
         fig.add_trace(
             go.Scatter(
-                x=x_vals,
-                y=y_vals,
+                x=target_reps,
+                y=target_weights,
                 mode="lines",
-                name="Min Target 1RM",
-                line=dict(color="green", dash="dashdot", width=2),
-                opacity=0.7,
-                hovertemplate="<b>Target 1RM Curve</b><br>"
-                + "Reps: %{x}<br>"
-                + "Weight: %{y:.1f} lbs<br>"
-                + f"1RM: {min_1rm:.1f}<extra></extra>",
+                name="Target Plan",
+                line=dict(color="green", dash="dashdot", width=2, shape="hv"),
+                hovertemplate="<b>Target Plan</b><extra></extra>",
             )
         )
 

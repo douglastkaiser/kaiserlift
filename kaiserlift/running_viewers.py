@@ -99,7 +99,10 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Generate speed curve (convert pace estimates to speed)
         if not np.isnan(best_pace):
-            x_vals = np.linspace(min_dist, plot_max_dist, 100)
+            x_vals = np.linspace(min_dist, plot_max_dist, 100).tolist()
+            x_vals.append(float(best_distance))
+            x_vals = sorted(set(x_vals))
+
             y_vals = []
             for d in x_vals:
                 pace_est = estimate_pace_at_distance(best_pace, best_distance, d)
@@ -107,6 +110,11 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
+
+            # Ensure the curve intersects the Pareto point with best speed
+            anchor_idx = x_vals.index(best_distance)
+            y_vals[anchor_idx] = max_speed
+
             fig.add_trace(
                 go.Scatter(
                     x=x_vals,
@@ -194,7 +202,10 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Generate dotted target speed curve
         if not np.isnan(target_pace):
-            x_vals = np.linspace(min_dist, plot_max_dist, 100)
+            x_vals = np.linspace(min_dist, plot_max_dist, 100).tolist()
+            x_vals.append(float(target_distance))
+            x_vals = sorted(set(x_vals))
+
             y_vals = []
             for d in x_vals:
                 pace_est = estimate_pace_at_distance(target_pace, target_distance, d)
@@ -202,6 +213,11 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     y_vals.append(3600 / pace_est)
                 else:
                     y_vals.append(np.nan)
+
+            # Ensure target speed curve intersects chosen target
+            anchor_idx = x_vals.index(target_distance)
+            y_vals[anchor_idx] = target_speeds[furthest_below_idx]
+
             fig.add_trace(
                 go.Scatter(
                     x=x_vals,

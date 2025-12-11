@@ -52,13 +52,21 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         pareto_reps = list(pareto_reps)
         pareto_weights = list(pareto_weights)
 
-        # Compute best 1RM from Pareto front
+        # Compute best 1RM from Pareto front and anchor the line to that point
         one_rms = [calculate_1rm(w, r) for w, r in zip(pareto_weights, pareto_reps)]
-        max_1rm = max(one_rms)
+        best_idx = int(np.argmax(one_rms))
+        max_1rm = one_rms[best_idx]
+        anchor_rep = pareto_reps[best_idx]
+        anchor_weight = pareto_weights[best_idx]
 
-        # Generate dotted Epley decay line
-        x_vals = np.linspace(min_rep, plot_max_rep, 100)
+        # Generate dotted Epley decay line (ensure it passes through the anchor)
+        x_vals = np.linspace(min_rep, plot_max_rep, 100).tolist()
+        x_vals.append(anchor_rep)
+        x_vals = sorted(set(x_vals))
+
         y_vals = [estimate_weight_from_1rm(max_1rm, r) for r in x_vals]
+        anchor_idx = x_vals.index(anchor_rep)
+        y_vals[anchor_idx] = anchor_weight
         fig.add_trace(
             go.Scatter(
                 x=x_vals,
@@ -111,10 +119,19 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
             calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
         ]
 
-        # Lowest target 1RM equivalence line
-        min_target_1rm = min(target_one_rms)
-        x_vals = np.linspace(min_rep, plot_max_rep, 100)
+        # Lowest target 1RM equivalence line (anchored to the weakest target)
+        weakest_idx = int(np.argmin(target_one_rms))
+        min_target_1rm = target_one_rms[weakest_idx]
+        target_anchor_rep = target_reps[weakest_idx]
+        target_anchor_weight = target_weights[weakest_idx]
+
+        x_vals = np.linspace(min_rep, plot_max_rep, 100).tolist()
+        x_vals.append(target_anchor_rep)
+        x_vals = sorted(set(x_vals))
+
         target_curve = [estimate_weight_from_1rm(min_target_1rm, r) for r in x_vals]
+        anchor_idx = x_vals.index(target_anchor_rep)
+        target_curve[anchor_idx] = target_anchor_weight
         fig.add_trace(
             go.Scatter(
                 x=x_vals,

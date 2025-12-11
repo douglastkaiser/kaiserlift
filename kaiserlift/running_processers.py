@@ -303,8 +303,8 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     Instead of using absolute pace or distance bumps, each target is anchored
     between neighboring Pareto points so it nests inside the front:
 
-    - Distance is set to 25% of the way from the left point toward the right.
-    - Speed is set to 25% faster than the right point, capped just below the
+    - Distance is set to 10% of the way from the left point toward the right.
+    - Speed is set to 10% faster than the right point, capped just below the
       left point's speed to keep it inside the front.
 
     Parameters
@@ -340,15 +340,12 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
 
         speeds = [3600 / p if pd.notna(p) and p > 0 else np.nan for p in paces]
 
-        # Left endpoint target (slightly farther than the first Pareto point
-        # and nudged inside the front between the first two speeds)
-        first_gap = distances[1] - distances[0]
-        left_target_distance = (
-            distances[0] + 0.15 * first_gap if first_gap > 0 else distances[0]
-        )
-        left_target_speed = speeds[0] * 0.98
+        # Left endpoint target (same distance as the shortest effort but faster
+        # to sit directly above the fastest Pareto point)
+        left_target_distance = distances[0]
+        left_target_speed = speeds[0] * 1.05
         if pd.notna(speeds[1]) and speeds[1] > 0:
-            left_target_speed = max(left_target_speed, speeds[1] * 1.05)
+            left_target_speed = max(left_target_speed, speeds[1] * 1.02)
         if left_target_speed > 0 and pd.notna(left_target_speed):
             rows.append((ex, left_target_distance, 3600 / left_target_speed))
 
@@ -362,11 +359,11 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
             if distance_gap <= 0:
                 continue
 
-            # Position target between the two Pareto points (25% toward the right)
-            target_distance = left_distance + 0.25 * distance_gap
+            # Position target between the two Pareto points (10% toward the right)
+            target_distance = left_distance + 0.10 * distance_gap
 
-            # Aim 25% faster than the right point, but stay just below the left
-            target_speed = right_speed * 1.25
+            # Aim 10% faster than the right point, but stay just below the left
+            target_speed = right_speed * 1.10
             if pd.notna(left_speed) and left_speed > 0:
                 target_speed = min(target_speed, left_speed * 0.99)
 
@@ -380,14 +377,12 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
             target_pace = 3600 / target_speed
             rows.append((ex, target_distance, target_pace))
 
-        # Right endpoint target (a bit farther than the longest Pareto distance
-        # and slightly slower to keep it nested below the front)
+        # Right endpoint target (longer distance at the same speed as the
+        # longest Pareto effort so it sits directly to the right)
         last_gap = distances[-1] - distances[-2]
         bump = last_gap if last_gap > 0 else distances[-1] * 0.1
         right_target_distance = distances[-1] + 0.1 * bump
-        right_target_speed = speeds[-1] * 0.97
-        if pd.notna(speeds[-2]) and speeds[-2] > 0:
-            right_target_speed = min(right_target_speed, speeds[-2] * 0.99)
+        right_target_speed = speeds[-1]
         if right_target_speed > 0 and pd.notna(right_target_speed):
             rows.append((ex, right_target_distance, 3600 / right_target_speed))
 

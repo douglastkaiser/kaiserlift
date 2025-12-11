@@ -252,6 +252,23 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
+        fig.add_annotation(
+            xref="paper",
+            yref="paper",
+            x=0.02,
+            y=0.98,
+            text=(
+                "Targets are placed ~10% toward the next distance with speed "
+                "faster than the longer effort but below the shorter one. "
+                "The shortest target keeps the same distance but is faster; "
+                "the longest target keeps the same speed but goes farther."
+            ),
+            showarrow=False,
+            align="left",
+            font=dict(size=12, color="green"),
+            bgcolor="rgba(255,255,255,0.8)",
+        )
+
     fig.update_layout(
         title=f"Speed vs. Distance for {Exercise}",
         xaxis_title="Distance (miles)",

@@ -11,4 +11,6 @@ This repository uses the following best practices for contributions:
 - **Run the pre-commit hooks locally before committing** – this mirrors CI checks and catches formatting or lint issues early.
 - **Pay attention to auto-formatting from `ruff-format`** – if the hook rewrites files, re-run it until clean and commit the
   formatting changes so CI does not fail on untouched code.
+- **Anchor performance curves to their data points** – when plotting lifting or running curves, ensure dotted trend lines pass
+  through the Pareto and target markers so visuals stay truthful to recorded data.
 - **Maintain a clean Git history** – rebase onto the latest `main` branch as needed and avoid unnecessary merge commits.

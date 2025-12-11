@@ -1,5 +1,6 @@
 import math
 
+
 import pandas as pd
 
 from kaiserlift.df_processers import calculate_1rm

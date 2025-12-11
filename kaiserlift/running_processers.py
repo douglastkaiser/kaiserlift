@@ -343,7 +343,9 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
         # Left endpoint target (slightly farther than the first Pareto point
         # and nudged inside the front between the first two speeds)
         first_gap = distances[1] - distances[0]
-        left_target_distance = distances[0] + 0.15 * first_gap if first_gap > 0 else distances[0]
+        left_target_distance = (
+            distances[0] + 0.15 * first_gap if first_gap > 0 else distances[0]
+        )
         left_target_speed = speeds[0] * 0.98
         if pd.notna(speeds[1]) and speeds[1] > 0:
             left_target_speed = max(left_target_speed, speeds[1] * 1.05)

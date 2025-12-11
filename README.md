@@ -101,6 +101,16 @@ uv venv
 uv sync
 ```
 
+Before committing, run the pre-commit hooks locally to mirror CI and avoid
+formatting failures:
+
+```
+uvx pre-commit run --all-files
+```
+
+This installs the pinned `ruff-format` version and rewrites files if needed, so
+rerun the command until it reports no changes.
+
 Import data and run the pareto calculations:
 ```
 from kaiserlift import (

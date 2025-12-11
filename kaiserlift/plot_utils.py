@@ -46,7 +46,11 @@ def plotly_figure_to_html_div(
         include_plotlyjs=False,
         full_html=False,
         div_id=f"fig-{slug}",
-        config={"displayModeBar": True, "displaylogo": False},
+        config={
+            "displayModeBar": True,
+            "displaylogo": False,
+            "responsive": True,
+        },
     )
 
     return (

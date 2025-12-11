@@ -300,12 +300,15 @@ def add_speed_metric_column(df: pd.DataFrame) -> pd.DataFrame:
 def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     """Generate next achievable running targets based on Pareto front.
 
-    Instead of using absolute pace or distance bumps, each target is anchored
-    between neighboring Pareto points so it nests inside the front:
+    Targets are nestled between neighboring Pareto points using local deltas
+    so they stay visually inside the front on the log-scale chart:
 
-    - Distance is set to 10% of the way from the left point toward the right.
-    - Speed is set to 10% faster than the right point, capped just below the
-      left point's speed to keep it inside the front.
+    - Mid-gap targets: +10% of the distance delta to the right and +10% of the
+      speed delta above the slower point, capped just below the faster point.
+    - Left endpoint: same distance as the fastest/shortest Pareto point but
+      faster using 10% of the first speed gap (with a small minimum bump).
+    - Right endpoint: same speed as the longest Pareto point but 10% farther
+      than the last distance gap.
 
     Parameters
     ----------
@@ -320,8 +323,7 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     Examples
     --------
     Given PRs at 5.0 mi @ 9:30 and 10.0 mi @ 10:00, generates a target
-    around 6.25 mi at a pace between the two PRs that is ~25% faster than the
-    10-mile speed but just below the 5-mile speed.
+    around 5.5 mi at a pace between the two PRs using the 10% deltas.
     """
 
     rows = []
@@ -340,12 +342,13 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
 
         speeds = [3600 / p if pd.notna(p) and p > 0 else np.nan for p in paces]
 
-        # Left endpoint target (same distance as the shortest effort but faster
-        # to sit directly above the fastest Pareto point)
+        # Left endpoint target (same distance as fastest, slightly faster)
         left_target_distance = distances[0]
-        left_target_speed = speeds[0] * 1.05
-        if pd.notna(speeds[1]) and speeds[1] > 0:
-            left_target_speed = max(left_target_speed, speeds[1] * 1.02)
+        first_gap = (
+            speeds[0] - speeds[1] if pd.notna(speeds[0]) and pd.notna(speeds[1]) else 0
+        )
+        left_speed_bump = max(first_gap * 0.10, speeds[0] * 0.02)
+        left_target_speed = speeds[0] + left_speed_bump
         if left_target_speed > 0 and pd.notna(left_target_speed):
             rows.append((ex, left_target_distance, 3600 / left_target_speed))
 
@@ -359,17 +362,20 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
             if distance_gap <= 0:
                 continue
 
-            # Position target between the two Pareto points (10% toward the right)
+            # Position target between the two Pareto points (10% of the gap)
             target_distance = left_distance + 0.10 * distance_gap
 
-            # Aim 10% faster than the right point, but stay just below the left
-            target_speed = right_speed * 1.10
-            if pd.notna(left_speed) and left_speed > 0:
-                target_speed = min(target_speed, left_speed * 0.99)
+            right_speed_safe = right_speed if pd.notna(right_speed) else 0
+            left_speed_safe = left_speed if pd.notna(left_speed) else 0
 
-            # If the cap forces us below the right point, still improve slightly
-            if target_speed <= right_speed:
-                target_speed = right_speed * 1.05
+            speed_gap = max(left_speed_safe - right_speed_safe, 0)
+            target_speed = right_speed_safe + 0.10 * speed_gap
+
+            if pd.notna(left_speed_safe) and left_speed_safe > 0:
+                target_speed = min(target_speed, left_speed_safe * 0.995)
+
+            if target_speed <= right_speed_safe:
+                target_speed = min(left_speed_safe * 0.995, right_speed_safe * 1.02)
 
             if target_speed <= 0 or pd.isna(target_speed):
                 continue

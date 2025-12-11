@@ -203,7 +203,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         # Generate dotted target speed curve
         if not np.isnan(target_pace):
             x_vals = np.linspace(min_dist, plot_max_dist, 100).tolist()
-            x_vals.append(float(target_distance))
+            x_vals.extend([float(d) for d in target_dists])
             x_vals = sorted(set(x_vals))
 
             y_vals = []
@@ -217,6 +217,11 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             # Ensure target speed curve intersects chosen target
             anchor_idx = x_vals.index(target_distance)
             y_vals[anchor_idx] = target_speeds[furthest_below_idx]
+
+            # Ensure the curve honors all target markers
+            for t_dist, t_speed in zip(target_dists, target_speeds):
+                if t_dist in x_vals:
+                    y_vals[x_vals.index(t_dist)] = t_speed
 
             fig.add_trace(
                 go.Scatter(
@@ -252,25 +257,12 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
-        fig.add_annotation(
-            xref="paper",
-            yref="paper",
-            x=0.02,
-            y=0.98,
-            text=(
-                "Targets are placed ~10% toward the next distance with speed "
-                "faster than the longer effort but below the shorter one. "
-                "The shortest target keeps the same distance but is faster; "
-                "the longest target keeps the same speed but goes farther."
-            ),
-            showarrow=False,
-            align="left",
-            font=dict(size=12, color="green"),
-            bgcolor="rgba(255,255,255,0.8)",
-        )
-
     fig.update_layout(
-        title=f"Speed vs. Distance for {Exercise}",
+        title=(
+            f"Speed vs. Distance for {Exercise}<br><sup>Targets use 10% of the "
+            "distance & speed deltas between neighboring Pareto points; "
+            "Riegel curve: pace2 = pace1 * (d2/d1)^0.06.</sup>"
+        ),
         xaxis_title="Distance (miles)",
         yaxis_title="Speed (mph, higher=faster)",
         xaxis_type="log",

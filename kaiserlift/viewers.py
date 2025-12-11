@@ -785,5 +785,40 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--primary-green);">${GIT_HASH}</a>)`;
     </script>
     """
-    body_html = upload_html + f'<div id="result">{fragment}</div>' + version_footer
+    interactive_script = """
+    <script>
+    $(document).ready(function() {
+        const tableEl = $('#exerciseTable');
+        const dropdownEl = $('#exerciseDropdown');
+
+        const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
+            ? tableEl.DataTable()
+            : tableEl.DataTable({ responsive: true });
+
+        dropdownEl
+            .select2({ placeholder: 'Filter by Exercise', allowClear: true })
+            .on('change', function() {
+                const val = $.fn.dataTable.util.escapeRegex($(this).val());
+                table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
+                $('.exercise-figure').hide();
+                const figId = $(this).find('option:selected').data('fig');
+                if (figId) {
+                    $('#fig-' + figId + '-wrapper').show();
+                }
+            });
+
+        const initialFig = dropdownEl.find('option:selected').data('fig');
+        if (initialFig) {
+            $('#fig-' + initialFig + '-wrapper').show();
+        }
+    });
+    </script>
+    """
+
+    body_html = (
+        upload_html
+        + f'<div id="result">{fragment}</div>'
+        + interactive_script
+        + version_footer
+    )
     return f"<html><head>{head_html}</head><body>{body_html}</body></html>"

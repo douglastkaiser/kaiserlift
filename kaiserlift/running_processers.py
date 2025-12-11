@@ -300,13 +300,12 @@ def add_speed_metric_column(df: pd.DataFrame) -> pd.DataFrame:
 def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     """Generate next achievable running targets based on Pareto front.
 
-    For each exercise, generates three types of targets:
-    1. Shortest distance target: 2% faster at minimum distance
-    2. Gap fillers: distances between existing Pareto points (0.5 mi increments)
-    3. Longest distance target: variable increment based on distance
-       - Under 5 miles: +0.5 miles
-       - 5-13 miles: +1 mile
-       - 13+ miles: +10%
+    Instead of using absolute pace or distance bumps, each target is anchored
+    between neighboring Pareto points so it nests inside the front:
+
+    - Distance is set to 25% of the way from the left point toward the right.
+    - Speed is set to 25% faster than the right point, capped just below the
+      left point's speed to keep it inside the front.
 
     Parameters
     ----------
@@ -320,11 +319,9 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
 
     Examples
     --------
-    Given PRs at 5.0 mi @ 9:30 and 10.0 mi @ 10:00, generates:
-    - 5.0 mi @ 9:18 (2% faster at short distance)
-    - 5.5 mi @ estimated pace (gap filler)
-    - ... more gap fillers up to 10.0 mi
-    - 11.0 mi @ 10:00 (extend longest distance by 1 mile)
+    Given PRs at 5.0 mi @ 9:30 and 10.0 mi @ 10:00, generates a target
+    around 6.25 mi at a pace between the two PRs that is ~25% faster than the
+    10-mile speed but just below the 5-mile speed.
     """
 
     rows = []
@@ -338,28 +335,38 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
         distances = ed["Distance"].tolist()
         paces = ed["Pace"].tolist()
 
-        # Type 1: Shortest distance target (2% faster pace)
-        min_pace_improved = paces[0] * 0.98
-        rows.append((ex, distances[0], min_pace_improved))
+        if len(distances) < 2:
+            continue
 
-        # Type 2: Gap fillers (between consecutive distances)
+        speeds = [3600 / p if pd.notna(p) and p > 0 else np.nan for p in paces]
+
         for i in range(len(distances) - 1):
-            if distances[i + 1] > distances[i] + 0.5:  # Gap of 0.5+ miles
-                new_dist = distances[i] + 0.5
-                # Estimate pace at new distance using Riegel's formula
-                new_pace = estimate_pace_at_distance(paces[i], distances[i], new_dist)
-                if not pd.isna(new_pace):
-                    rows.append((ex, new_dist, new_pace))
+            left_distance = distances[i]
+            right_distance = distances[i + 1]
+            left_speed = speeds[i]
+            right_speed = speeds[i + 1]
 
-        # Type 3: Longest distance target (variable increment)
-        max_distance = distances[-1]
-        if max_distance < 5:
-            new_distance = max_distance + 0.5
-        elif max_distance < 13:
-            new_distance = max_distance + 1.0
-        else:
-            new_distance = max_distance * 1.10
-        rows.append((ex, new_distance, paces[-1]))
+            distance_gap = right_distance - left_distance
+            if distance_gap <= 0:
+                continue
+
+            # Position target between the two Pareto points (25% toward the right)
+            target_distance = left_distance + 0.25 * distance_gap
+
+            # Aim 25% faster than the right point, but stay just below the left
+            target_speed = right_speed * 1.25
+            if pd.notna(left_speed) and left_speed > 0:
+                target_speed = min(target_speed, left_speed * 0.99)
+
+            # If the cap forces us below the right point, still improve slightly
+            if target_speed <= right_speed:
+                target_speed = right_speed * 1.05
+
+            if target_speed <= 0 or pd.isna(target_speed):
+                continue
+
+            target_pace = 3600 / target_speed
+            rows.append((ex, target_distance, target_pace))
 
     target_df = pd.DataFrame(rows, columns=["Exercise", "Distance", "Pace"])
     return add_speed_metric_column(target_df)

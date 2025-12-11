@@ -9,6 +9,8 @@ This repository uses the following best practices for contributions:
 - **Favor readability** – follow PEP 8 naming conventions, keep functions small with clear responsibilities, and use type hints plus docstrings for public methods.
 - **Document public APIs and behavior changes** – update README or docstrings when adding or modifying user-facing functionality.
 - **Run the pre-commit hooks locally before committing** – this mirrors CI checks and catches formatting or lint issues early.
+- **Prefer `uvx pre-commit run --all-files`** – it bootstraps the configured hooks exactly as CI expects; run it until all hooks
+  pass and include any formatting changes in your commit.
 - **Pay attention to auto-formatting from `ruff-format`** – if the hook rewrites files, re-run it until clean and commit the
   formatting changes so CI does not fail on untouched code.
 - **Anchor performance curves to their data points** – when plotting lifting or running curves, ensure dotted trend lines pass

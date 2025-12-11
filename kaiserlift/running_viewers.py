@@ -491,23 +491,26 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         padding: 18px;
         box-shadow: var(--shadow);
         margin-bottom: 20px;
+        width: min(100%, 1100px);
+        margin-left: auto;
+        margin-right: auto;
     }
 
     .figures-grid {
         display: grid;
-        gap: 18px;
+        gap: clamp(12px, 2vw, 20px);
     }
 
-    @media (min-width: 900px) {
+    @media (min-width: 720px) {
         .figures-grid {
-            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
         }
     }
 
     table.dataTable {
         font-size: 14px;
         width: 100% !important;
-        min-width: 500px;
+        min-width: min(720px, 100%);
         word-wrap: break-word;
         background-color: var(--bg-alt);
         color: var(--fg);
@@ -515,6 +518,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         border-radius: 4px;
         overflow: hidden;
         box-shadow: var(--shadow);
+        table-layout: auto;
     }
 
     table.dataTable thead th {
@@ -533,6 +537,7 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     table.dataTable tbody td {
         padding: 10px;
         border-bottom: 1px solid var(--border);
+        word-break: break-word;
     }
 
     table.dataTable tbody tr:hover {
@@ -648,8 +653,8 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     }
 
     .upload-controls {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 12px;
         align-items: center;
         margin-bottom: 25px;
@@ -657,6 +662,12 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         background-color: var(--bg-alt);
         border: 1px solid var(--border);
         border-radius: 4px;
+    }
+
+    @media (min-width: 700px) {
+        .upload-controls {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
     }
 
     #uploadButton {
@@ -774,15 +785,15 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
             font-size: 2em;
         }
 
+        .content-card {
+            padding: 16px;
+        }
+
         .upload-controls {
-            flex-direction: column;
-            align-items: stretch;
+            grid-template-columns: minmax(0, 1fr);
         }
 
-        #csvFile {
-            width: 100%;
-        }
-
+        #csvFile,
         #uploadButton {
             width: 100%;
             text-align: center;

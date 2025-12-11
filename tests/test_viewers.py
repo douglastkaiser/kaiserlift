@@ -61,4 +61,3 @@ def test_1rm_curves_anchor_to_points():
     assert target_rep in target_x
     target_pos = target_x.index(target_rep)
     assert math.isclose(target_trace.y[target_pos], target_weight)
-

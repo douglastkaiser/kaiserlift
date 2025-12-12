@@ -106,13 +106,18 @@ def assert_frame_equal(df1, df2):
         .sort_values(by=df2_reordered_cols.columns.tolist())
         .reset_index(drop=True)
     )
-    pd.testing.assert_frame_equal(
-        df1_processed,
-        df2_processed,
-        check_like=True,
-        atol=1e-12,
-        rtol=1e-12,
-    )
+    try:
+        pd.testing.assert_frame_equal(
+            df1_processed,
+            df2_processed,
+            check_like=True,
+            atol=1e-12,
+            rtol=1e-12,
+        )
+    except AssertionError as exc:  # pragma: no cover - exercised via tests
+        raise AssertionError(
+            f"DataFrames not equal to tolerance.\n{df1_processed=}\n{df2_processed=}"
+        ) from exc
 
 
 def calculate_1rm(weight: float, reps: int) -> float:

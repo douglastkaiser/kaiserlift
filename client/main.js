@@ -9,7 +9,10 @@ export function initializeUI(root = document) {
   if (!tableEl || !dropdownEl) {
     return;
   }
-  const tableWrapper = tableEl.closest(".table-wrapper");
+  const tableWrapper =
+    typeof tableEl.closest === "function"
+      ? tableEl.closest(".table-wrapper")
+      : root.querySelector?.(".table-wrapper");
 
   // Check if DataTable is already initialized to prevent reinitialization error
   const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
@@ -27,10 +30,10 @@ export function initializeUI(root = document) {
       }
     });
 
-  if (tableWrapper) {
+  if (tableWrapper?.classList?.remove) {
     tableWrapper.classList.remove("loading");
   }
-  dropdownEl.classList.remove("loading");
+  dropdownEl.classList?.remove?.("loading");
 }
 
 async function fetchWheel(doc) {

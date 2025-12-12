@@ -1,0 +1,2 @@
+client/assets/*.js filter=lfs diff=lfs merge=lfs -text
+client/assets/*.css filter=lfs diff=lfs merge=lfs -text

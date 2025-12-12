@@ -22,6 +22,10 @@ Or with [uv](https://docs.astral.sh/uv/) (recommended):
 uv pip install kaiserlift
 ```
 
+> **Note:** The interactive viewer now uses locally cached JS/CSS assets for jQuery, DataTables, and Select2. Clone with
+> [Git LFS](https://git-lfs.com/) enabled (or run `git lfs pull`) so those static files are available without hitting external
+> CDNs.
+
 ### Run the Web Interface
 
 ```bash

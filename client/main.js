@@ -9,6 +9,7 @@ export function initializeUI(root = document) {
   if (!tableEl || !dropdownEl) {
     return;
   }
+  const tableWrapper = tableEl.closest(".table-wrapper");
 
   // Check if DataTable is already initialized to prevent reinitialization error
   const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
@@ -25,6 +26,11 @@ export function initializeUI(root = document) {
         $("#fig-" + figId).show();
       }
     });
+
+  if (tableWrapper) {
+    tableWrapper.classList.remove("loading");
+  }
+  dropdownEl.classList.remove("loading");
 }
 
 async function fetchWheel(doc) {

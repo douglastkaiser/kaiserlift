@@ -268,7 +268,7 @@ def render_table_fragment(df) -> str:
     dropdown_html = """
     <div class="control-stack">
         <label for="exerciseDropdown">Filter by Exercise:</label>
-        <select id="exerciseDropdown">
+        <select id="exerciseDropdown" class="loading">
             <option value="">All</option>
     """
     dropdown_html += "".join(
@@ -287,7 +287,7 @@ def render_table_fragment(df) -> str:
     return """
     <div class="content-card">
         {dropdown_html}
-        <div class="table-wrapper">
+        <div class="table-wrapper loading">
             {table_html}
         </div>
     </div>
@@ -320,12 +320,14 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
 
     js_and_css = (
         """
-    <!-- Preconnect to CDNs for faster loading -->
-    <link rel="preconnect" href="https://code.jquery.com">
-    <link rel="preconnect" href="https://cdn.datatables.net">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <!-- Preconnect and preload critical assets -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="assets/jquery.dataTables.min.css">
+    <link rel="preload" as="style" href="assets/select2.min.css">
+    <link rel="preload" as="script" href="assets/jquery-3.7.1.min.js">
+    <link rel="preload" as="script" href="assets/jquery.dataTables.min.js">
+    <link rel="preload" as="script" href="assets/select2.min.js">
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet">
     """
         + get_plotly_preconnect_html()
@@ -334,13 +336,13 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         + """
 
     <!-- DataTables -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+    <link rel="stylesheet" href="assets/jquery.dataTables.min.css"/>
+    <script src="assets/jquery-3.7.1.min.js" defer></script>
+    <script src="assets/jquery.dataTables.min.js" defer></script>
 
     <!-- Select2 for searchable dropdown -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <link href="assets/select2.min.css" rel="stylesheet" />
+    <script src="assets/select2.min.js" defer></script>
 
     <!-- Custom Styling -->
     <style>
@@ -413,6 +415,14 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
         margin-bottom: 16px;
+        transition: opacity 0.15s ease;
+    }
+
+    .table-wrapper.loading,
+    #exerciseDropdown.loading {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
     }
 
     .content-card {
@@ -889,6 +899,7 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     $(document).ready(function() {
         const tableEl = $('#exerciseTable');
         const dropdownEl = $('#exerciseDropdown');
+        const tableWrapper = tableEl.closest('.table-wrapper');
 
         const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
             ? tableEl.DataTable()
@@ -905,6 +916,11 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
                     $('#fig-' + figId + '-wrapper').show();
                 }
             });
+
+        if (tableWrapper.length) {
+            tableWrapper.removeClass('loading');
+        }
+        dropdownEl.removeClass('loading');
 
         const initialFig = dropdownEl.find('option:selected').data('fig');
         if (initialFig) {

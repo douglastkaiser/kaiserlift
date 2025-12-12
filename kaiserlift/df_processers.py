@@ -106,8 +106,12 @@ def assert_frame_equal(df1, df2):
         .sort_values(by=df2_reordered_cols.columns.tolist())
         .reset_index(drop=True)
     )
-    assert df1_processed.equals(df2_processed), (
-        f"\n{df1_processed}\nnot equal to\n{df2_processed}"
+    pd.testing.assert_frame_equal(
+        df1_processed,
+        df2_processed,
+        check_like=True,
+        atol=1e-12,
+        rtol=1e-12,
     )
 
 

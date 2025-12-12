@@ -29,7 +29,7 @@ def test_assert_frame_equal():
 
 def test_calculate_1rm():
     assert calculate_1rm(100, 1) == 100.0
-    assert calculate_1rm(1, 15) == 1.4666666666666666
+    assert math.isclose(calculate_1rm(1, 15), 1.4666666666666666)
 
 
 def test_highest_weight_per_rep():

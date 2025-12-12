@@ -896,37 +896,68 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     """
     interactive_script = """
     <script>
-    $(document).ready(function() {
-        const tableEl = $('#exerciseTable');
-        const dropdownEl = $('#exerciseDropdown');
-        const tableWrapper = tableEl.closest('.table-wrapper');
+    (function() {
+        let initialized = false;
 
-        const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
-            ? tableEl.DataTable()
-            : tableEl.DataTable({ responsive: true });
+        function revealFallback() {
+            const dropdown = document.getElementById('exerciseDropdown');
+            const table = document.getElementById('exerciseTable');
+            dropdown?.classList?.remove('loading');
+            table?.closest?.('.table-wrapper')?.classList?.remove('loading');
+        }
 
-        dropdownEl
-            .select2({ placeholder: 'Filter by Exercise', allowClear: true })
-            .on('change', function() {
-                const val = $.fn.dataTable.util.escapeRegex($(this).val());
-                table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
-                $('.exercise-figure').hide();
-                const figId = $(this).find('option:selected').data('fig');
-                if (figId) {
-                    $('#fig-' + figId + '-wrapper').show();
+        function initWhenReady(attempt = 0) {
+            if (initialized) return;
+
+            if (typeof window.jQuery === 'undefined' || !$.fn?.DataTable || !$.fn?.select2) {
+                // Surface the unenhanced UI while we wait so the page never stays hidden.
+                revealFallback();
+                if (attempt < 200) {
+                    setTimeout(() => initWhenReady(attempt + 1), 25);
+                }
+                return;
+            }
+
+            initialized = true;
+            $(function() {
+                const tableEl = $('#exerciseTable');
+                const dropdownEl = $('#exerciseDropdown');
+                const tableWrapper = tableEl.closest('.table-wrapper');
+
+                const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
+                    ? tableEl.DataTable()
+                    : tableEl.DataTable({ responsive: true });
+
+                dropdownEl
+                    .select2({ placeholder: 'Filter by Exercise', allowClear: true })
+                    .on('change', function() {
+                        const val = $.fn.dataTable.util.escapeRegex($(this).val());
+                        table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
+                        $('.exercise-figure').hide();
+                        const figId = $(this).find('option:selected').data('fig');
+                        if (figId) {
+                            $('#fig-' + figId + '-wrapper').show();
+                        }
+                    });
+
+                if (tableWrapper.length) {
+                    tableWrapper.removeClass('loading');
+                }
+                dropdownEl.removeClass('loading');
+
+                const initialFig = dropdownEl.find('option:selected').data('fig');
+                if (initialFig) {
+                    $('#fig-' + initialFig + '-wrapper').show();
                 }
             });
-
-        if (tableWrapper.length) {
-            tableWrapper.removeClass('loading');
         }
-        dropdownEl.removeClass('loading');
 
-        const initialFig = dropdownEl.find('option:selected').data('fig');
-        if (initialFig) {
-            $('#fig-' + initialFig + '-wrapper').show();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initWhenReady);
+        } else {
+            initWhenReady();
         }
-    });
+    })();
     </script>
     """
 

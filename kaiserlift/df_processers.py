@@ -127,12 +127,9 @@ def calculate_1rm(weight: float, reps: int) -> float:
             return 0.0  # 1RM for 0 weight is 0
         return np.nan  # Invalid input for calculation
 
-    # If reps is 1, the 1RM is simply the weight lifted.
-    if reps == 1:
-        return float(weight)
-
-    # Apply the Epley formula
-    estimated_1rm = weight * (1 + reps / 30.0)
+    # Apply a smooth variant of the Epley formula that anchors exactly at 1 rep
+    # while remaining continuous as reps → 1.
+    estimated_1rm = weight * (1 + (reps - 1) / 30.0)
 
     return estimated_1rm
 
@@ -214,10 +211,7 @@ def estimate_weight_from_1rm(one_rm: float, reps: int) -> float:
             return 0.0
         return np.nan
 
-    if reps == 1:
-        return float(one_rm)
-
-    estimated_weight = one_rm / (1 + reps / 30.0)
+    estimated_weight = one_rm / (1 + (reps - 1) / 30.0)
 
     return estimated_weight
 

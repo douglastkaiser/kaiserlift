@@ -164,7 +164,11 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         )
 
     fig.update_layout(
-        title=f"Weight vs. Reps for {closest_match}",
+        title=(
+            f"Weight vs. Reps for {closest_match}<br><sup>"
+            "1RM uses Epley: 1RM = weight * (1 + reps/30); targets add +5 lbs or +1 rep to fill gaps between Pareto steps."
+            "</sup>"
+        ),
         xaxis_title="Reps",
         yaxis_title="Weight (lbs)",
         xaxis=dict(range=[0, plot_max_rep]),

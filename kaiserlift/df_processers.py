@@ -106,9 +106,18 @@ def assert_frame_equal(df1, df2):
         .sort_values(by=df2_reordered_cols.columns.tolist())
         .reset_index(drop=True)
     )
-    assert df1_processed.equals(df2_processed), (
-        f"\n{df1_processed}\nnot equal to\n{df2_processed}"
-    )
+    try:
+        pd.testing.assert_frame_equal(
+            df1_processed,
+            df2_processed,
+            check_like=True,
+            atol=1e-12,
+            rtol=1e-12,
+        )
+    except AssertionError as exc:  # pragma: no cover - exercised via tests
+        raise AssertionError(
+            f"DataFrames not equal to tolerance.\n{df1_processed=}\n{df2_processed=}"
+        ) from exc
 
 
 def calculate_1rm(weight: float, reps: int) -> float:
@@ -127,12 +136,9 @@ def calculate_1rm(weight: float, reps: int) -> float:
             return 0.0  # 1RM for 0 weight is 0
         return np.nan  # Invalid input for calculation
 
-    # If reps is 1, the 1RM is simply the weight lifted.
-    if reps == 1:
-        return float(weight)
-
-    # Apply the Epley formula
-    estimated_1rm = weight * (1 + reps / 30.0)
+    # Apply a smooth variant of the Epley formula that anchors exactly at 1 rep
+    # while remaining continuous as reps → 1.
+    estimated_1rm = weight * (1 + (reps - 1) / 30.0)
 
     return estimated_1rm
 
@@ -214,10 +220,7 @@ def estimate_weight_from_1rm(one_rm: float, reps: int) -> float:
             return 0.0
         return np.nan
 
-    if reps == 1:
-        return float(one_rm)
-
-    estimated_weight = one_rm / (1 + reps / 30.0)
+    estimated_weight = one_rm / (1 + (reps - 1) / 30.0)
 
     return estimated_weight
 

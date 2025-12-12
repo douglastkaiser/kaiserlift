@@ -1,4 +1,6 @@
 # Use pypi installed version of kaiserlift, not local version.
+import math
+
 from kaiserlift import (
     calculate_1rm,
     estimate_weight_from_1rm,
@@ -27,7 +29,7 @@ def test_assert_frame_equal():
 
 def test_calculate_1rm():
     assert calculate_1rm(100, 1) == 100.0
-    assert calculate_1rm(1, 15) == 1.5
+    assert math.isclose(calculate_1rm(1, 15), 1.4666666666666666)
 
 
 def test_highest_weight_per_rep():
@@ -94,11 +96,13 @@ def test_highest_weight_per_rep():
 
 def test_estimate_weight_from_1rm():
     assert estimate_weight_from_1rm(200, 1) == 200.0
-    assert estimate_weight_from_1rm(200, 4) == 176.47058823529412
+    assert estimate_weight_from_1rm(200, 4) == 181.8181818181818
 
 
 def test_calculate_1rm_from_estimate():
-    assert calculate_1rm(estimate_weight_from_1rm(200, 4), 4) == 200.0
+    assert math.isclose(
+        calculate_1rm(estimate_weight_from_1rm(200, 4), 4), 200.0, rel_tol=1e-12
+    )
 
 
 def test_add_1rm_column():
@@ -121,7 +125,7 @@ def test_add_1rm_column():
         ),
     )
 
-    # More real values. w*(1+r/30.0)
+    # More real values. w*(1+(r-1)/30.0)
     assert_frame_equal(
         add_1rm_column(
             pd.DataFrame(
@@ -135,7 +139,7 @@ def test_add_1rm_column():
             {
                 "Weight": [100, 1, 13],
                 "Reps": [30, 15, 1],
-                "1RM": [200.0, 1.5, 13.0],
+                "1RM": [196.66666666666669, 1.4666666666666666, 13.0],
             }
         ),
     )

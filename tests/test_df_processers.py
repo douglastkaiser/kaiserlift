@@ -161,7 +161,7 @@ def test_df_next_pareto():
             pd.DataFrame(
                 {
                     "Exercise": "Bench Press",
-                    "Weight": [105, 100],
+                    "Weight": [105, 50],
                     "Reps": [1, 2],
                 }
             )
@@ -182,8 +182,8 @@ def test_df_next_pareto():
             pd.DataFrame(
                 {
                     "Exercise": "Bench Press",
-                    "Weight": [105, 100],
-                    "Reps": [1, 6],
+                    "Weight": [105, 50],
+                    "Reps": [3, 6],
                 }
             )
         ),
@@ -204,8 +204,8 @@ def test_df_next_pareto():
             pd.DataFrame(
                 {
                     "Exercise": ["Bench Press"] * 2 + ["Incline Bench Press"] * 3,
-                    "Weight": [105, 100] + [85, 55, 50],
-                    "Reps": [1, 6] + [1, 2, 11],
+                    "Weight": [105, 50] + [85, 55, 25],
+                    "Reps": [3, 6] + [1, 2, 11],
                 }
             )
         ),
@@ -229,7 +229,7 @@ def test_df_next_pareto():
             pd.DataFrame(
                 {
                     "Exercise": "Bench Press",
-                    "Weight": [105, 85, 55, 50],
+                    "Weight": [105, 85, 55, 25],
                     "Reps": [1, 3, 7, 11],
                 }
             )

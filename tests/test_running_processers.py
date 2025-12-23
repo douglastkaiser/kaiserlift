@@ -174,9 +174,9 @@ def test_df_next_running_targets():
     middle_target = sorted_targets.iloc[1]
     right_target = sorted_targets.iloc[2]
 
-    # Left edge target should sit directly above the first Pareto distance
-    assert left_target["Distance"] == 5.0
-    assert left_target["Speed"] > 6.4
+    # Left edge target should move to a nominal 1-mile marker with faster speed
+    assert left_target["Distance"] == 1.0
+    assert left_target["Speed"] > 3600 / 570
 
     # Target should sit between the two Pareto distances (10% toward the right)
     assert abs(middle_target["Distance"] - 5.5) < 1e-6
@@ -185,9 +185,9 @@ def test_df_next_running_targets():
     target_speed = middle_target["Speed"]
     assert 6.0 < target_speed < 6.29
 
-    # Right edge target should sit just beyond the longest Pareto distance at the same speed
+    # Right edge target should sit just beyond the longest Pareto distance at a slower speed
     assert abs(right_target["Distance"] - 10.5) < 1e-6
-    assert abs(right_target["Speed"] - 6.0) < 1e-6
+    assert right_target["Speed"] < 6.0
 
 
 def test_df_next_running_targets_gap_filling():

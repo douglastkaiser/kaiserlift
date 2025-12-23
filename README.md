@@ -98,7 +98,16 @@ Set up a local environment with [uv](https://docs.astral.sh/uv/):
 
 ```
 uv venv
-uv sync
+uv sync --extra dev
+
+# or, with pip:
+pip install ".[dev]"
+```
+
+Run the full test suite (includes benchmarks via `pytest-benchmark`):
+
+```
+uv run pytest
 ```
 
 Before committing, run the pre-commit hooks locally to mirror CI and avoid

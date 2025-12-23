@@ -261,8 +261,9 @@ def df_next_pareto(df_records):
         ws = ed["Weight"].tolist()
         rs = ed["Reps"].tolist()
 
-        # first‐rep side
-        rows.append((ex, ws[0] + 5, 1))
+        # Upper-left target: halfway to zero reps (round up), +5 lb bump
+        left_rep = max(1, math.ceil(rs[0] / 2))
+        rows.append((ex, ws[0] + 5, left_rep))
 
         # gaps in the middle
         for i in range(len(rs) - 1):
@@ -273,7 +274,9 @@ def df_next_pareto(df_records):
                 c2_w = ws[i + 1] + 5
                 rows.append((ex, min(c1_w, c2_w), nr))
 
-        # high‐rep end
-        rows.append((ex, ws[-1], rs[-1] + 1))
+        # High‐rep end: one more rep at a lighter weight (half, rounded down to 5 lb)
+        last_weight = ws[-1]
+        lighter_weight = max(5, math.floor(last_weight / 10) * 5)
+        rows.append((ex, lighter_weight, rs[-1] + 1))
 
     return add_1rm_column(pd.DataFrame(rows, columns=["Exercise", "Weight", "Reps"]))

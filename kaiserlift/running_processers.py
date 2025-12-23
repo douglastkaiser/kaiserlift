@@ -305,10 +305,14 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
 
     - Mid-gap targets: +10% of the distance delta to the right and +10% of the
       speed delta above the slower point, capped just below the faster point.
-    - Left endpoint: same distance as the fastest/shortest Pareto point but
-      faster using 10% of the first speed gap (with a small minimum bump).
-    - Right endpoint: same speed as the longest Pareto point but 10% farther
-      than the last distance gap.
+    - Left endpoint: if the fastest Pareto effort is longer than 1 mile,
+      always place a nominal 1-mile target at a faster speed (using the
+      estimated 1-mile pace when possible, otherwise a small speed bump).
+      If the fastest effort is already <= 1 mile, stay at that distance and
+      bump speed using 10% of the first speed gap (with a small minimum bump).
+    - Right endpoint: move farther than the longest Pareto effort and slow
+      down by at least 1 mph when feasible, but never below half the longest
+      speed so the target stays realistic.
 
     Parameters
     ----------
@@ -342,13 +346,29 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
 
         speeds = [3600 / p if pd.notna(p) and p > 0 else np.nan for p in paces]
 
-        # Left endpoint target (same distance as fastest, slightly faster)
+        # Left endpoint target: use a nominal 1 mile if the fastest effort
+        # is longer, so the leftmost target is shorter and faster.
         left_target_distance = distances[0]
         first_gap = (
             speeds[0] - speeds[1] if pd.notna(speeds[0]) and pd.notna(speeds[1]) else 0
         )
         left_speed_bump = max(first_gap * 0.10, speeds[0] * 0.02)
         left_target_speed = speeds[0] + left_speed_bump
+        if distances[0] > 1.0:
+            nominal_distance = 1.0
+            left_target_distance = nominal_distance
+            estimated_speed = np.nan
+            if pd.notna(paces[0]) and paces[0] > 0:
+                estimated_pace = estimate_pace_at_distance(
+                    paces[0], distances[0], nominal_distance
+                )
+                if pd.notna(estimated_pace) and estimated_pace > 0:
+                    estimated_speed = 3600 / estimated_pace
+            left_target_speed = max(
+                speeds[0] + left_speed_bump,
+                speeds[0] * 1.02,
+                estimated_speed,
+            )
         if left_target_speed > 0 and pd.notna(left_target_speed):
             rows.append((ex, left_target_distance, 3600 / left_target_speed))
 
@@ -383,12 +403,15 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
             target_pace = 3600 / target_speed
             rows.append((ex, target_distance, target_pace))
 
-        # Right endpoint target (longer distance at the same speed as the
-        # longest Pareto effort so it sits directly to the right)
+        # Right endpoint target: farther than the longest distance and slower
+        # by at least 1 mph when feasible, but never below half the speed.
         last_gap = distances[-1] - distances[-2]
         bump = last_gap if last_gap > 0 else distances[-1] * 0.1
         right_target_distance = distances[-1] + 0.1 * bump
-        right_target_speed = speeds[-1]
+        right_target_speed = speeds[-1] - 1.0
+        min_allowed_speed = speeds[-1] * 0.5
+        if right_target_speed < min_allowed_speed:
+            right_target_speed = min_allowed_speed
         if right_target_speed > 0 and pd.notna(right_target_speed):
             rows.append((ex, right_target_distance, 3600 / right_target_speed))
 

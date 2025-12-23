@@ -29,6 +29,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "pytest-benchmark>=4.0",
     "pandas",
     "numpy",
     "matplotlib",
@@ -52,7 +53,6 @@ server = [
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
-    "pytest-benchmark>=4.0",
 ]
 
 [project.scripts]

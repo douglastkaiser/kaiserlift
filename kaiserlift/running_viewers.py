@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 from .running_processers import (
+    SECONDS_PER_HOUR,
     estimate_pace_at_distance,
     highest_pace_per_distance,
     df_next_running_targets,
@@ -59,14 +60,14 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         df_pareto = df_pareto[df_pareto["Exercise"] == Exercise].copy()
         if "Speed" not in df_pareto.columns and "Pace" in df_pareto.columns:
             df_pareto["Speed"] = df_pareto["Pace"].apply(
-                lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
+                lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
             )
 
     if df_targets is not None:
         df_targets = df_targets[df_targets["Exercise"] == Exercise].copy()
         if "Speed" not in df_targets.columns and "Pace" in df_targets.columns:
             df_targets["Speed"] = df_targets["Pace"].apply(
-                lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
+                lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
             )
 
     # Calculate axis limits
@@ -94,7 +95,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Get the pace corresponding to max_speed for curve estimation
         max_speed_idx = pareto_speeds.index(max_speed)
-        best_pace = 3600 / max_speed if max_speed > 0 else np.nan
+        best_pace = SECONDS_PER_HOUR / max_speed if max_speed > 0 else np.nan
         best_distance = pareto_dists[max_speed_idx]
 
         # Generate speed curve (convert pace estimates to speed)
@@ -107,7 +108,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             for d in x_vals:
                 pace_est = estimate_pace_at_distance(best_pace, best_distance, d)
                 if pace_est > 0 and not np.isnan(pace_est):
-                    y_vals.append(3600 / pace_est)
+                    y_vals.append(SECONDS_PER_HOUR / pace_est)
                 else:
                     y_vals.append(np.nan)
 
@@ -117,7 +118,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
             # Compute per-point pace strings for the hover tooltip
             best_curve_paces = [
-                seconds_to_pace_string(3600 / s) if s and not np.isnan(s) and s > 0 else "N/A"
+                seconds_to_pace_string(SECONDS_PER_HOUR / s) if s and not np.isnan(s) and s > 0 else "N/A"
                 for s in y_vals
             ]
 
@@ -151,7 +152,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Plot markers
         pareto_paces = [
-            seconds_to_pace_string(3600 / s) if s > 0 else "N/A" for s in pareto_speeds
+            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A" for s in pareto_speeds
         ]
         fig.add_trace(
             go.Scatter(
@@ -179,7 +180,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         def curve_score(
             anchor_distance: float, anchor_speed: float
         ) -> tuple[list, list, float]:
-            anchor_pace = 3600 / anchor_speed if anchor_speed > 0 else np.nan
+            anchor_pace = SECONDS_PER_HOUR / anchor_speed if anchor_speed > 0 else np.nan
             if np.isnan(anchor_pace):
                 return [], [], np.inf
 
@@ -192,7 +193,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             for d in sample_points:
                 pace_est = estimate_pace_at_distance(anchor_pace, anchor_distance, d)
                 if pace_est > 0 and not np.isnan(pace_est):
-                    y_vals.append(3600 / pace_est)
+                    y_vals.append(SECONDS_PER_HOUR / pace_est)
                 else:
                     y_vals.append(np.nan)
 
@@ -213,13 +214,13 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             # Ensure target speed curve intersects the selected target anchor
             anchor_distance = target_dists[anchor_idx]
             anchor_speed = target_speeds[anchor_idx]
-            anchor_pace = 3600 / anchor_speed if anchor_speed > 0 else np.nan
+            anchor_pace = SECONDS_PER_HOUR / anchor_speed if anchor_speed > 0 else np.nan
             if anchor_distance in x_vals:
                 y_vals[x_vals.index(anchor_distance)] = anchor_speed
 
             # Compute per-point pace strings for the hover tooltip
             target_curve_paces = [
-                seconds_to_pace_string(3600 / s) if s and not np.isnan(s) and s > 0 else "N/A"
+                seconds_to_pace_string(SECONDS_PER_HOUR / s) if s and not np.isnan(s) and s > 0 else "N/A"
                 for s in y_vals
             ]
 
@@ -241,7 +242,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Target markers
         target_paces = [
-            seconds_to_pace_string(3600 / s) if s > 0 else "N/A" for s in target_speeds
+            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A" for s in target_speeds
         ]
         fig.add_trace(
             go.Scatter(
@@ -345,7 +346,7 @@ def render_running_table_fragment(df) -> str:
                 pareto_dists = exercise_records["Distance"].tolist()
                 max_speed = max(pareto_speeds)
                 max_speed_idx = pareto_speeds.index(max_speed)
-                best_pace = 3600 / max_speed if max_speed > 0 else np.nan
+                best_pace = SECONDS_PER_HOUR / max_speed if max_speed > 0 else np.nan
                 best_distance = pareto_dists[max_speed_idx]
 
                 # Estimate pareto speed at target distance
@@ -354,7 +355,7 @@ def render_running_table_fragment(df) -> str:
                         best_pace, best_distance, target_dist
                     )
                     if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
-                        pareto_speed_est = 3600 / pareto_pace_est
+                        pareto_speed_est = SECONDS_PER_HOUR / pareto_pace_est
                         # Calculate how far below the pareto curve this target is
                         # Positive = target below pareto (easier to achieve)
                         # Negative = target above pareto (already exceeded)

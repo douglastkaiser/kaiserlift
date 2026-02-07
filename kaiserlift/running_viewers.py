@@ -293,7 +293,9 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     y_hi = max(all_speeds) * 1.1 if all_speeds else 10
 
     # Add vertical dotted lines for common race distances with always-visible
-    # labels positioned at the top of each line.
+    # labels near the top.  Use add_vline for the line (handles log axes) and
+    # a separate annotation with an explicit log10 x-coordinate (Plotly
+    # annotations on log axes expect values in log10 space).
     for race_dist, race_label in race_distances:
         if plot_min_dist <= race_dist <= plot_max_dist:
             fig.add_vline(
@@ -302,11 +304,16 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 line_color="gray",
                 line_width=1,
                 opacity=0.6,
-                annotation_text=race_label,
-                annotation_position="top",
-                annotation_font_size=10,
-                annotation_font_color="rgba(150,150,150,0.8)",
-                annotation_textangle=-90,
+            )
+            fig.add_annotation(
+                x=np.log10(race_dist),
+                y=1,
+                yref="paper",
+                text=race_label,
+                showarrow=False,
+                font=dict(size=10, color="rgba(150,150,150,0.8)"),
+                yanchor="bottom",
+                yshift=2,
             )
 
     fig.update_layout(

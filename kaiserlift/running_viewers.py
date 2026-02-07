@@ -118,7 +118,9 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
             # Compute per-point pace strings for the hover tooltip
             best_curve_paces = [
-                seconds_to_pace_string(SECONDS_PER_HOUR / s) if s and not np.isnan(s) and s > 0 else "N/A"
+                seconds_to_pace_string(SECONDS_PER_HOUR / s)
+                if s and not np.isnan(s) and s > 0
+                else "N/A"
                 for s in y_vals
             ]
 
@@ -152,7 +154,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Plot markers
         pareto_paces = [
-            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A" for s in pareto_speeds
+            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A"
+            for s in pareto_speeds
         ]
         fig.add_trace(
             go.Scatter(
@@ -180,7 +183,9 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         def curve_score(
             anchor_distance: float, anchor_speed: float
         ) -> tuple[list, list, float]:
-            anchor_pace = SECONDS_PER_HOUR / anchor_speed if anchor_speed > 0 else np.nan
+            anchor_pace = (
+                SECONDS_PER_HOUR / anchor_speed if anchor_speed > 0 else np.nan
+            )
             if np.isnan(anchor_pace):
                 return [], [], np.inf
 
@@ -219,7 +224,9 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
             # Compute per-point pace strings for the hover tooltip
             target_curve_paces = [
-                seconds_to_pace_string(SECONDS_PER_HOUR / s) if s and not np.isnan(s) and s > 0 else "N/A"
+                seconds_to_pace_string(SECONDS_PER_HOUR / s)
+                if s and not np.isnan(s) and s > 0
+                else "N/A"
                 for s in y_vals
             ]
 
@@ -241,7 +248,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Target markers
         target_paces = [
-            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A" for s in target_speeds
+            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A"
+            for s in target_speeds
         ]
         fig.add_trace(
             go.Scatter(

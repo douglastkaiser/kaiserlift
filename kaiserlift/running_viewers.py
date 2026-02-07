@@ -911,8 +911,9 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     scripts = """
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script>
-    $(document).ready(function() {
-        // Initialize DataTable
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize DataTable (jQuery + DataTables are loaded with defer,
+        // which executes before DOMContentLoaded fires)
         $('#runningTable').DataTable({
             pageLength: 25,
             responsive: true,

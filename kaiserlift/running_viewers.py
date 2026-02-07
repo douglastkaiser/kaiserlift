@@ -276,10 +276,13 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     ]
     for race_dist, race_label in race_distances:
         if min_dist * 0.9 <= race_dist <= plot_max_dist:
+            # Shape x-coordinates are in axis space; on a log axis that
+            # means log10 values, so we must transform explicitly.
+            log_dist = np.log10(race_dist)
             fig.add_shape(
                 type="line",
-                x0=race_dist,
-                x1=race_dist,
+                x0=log_dist,
+                x1=log_dist,
                 y0=0,
                 y1=1,
                 yref="paper",

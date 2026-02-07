@@ -292,22 +292,21 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     y_lo = min(all_speeds) * 0.9 if all_speeds else 0
     y_hi = max(all_speeds) * 1.1 if all_speeds else 10
 
-    # Add vertical dotted lines for common race distances.
-    # Draw each as a scatter trace spanning the y-axis so the line itself
-    # is hoverable and shows the race label.
+    # Add vertical dotted lines for common race distances with always-visible
+    # labels positioned at the top of each line.
     for race_dist, race_label in race_distances:
         if plot_min_dist <= race_dist <= plot_max_dist:
-            fig.add_trace(
-                go.Scatter(
-                    x=[race_dist, race_dist],
-                    y=[y_lo, y_hi],
-                    mode="lines",
-                    line=dict(color="gray", dash="dot", width=1),
-                    opacity=0.6,
-                    hovertemplate=f"<b>{race_label}</b>"
-                    + "<br>%{x:.2f} mi<extra></extra>",
-                    showlegend=False,
-                )
+            fig.add_vline(
+                x=race_dist,
+                line_dash="dot",
+                line_color="gray",
+                line_width=1,
+                opacity=0.6,
+                annotation_text=race_label,
+                annotation_position="top",
+                annotation_font_size=10,
+                annotation_font_color="rgba(150,150,150,0.8)",
+                annotation_textangle=-90,
             )
 
     fig.update_layout(

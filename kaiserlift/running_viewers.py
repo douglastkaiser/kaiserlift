@@ -70,6 +70,13 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
             )
 
+    # Common race distances for vertical marker lines
+    race_distances = [
+        (3.10686, "5K"),
+        (13.1094, "Half Marathon"),
+        (26.2188, "Marathon"),
+    ]
+
     # Calculate axis limits with padding so data points aren't at the edges.
     # Curves/lines may extend to the edges but the data points get breathing room.
     distance_series = [df_pareto["Distance"]]
@@ -80,6 +87,14 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     max_dist = max(s.max() for s in distance_series)
     plot_min_dist = min_dist * 0.7
     plot_max_dist = max_dist * 1.3
+
+    # Extend the plot range to include any race distance lines that fall
+    # near the data so they aren't clipped off the edge of the chart.
+    for race_dist, _ in race_distances:
+        if race_dist <= max_dist:
+            plot_min_dist = min(plot_min_dist, race_dist * 0.85)
+        if race_dist >= min_dist:
+            plot_max_dist = max(plot_max_dist, race_dist * 1.15)
 
     fig = go.Figure()
 
@@ -102,7 +117,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Generate speed curve (convert pace estimates to speed)
         if not np.isnan(best_pace):
-            x_vals = np.linspace(min_dist, plot_max_dist, 100).tolist()
+            x_vals = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             x_vals.append(float(best_distance))
             x_vals = sorted(set(x_vals))
 
@@ -191,7 +206,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             if np.isnan(anchor_pace):
                 return [], [], np.inf
 
-            sample_points = np.linspace(min_dist, plot_max_dist, 100).tolist()
+            sample_points = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             sample_points.extend([float(d) for d in target_dists])
             sample_points.append(float(anchor_distance))
             sample_points = sorted(set(sample_points))
@@ -279,13 +294,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     # Add vertical dotted lines for common race distances.
     # Use add_vline for the line (handles log axes correctly) and an
     # invisible scatter trace at the y-axis midpoint for hover-only labels.
-    race_distances = [
-        (3.10686, "5K"),
-        (13.1094, "Half Marathon"),
-        (26.2188, "Marathon"),
-    ]
     for race_dist, race_label in race_distances:
-        if min_dist * 0.9 <= race_dist <= plot_max_dist:
+        if plot_min_dist <= race_dist <= plot_max_dist:
             fig.add_vline(
                 x=race_dist,
                 line_dash="dot",

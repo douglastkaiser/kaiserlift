@@ -283,32 +283,27 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
-    # Collect all speed values to compute y-axis midpoint for hover targets
+    # Collect all speed values for y-axis range
     all_speeds = []
     if df_pareto is not None and not df_pareto.empty:
         all_speeds.extend(df_pareto["Speed"].dropna().tolist())
     if df_targets is not None and not df_targets.empty:
         all_speeds.extend(df_targets["Speed"].dropna().tolist())
-    y_mid = (min(all_speeds) + max(all_speeds)) / 2 if all_speeds else 5
+    y_lo = min(all_speeds) * 0.9 if all_speeds else 0
+    y_hi = max(all_speeds) * 1.1 if all_speeds else 10
 
     # Add vertical dotted lines for common race distances.
-    # Use add_vline for the line (handles log axes correctly) and an
-    # invisible scatter trace at the y-axis midpoint for hover-only labels.
+    # Draw each as a scatter trace spanning the y-axis so the line itself
+    # is hoverable and shows the race label.
     for race_dist, race_label in race_distances:
         if plot_min_dist <= race_dist <= plot_max_dist:
-            fig.add_vline(
-                x=race_dist,
-                line_dash="dot",
-                line_color="gray",
-                line_width=1,
-                opacity=0.6,
-            )
             fig.add_trace(
                 go.Scatter(
-                    x=[race_dist],
-                    y=[y_mid],
-                    mode="markers",
-                    marker=dict(size=0.1, opacity=0),
+                    x=[race_dist, race_dist],
+                    y=[y_lo, y_hi],
+                    mode="lines",
+                    line=dict(color="gray", dash="dot", width=1),
+                    opacity=0.6,
                     hovertemplate=f"<b>{race_label}</b>"
                     + "<br>%{x:.2f} mi<extra></extra>",
                     showlegend=False,
@@ -325,12 +320,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         yaxis_title="Speed (mph, higher=faster)",
         xaxis_type="log",
         xaxis=dict(range=[np.log10(plot_min_dist), np.log10(plot_max_dist)]),
-        yaxis=dict(
-            range=[
-                min(all_speeds) * 0.9 if all_speeds else 0,
-                max(all_speeds) * 1.1 if all_speeds else 10,
-            ]
-        ),
+        yaxis=dict(range=[y_lo, y_hi]),
         hovermode="closest",
         template="plotly_white",
         legend=dict(

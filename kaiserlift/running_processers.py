@@ -12,6 +12,8 @@ from typing import IO, Iterable
 import numpy as np
 import pandas as pd
 
+SECONDS_PER_HOUR = 3600
+
 
 def calculate_pace_from_duration(
     duration_minutes: float, distance_miles: float
@@ -270,7 +272,7 @@ def estimate_pace_at_distance(
 def add_speed_metric_column(df: pd.DataFrame) -> pd.DataFrame:
     """Add a 'Speed' column in mph for easier interpretation.
 
-    Converts pace (sec/mi) to speed (mph) using: speed = 3600 / pace
+    Converts pace (sec/mi) to speed (mph) using: speed = SECONDS_PER_HOUR / pace
 
     Parameters
     ----------
@@ -288,10 +290,8 @@ def add_speed_metric_column(df: pd.DataFrame) -> pd.DataFrame:
     df_copy["Pace"] = pd.to_numeric(df_copy["Pace"], errors="coerce")
 
     # Convert pace (sec/mi) to speed (mph)
-    # 1 hour = 3600 seconds
-    # speed (mph) = 3600 / pace (sec/mi)
     df_copy["Speed"] = df_copy["Pace"].apply(
-        lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
+        lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
     )
 
     return df_copy
@@ -344,33 +344,34 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
         if len(distances) < 2:
             continue
 
-        speeds = [3600 / p if pd.notna(p) and p > 0 else np.nan for p in paces]
+        speeds = [
+            SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan for p in paces
+        ]
 
-        # Left endpoint target: use a nominal 1 mile if the fastest effort
-        # is longer, so the leftmost target is shorter and faster.
-        left_target_distance = distances[0]
+        # Left endpoint target: place at half the leftmost pareto distance
+        # so the target is shorter and faster than the current best.
+        left_target_distance = distances[0] / 2
         first_gap = (
             speeds[0] - speeds[1] if pd.notna(speeds[0]) and pd.notna(speeds[1]) else 0
         )
         left_speed_bump = max(first_gap * 0.10, speeds[0] * 0.02)
         left_target_speed = speeds[0] + left_speed_bump
-        if distances[0] > 1.0:
-            nominal_distance = 1.0
-            left_target_distance = nominal_distance
-            estimated_speed = np.nan
-            if pd.notna(paces[0]) and paces[0] > 0:
-                estimated_pace = estimate_pace_at_distance(
-                    paces[0], distances[0], nominal_distance
-                )
-                if pd.notna(estimated_pace) and estimated_pace > 0:
-                    estimated_speed = 3600 / estimated_pace
-            left_target_speed = max(
-                speeds[0] + left_speed_bump,
-                speeds[0] * 1.02,
-                estimated_speed,
+        estimated_speed = np.nan
+        if pd.notna(paces[0]) and paces[0] > 0:
+            estimated_pace = estimate_pace_at_distance(
+                paces[0], distances[0], left_target_distance
             )
+            if pd.notna(estimated_pace) and estimated_pace > 0:
+                estimated_speed = SECONDS_PER_HOUR / estimated_pace
+        left_target_speed = max(
+            speeds[0] + left_speed_bump,
+            speeds[0] * 1.02,
+            estimated_speed,
+        )
         if left_target_speed > 0 and pd.notna(left_target_speed):
-            rows.append((ex, left_target_distance, 3600 / left_target_speed))
+            rows.append(
+                (ex, left_target_distance, SECONDS_PER_HOUR / left_target_speed)
+            )
 
         for i in range(len(distances) - 1):
             left_distance = distances[i]
@@ -400,7 +401,7 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
             if target_speed <= 0 or pd.isna(target_speed):
                 continue
 
-            target_pace = 3600 / target_speed
+            target_pace = SECONDS_PER_HOUR / target_speed
             rows.append((ex, target_distance, target_pace))
 
         # Right endpoint target: farther than the longest distance and slower
@@ -413,7 +414,9 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
         if right_target_speed < min_allowed_speed:
             right_target_speed = min_allowed_speed
         if right_target_speed > 0 and pd.notna(right_target_speed):
-            rows.append((ex, right_target_distance, 3600 / right_target_speed))
+            rows.append(
+                (ex, right_target_distance, SECONDS_PER_HOUR / right_target_speed)
+            )
 
     target_df = pd.DataFrame(rows, columns=["Exercise", "Distance", "Pace"])
     return add_speed_metric_column(target_df)

@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 
 from .running_processers import (
+    SECONDS_PER_HOUR,
     estimate_pace_at_distance,
     highest_pace_per_distance,
     df_next_running_targets,
@@ -59,24 +60,41 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         df_pareto = df_pareto[df_pareto["Exercise"] == Exercise].copy()
         if "Speed" not in df_pareto.columns and "Pace" in df_pareto.columns:
             df_pareto["Speed"] = df_pareto["Pace"].apply(
-                lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
+                lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
             )
 
     if df_targets is not None:
         df_targets = df_targets[df_targets["Exercise"] == Exercise].copy()
         if "Speed" not in df_targets.columns and "Pace" in df_targets.columns:
             df_targets["Speed"] = df_targets["Pace"].apply(
-                lambda p: 3600 / p if pd.notna(p) and p > 0 else np.nan
+                lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
             )
 
-    # Calculate axis limits
+    # Common race distances for vertical marker lines
+    race_distances = [
+        (3.10686, "5K"),
+        (13.1094, "Half Marathon"),
+        (26.2188, "Marathon"),
+    ]
+
+    # Calculate axis limits with padding so data points aren't at the edges.
+    # Curves/lines may extend to the edges but the data points get breathing room.
     distance_series = [df_pareto["Distance"]]
     if df_targets is not None and not df_targets.empty:
         distance_series.append(df_targets["Distance"])
 
     min_dist = min(s.min() for s in distance_series)
     max_dist = max(s.max() for s in distance_series)
-    plot_max_dist = max_dist + 1
+    plot_min_dist = min_dist * 0.7
+    plot_max_dist = max_dist * 1.3
+
+    # Extend the plot range to include any race distance lines that fall
+    # near the data so they aren't clipped off the edge of the chart.
+    for race_dist, _ in race_distances:
+        if race_dist <= max_dist:
+            plot_min_dist = min(plot_min_dist, race_dist * 0.85)
+        if race_dist >= min_dist:
+            plot_max_dist = max(plot_max_dist, race_dist * 1.15)
 
     fig = go.Figure()
 
@@ -94,12 +112,12 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Get the pace corresponding to max_speed for curve estimation
         max_speed_idx = pareto_speeds.index(max_speed)
-        best_pace = 3600 / max_speed if max_speed > 0 else np.nan
+        best_pace = SECONDS_PER_HOUR / max_speed if max_speed > 0 else np.nan
         best_distance = pareto_dists[max_speed_idx]
 
         # Generate speed curve (convert pace estimates to speed)
         if not np.isnan(best_pace):
-            x_vals = np.linspace(min_dist, plot_max_dist, 100).tolist()
+            x_vals = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             x_vals.append(float(best_distance))
             x_vals = sorted(set(x_vals))
 
@@ -107,13 +125,21 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             for d in x_vals:
                 pace_est = estimate_pace_at_distance(best_pace, best_distance, d)
                 if pace_est > 0 and not np.isnan(pace_est):
-                    y_vals.append(3600 / pace_est)
+                    y_vals.append(SECONDS_PER_HOUR / pace_est)
                 else:
                     y_vals.append(np.nan)
 
             # Ensure the curve intersects the Pareto point with best speed
             anchor_idx = x_vals.index(best_distance)
             y_vals[anchor_idx] = max_speed
+
+            # Compute per-point pace strings for the hover tooltip
+            best_curve_paces = [
+                seconds_to_pace_string(SECONDS_PER_HOUR / s)
+                if s and not np.isnan(s) and s > 0
+                else "N/A"
+                for s in y_vals
+            ]
 
             fig.add_trace(
                 go.Scatter(
@@ -126,7 +152,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     hovertemplate="<b>Best Speed Curve</b><br>"
                     + "Distance: %{x:.2f} mi<br>"
                     + "Speed: %{y:.2f} mph<br>"
-                    + f"Pace: {seconds_to_pace_string(best_pace)}<extra></extra>",
+                    + "Pace: %{customdata}<extra></extra>",
+                    customdata=best_curve_paces,
                 )
             )
 
@@ -144,7 +171,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
         # Plot markers
         pareto_paces = [
-            seconds_to_pace_string(3600 / s) if s > 0 else "N/A" for s in pareto_speeds
+            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A"
+            for s in pareto_speeds
         ]
         fig.add_trace(
             go.Scatter(
@@ -172,11 +200,13 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         def curve_score(
             anchor_distance: float, anchor_speed: float
         ) -> tuple[list, list, float]:
-            anchor_pace = 3600 / anchor_speed if anchor_speed > 0 else np.nan
+            anchor_pace = (
+                SECONDS_PER_HOUR / anchor_speed if anchor_speed > 0 else np.nan
+            )
             if np.isnan(anchor_pace):
                 return [], [], np.inf
 
-            sample_points = np.linspace(min_dist, plot_max_dist, 100).tolist()
+            sample_points = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             sample_points.extend([float(d) for d in target_dists])
             sample_points.append(float(anchor_distance))
             sample_points = sorted(set(sample_points))
@@ -185,7 +215,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             for d in sample_points:
                 pace_est = estimate_pace_at_distance(anchor_pace, anchor_distance, d)
                 if pace_est > 0 and not np.isnan(pace_est):
-                    y_vals.append(3600 / pace_est)
+                    y_vals.append(SECONDS_PER_HOUR / pace_est)
                 else:
                     y_vals.append(np.nan)
 
@@ -206,9 +236,16 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             # Ensure target speed curve intersects the selected target anchor
             anchor_distance = target_dists[anchor_idx]
             anchor_speed = target_speeds[anchor_idx]
-            anchor_pace = 3600 / anchor_speed if anchor_speed > 0 else np.nan
             if anchor_distance in x_vals:
                 y_vals[x_vals.index(anchor_distance)] = anchor_speed
+
+            # Compute per-point pace strings for the hover tooltip
+            target_curve_paces = [
+                seconds_to_pace_string(SECONDS_PER_HOUR / s)
+                if s and not np.isnan(s) and s > 0
+                else "N/A"
+                for s in y_vals
+            ]
 
             fig.add_trace(
                 go.Scatter(
@@ -221,13 +258,15 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     hovertemplate="<b>Target Speed Curve</b><br>"
                     + "Distance: %{x:.2f} mi<br>"
                     + "Speed: %{y:.2f} mph<br>"
-                    + f"Pace: {seconds_to_pace_string(anchor_pace)}<extra></extra>",
+                    + "Pace: %{customdata}<extra></extra>",
+                    customdata=target_curve_paces,
                 )
             )
 
         # Target markers
         target_paces = [
-            seconds_to_pace_string(3600 / s) if s > 0 else "N/A" for s in target_speeds
+            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A"
+            for s in target_speeds
         ]
         fig.add_trace(
             go.Scatter(
@@ -244,6 +283,39 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
+    # Collect all speed values for y-axis range
+    all_speeds = []
+    if df_pareto is not None and not df_pareto.empty:
+        all_speeds.extend(df_pareto["Speed"].dropna().tolist())
+    if df_targets is not None and not df_targets.empty:
+        all_speeds.extend(df_targets["Speed"].dropna().tolist())
+    y_lo = min(all_speeds) * 0.9 if all_speeds else 0
+    y_hi = max(all_speeds) * 1.1 if all_speeds else 10
+
+    # Add vertical dotted lines for common race distances with always-visible
+    # labels near the top.  Use add_vline for the line (handles log axes) and
+    # a separate annotation with an explicit log10 x-coordinate (Plotly
+    # annotations on log axes expect values in log10 space).
+    for race_dist, race_label in race_distances:
+        if plot_min_dist <= race_dist <= plot_max_dist:
+            fig.add_vline(
+                x=race_dist,
+                line_dash="dot",
+                line_color="gray",
+                line_width=1,
+                opacity=0.6,
+            )
+            fig.add_annotation(
+                x=np.log10(race_dist),
+                y=1,
+                yref="paper",
+                text=race_label,
+                showarrow=False,
+                font=dict(size=10, color="rgba(150,150,150,0.8)"),
+                yanchor="bottom",
+                yshift=2,
+            )
+
     fig.update_layout(
         title=(
             f"Speed vs. Distance for {Exercise}<br><sup>Targets use 10% of the "
@@ -253,7 +325,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         xaxis_title="Distance (miles)",
         yaxis_title="Speed (mph, higher=faster)",
         xaxis_type="log",
-        xaxis=dict(range=[np.log10(min_dist * 0.9), np.log10(plot_max_dist)]),
+        xaxis=dict(range=[np.log10(plot_min_dist), np.log10(plot_max_dist)]),
+        yaxis=dict(range=[y_lo, y_hi]),
         hovermode="closest",
         template="plotly_white",
         legend=dict(
@@ -311,7 +384,7 @@ def render_running_table_fragment(df) -> str:
                 pareto_dists = exercise_records["Distance"].tolist()
                 max_speed = max(pareto_speeds)
                 max_speed_idx = pareto_speeds.index(max_speed)
-                best_pace = 3600 / max_speed if max_speed > 0 else np.nan
+                best_pace = SECONDS_PER_HOUR / max_speed if max_speed > 0 else np.nan
                 best_distance = pareto_dists[max_speed_idx]
 
                 # Estimate pareto speed at target distance
@@ -320,7 +393,7 @@ def render_running_table_fragment(df) -> str:
                         best_pace, best_distance, target_dist
                     )
                     if not np.isnan(pareto_pace_est) and pareto_pace_est > 0:
-                        pareto_speed_est = 3600 / pareto_pace_est
+                        pareto_speed_est = SECONDS_PER_HOUR / pareto_pace_est
                         # Calculate how far below the pareto curve this target is
                         # Positive = target below pareto (easier to achieve)
                         # Negative = target above pareto (already exceeded)
@@ -877,8 +950,9 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     scripts = """
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
     <script>
-    $(document).ready(function() {
-        // Initialize DataTable
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize DataTable (jQuery + DataTables are loaded with defer,
+        // which executes before DOMContentLoaded fires)
         $('#runningTable').DataTable({
             pageLength: 25,
             responsive: true,

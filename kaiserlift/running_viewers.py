@@ -266,7 +266,9 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
-    # Add vertical dotted lines for common race distances
+    # Add vertical dotted lines for common race distances.
+    # Use layout shapes for the lines (paper-relative so they span the full
+    # y-axis) and invisible scatter traces for hover-only labels.
     race_distances = [
         (3.10686, "5K"),
         (13.1094, "Half Marathon"),
@@ -274,16 +276,26 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     ]
     for race_dist, race_label in race_distances:
         if min_dist * 0.9 <= race_dist <= plot_max_dist:
-            fig.add_vline(
-                x=race_dist,
-                line_dash="dot",
-                line_color="gray",
-                line_width=1,
+            fig.add_shape(
+                type="line",
+                x0=race_dist,
+                x1=race_dist,
+                y0=0,
+                y1=1,
+                yref="paper",
+                line=dict(color="gray", dash="dot", width=1),
                 opacity=0.6,
-                annotation_text=race_label,
-                annotation_position="top",
-                annotation_font_size=10,
-                annotation_font_color="gray",
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[race_dist],
+                    y=[None],
+                    mode="markers",
+                    marker=dict(size=0, opacity=0),
+                    hovertemplate=f"<b>{race_label}</b>"
+                    + "<br>%{x:.2f} mi<extra></extra>",
+                    showlegend=False,
+                )
             )
 
     fig.update_layout(

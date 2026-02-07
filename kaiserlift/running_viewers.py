@@ -115,6 +115,12 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             anchor_idx = x_vals.index(best_distance)
             y_vals[anchor_idx] = max_speed
 
+            # Compute per-point pace strings for the hover tooltip
+            best_curve_paces = [
+                seconds_to_pace_string(3600 / s) if s and not np.isnan(s) and s > 0 else "N/A"
+                for s in y_vals
+            ]
+
             fig.add_trace(
                 go.Scatter(
                     x=x_vals,
@@ -126,7 +132,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     hovertemplate="<b>Best Speed Curve</b><br>"
                     + "Distance: %{x:.2f} mi<br>"
                     + "Speed: %{y:.2f} mph<br>"
-                    + f"Pace: {seconds_to_pace_string(best_pace)}<extra></extra>",
+                    + "Pace: %{customdata}<extra></extra>",
+                    customdata=best_curve_paces,
                 )
             )
 
@@ -210,6 +217,12 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             if anchor_distance in x_vals:
                 y_vals[x_vals.index(anchor_distance)] = anchor_speed
 
+            # Compute per-point pace strings for the hover tooltip
+            target_curve_paces = [
+                seconds_to_pace_string(3600 / s) if s and not np.isnan(s) and s > 0 else "N/A"
+                for s in y_vals
+            ]
+
             fig.add_trace(
                 go.Scatter(
                     x=x_vals,
@@ -221,7 +234,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     hovertemplate="<b>Target Speed Curve</b><br>"
                     + "Distance: %{x:.2f} mi<br>"
                     + "Speed: %{y:.2f} mph<br>"
-                    + f"Pace: {seconds_to_pace_string(anchor_pace)}<extra></extra>",
+                    + "Pace: %{customdata}<extra></extra>",
+                    customdata=target_curve_paces,
                 )
             )
 
@@ -243,6 +257,26 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 customdata=target_paces,
             )
         )
+
+    # Add vertical dotted lines for common race distances
+    race_distances = [
+        (3.10686, "5K"),
+        (13.1094, "Half Marathon"),
+        (26.2188, "Marathon"),
+    ]
+    for race_dist, race_label in race_distances:
+        if min_dist * 0.9 <= race_dist <= plot_max_dist:
+            fig.add_vline(
+                x=race_dist,
+                line_dash="dot",
+                line_color="gray",
+                line_width=1,
+                opacity=0.6,
+                annotation_text=race_label,
+                annotation_position="top",
+                annotation_font_size=10,
+                annotation_font_color="gray",
+            )
 
     fig.update_layout(
         title=(

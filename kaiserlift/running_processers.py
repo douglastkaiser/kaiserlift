@@ -348,29 +348,26 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
             SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan for p in paces
         ]
 
-        # Left endpoint target: use a nominal 1 mile if the fastest effort
-        # is longer, so the leftmost target is shorter and faster.
-        left_target_distance = distances[0]
+        # Left endpoint target: place at half the leftmost pareto distance
+        # so the target is shorter and faster than the current best.
+        left_target_distance = distances[0] / 2
         first_gap = (
             speeds[0] - speeds[1] if pd.notna(speeds[0]) and pd.notna(speeds[1]) else 0
         )
         left_speed_bump = max(first_gap * 0.10, speeds[0] * 0.02)
         left_target_speed = speeds[0] + left_speed_bump
-        if distances[0] > 1.0:
-            nominal_distance = 1.0
-            left_target_distance = nominal_distance
-            estimated_speed = np.nan
-            if pd.notna(paces[0]) and paces[0] > 0:
-                estimated_pace = estimate_pace_at_distance(
-                    paces[0], distances[0], nominal_distance
-                )
-                if pd.notna(estimated_pace) and estimated_pace > 0:
-                    estimated_speed = SECONDS_PER_HOUR / estimated_pace
-            left_target_speed = max(
-                speeds[0] + left_speed_bump,
-                speeds[0] * 1.02,
-                estimated_speed,
+        estimated_speed = np.nan
+        if pd.notna(paces[0]) and paces[0] > 0:
+            estimated_pace = estimate_pace_at_distance(
+                paces[0], distances[0], left_target_distance
             )
+            if pd.notna(estimated_pace) and estimated_pace > 0:
+                estimated_speed = SECONDS_PER_HOUR / estimated_pace
+        left_target_speed = max(
+            speeds[0] + left_speed_bump,
+            speeds[0] * 1.02,
+            estimated_speed,
+        )
         if left_target_speed > 0 and pd.notna(left_target_speed):
             rows.append(
                 (ex, left_target_distance, SECONDS_PER_HOUR / left_target_speed)

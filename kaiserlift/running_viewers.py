@@ -70,14 +70,16 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
             )
 
-    # Calculate axis limits
+    # Calculate axis limits with padding so data points aren't at the edges.
+    # Curves/lines may extend to the edges but the data points get breathing room.
     distance_series = [df_pareto["Distance"]]
     if df_targets is not None and not df_targets.empty:
         distance_series.append(df_targets["Distance"])
 
     min_dist = min(s.min() for s in distance_series)
     max_dist = max(s.max() for s in distance_series)
-    plot_max_dist = max_dist + 1
+    plot_min_dist = min_dist * 0.7
+    plot_max_dist = max_dist * 1.3
 
     fig = go.Figure()
 
@@ -266,9 +268,17 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
+    # Collect all speed values to compute y-axis midpoint for hover targets
+    all_speeds = []
+    if df_pareto is not None and not df_pareto.empty:
+        all_speeds.extend(df_pareto["Speed"].dropna().tolist())
+    if df_targets is not None and not df_targets.empty:
+        all_speeds.extend(df_targets["Speed"].dropna().tolist())
+    y_mid = (min(all_speeds) + max(all_speeds)) / 2 if all_speeds else 5
+
     # Add vertical dotted lines for common race distances.
-    # Use layout shapes for the lines (paper-relative so they span the full
-    # y-axis) and invisible scatter traces for hover-only labels.
+    # Use add_vline for the line (handles log axes correctly) and an
+    # invisible scatter trace at the y-axis midpoint for hover-only labels.
     race_distances = [
         (3.10686, "5K"),
         (13.1094, "Half Marathon"),
@@ -276,25 +286,19 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     ]
     for race_dist, race_label in race_distances:
         if min_dist * 0.9 <= race_dist <= plot_max_dist:
-            # Shape x-coordinates are in axis space; on a log axis that
-            # means log10 values, so we must transform explicitly.
-            log_dist = np.log10(race_dist)
-            fig.add_shape(
-                type="line",
-                x0=log_dist,
-                x1=log_dist,
-                y0=0,
-                y1=1,
-                yref="paper",
-                line=dict(color="gray", dash="dot", width=1),
+            fig.add_vline(
+                x=race_dist,
+                line_dash="dot",
+                line_color="gray",
+                line_width=1,
                 opacity=0.6,
             )
             fig.add_trace(
                 go.Scatter(
                     x=[race_dist],
-                    y=[None],
+                    y=[y_mid],
                     mode="markers",
-                    marker=dict(size=0, opacity=0),
+                    marker=dict(size=0.1, opacity=0),
                     hovertemplate=f"<b>{race_label}</b>"
                     + "<br>%{x:.2f} mi<extra></extra>",
                     showlegend=False,
@@ -310,7 +314,13 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         xaxis_title="Distance (miles)",
         yaxis_title="Speed (mph, higher=faster)",
         xaxis_type="log",
-        xaxis=dict(range=[np.log10(min_dist * 0.9), np.log10(plot_max_dist)]),
+        xaxis=dict(range=[np.log10(plot_min_dist), np.log10(plot_max_dist)]),
+        yaxis=dict(
+            range=[
+                min(all_speeds) * 0.9 if all_speeds else 0,
+                max(all_speeds) * 1.1 if all_speeds else 10,
+            ]
+        ),
         hovermode="closest",
         template="plotly_white",
         legend=dict(

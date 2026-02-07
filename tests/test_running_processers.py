@@ -174,8 +174,8 @@ def test_df_next_running_targets():
     middle_target = sorted_targets.iloc[1]
     right_target = sorted_targets.iloc[2]
 
-    # Left edge target should move to a nominal 1-mile marker with faster speed
-    assert left_target["Distance"] == 1.0
+    # Left edge target should be at half the leftmost pareto distance (5.0/2=2.5)
+    assert left_target["Distance"] == 2.5
     assert left_target["Speed"] > 3600 / 570
 
     # Target should sit between the two Pareto distances (10% toward the right)

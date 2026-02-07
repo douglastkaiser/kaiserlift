@@ -214,7 +214,6 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             # Ensure target speed curve intersects the selected target anchor
             anchor_distance = target_dists[anchor_idx]
             anchor_speed = target_speeds[anchor_idx]
-            anchor_pace = SECONDS_PER_HOUR / anchor_speed if anchor_speed > 0 else np.nan
             if anchor_distance in x_vals:
                 y_vals[x_vals.index(anchor_distance)] = anchor_speed
 

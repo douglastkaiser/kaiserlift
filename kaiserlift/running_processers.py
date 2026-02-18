@@ -168,11 +168,12 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
 
 
 def highest_pace_per_distance(df: pd.DataFrame) -> pd.DataFrame:
-    """Find best (fastest) pace for each distance using Pareto dominance.
+    """Find best (fastest) time for each distance using Pareto dominance.
 
-    Groups by (Exercise, Distance) and finds minimum pace (lower = faster).
-    Applies Pareto dominance filter: removes records that are dominated
-    by others (longer distance with same or faster pace).
+    Groups by (Exercise, Distance) and finds minimum pace (lower = faster,
+    equivalent to minimum total time for the same distance).
+    Applies Pareto dominance filter in distance-time space: removes records
+    dominated by others that ran at least as far in less total time.
 
     Parameters
     ----------
@@ -188,7 +189,11 @@ def highest_pace_per_distance(df: pd.DataFrame) -> pd.DataFrame:
     -----
     A record (D, P) is dominated if there exists another record (D', P') where:
     - D' >= D (at least as far)
-    - P' <= P (at least as fast, i.e., lower pace)
+    - P' * D' <= P * D (total time at least as fast)
+
+    Dominance is based on total time (Pace * Distance), not pace alone, to
+    match the distance-vs-time chart axes.  A longer run that takes more total
+    time does NOT dominate a shorter run, even if the pace was faster.
     """
 
     df_copy = df.copy()
@@ -199,21 +204,25 @@ def highest_pace_per_distance(df: pd.DataFrame) -> pd.DataFrame:
     if df_copy.empty:
         return pd.DataFrame(columns=df.columns)
 
-    # Find fastest pace (minimum) for each (Exercise, Distance) pair
+    # Find fastest pace (minimum) for each (Exercise, Distance) pair.
+    # For the same distance, min pace == min total time, so this is correct.
     idx = df_copy.groupby(["Exercise", "Distance"])["Pace"].idxmin()
     best_pace_sets = df_copy.loc[idx].copy()
 
-    # Apply Pareto dominance filter
-    def is_dominated(row, group_df):
-        """Check if this running record is dominated.
+    # Precompute total time (seconds) for each record to use in dominance check.
+    best_pace_sets["_TotalTime"] = best_pace_sets["Pace"] * best_pace_sets["Distance"]
 
-        Record (D, P) is dominated if exists (D', P') where:
+    # Apply Pareto dominance filter in distance-time space.
+    def is_dominated(row, group_df):
+        """Check if this running record is dominated in distance-time space.
+
+        Record (D, T) is dominated if exists (D', T') where:
         - D' >= D (at least as far)
-        - P' <= P (at least as fast)
+        - T' <= T (at least as fast total time)
         """
         dominating = group_df[
             (group_df["Distance"] >= row["Distance"])
-            & (group_df["Pace"] <= row["Pace"])
+            & (group_df["_TotalTime"] <= row["_TotalTime"])
         ]
         # More than just itself means it's dominated
         return len(dominating) > 1
@@ -223,7 +232,8 @@ def highest_pace_per_distance(df: pd.DataFrame) -> pd.DataFrame:
         rows_to_keep = group[~group.apply(lambda row: is_dominated(row, group), axis=1)]
         final_indices.extend(rows_to_keep.index.tolist())
 
-    return best_pace_sets.loc[final_indices].sort_values(["Exercise", "Distance"])
+    result = best_pace_sets.loc[final_indices].sort_values(["Exercise", "Distance"])
+    return result.drop(columns=["_TotalTime"])
 
 
 def estimate_pace_at_distance(

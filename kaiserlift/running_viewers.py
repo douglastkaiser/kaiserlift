@@ -175,8 +175,9 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 )
             )
 
-        # Pareto step line (hv: horizontal-then-vertical, natural for time
-        # increasing with distance — mirrors the lifting chart staircase)
+        # Pareto step line (vh: vertical-then-horizontal; with the y-axis
+        # inverted, this produces the same upper-right staircase shape as the
+        # lifting charts where upper-right = better performance)
         pareto_times_hover = [_format_duration_minutes(t) for t in pareto_durations]
         pareto_paces = [
             seconds_to_pace_string(t * 60.0 / d) if t > 0 and d > 0 else "N/A"
@@ -188,7 +189,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 y=list(pareto_durations),
                 mode="lines",
                 name="Pareto Front (Best Times)",
-                line=dict(color="red", shape="hv", width=2),
+                line=dict(color="red", shape="vh", width=2),
                 hovertemplate="<b>Pareto Front</b><extra></extra>",
             )
         )
@@ -333,10 +334,11 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             "Riegel curve: time2 = time1 \u00d7 (d2/d1)^1.06.</sup>"
         ),
         xaxis_title="Distance (miles)",
-        yaxis_title="Total Time (min, lower=faster)",
+        yaxis_title="Total Time (min, upper=faster)",
         xaxis_type="log",
+        yaxis_type="log",
         xaxis=dict(range=[np.log10(plot_min_dist), np.log10(plot_max_dist)]),
-        yaxis=dict(range=[y_lo, y_hi]),
+        yaxis=dict(range=[np.log10(y_hi), np.log10(y_lo)]),
         hovermode="closest",
         template="plotly_white",
         legend=dict(

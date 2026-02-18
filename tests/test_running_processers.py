@@ -85,7 +85,7 @@ def test_highest_pace_per_distance_pareto_dominance():
 
 
 def test_highest_pace_per_distance_dominated():
-    """Test that dominated records are removed."""
+    """Test that dominated records are removed using time-based dominance."""
     df = pd.DataFrame(
         {
             "Date": [datetime(2024, 1, i) for i in range(1, 4)],
@@ -98,11 +98,37 @@ def test_highest_pace_per_distance_dominated():
 
     result = highest_pace_per_distance(df)
 
-    # 10.0 @ 9:30 dominates both 5.0 mile runs
-    # So only 10.0 @ 9:30 should remain
+    # In time-based Pareto (distance vs total time):
+    #   best 5-mile: pace=600 → total time = 5.0 * 600 = 3000 s (50 min)
+    #   10-mile:     pace=570 → total time = 10.0 * 570 = 5700 s (95 min)
+    # The 10-mile run takes more total time, so it does NOT dominate the 5-mile.
+    # Both records remain on the Pareto front.
+    assert len(result) == 2
+    distances = sorted(result["Distance"].tolist())
+    assert distances == [5.0, 10.0]
+    assert result.loc[result["Distance"] == 5.0, "Pace"].values[0] == 600
+    assert result.loc[result["Distance"] == 10.0, "Pace"].values[0] == 570
+
+
+def test_highest_pace_per_distance_time_dominance():
+    """Test that a record is only dominated when total time is also better."""
+    # 5 miles in 50 min (pace=600) vs 10 miles in 45 min (pace=270).
+    # The 10-mile run is both farther AND faster in total time, so it dominates.
+    df = pd.DataFrame(
+        {
+            "Date": [datetime(2024, 1, 1), datetime(2024, 1, 2)],
+            "Exercise": ["Running"] * 2,
+            "Category": ["Cardio"] * 2,
+            "Distance": [5.0, 10.0],
+            "Pace": [600, 270],  # 5*600=3000s (50min) vs 10*270=2700s (45min)
+        }
+    )
+
+    result = highest_pace_per_distance(df)
+
+    # 10-mile total time (2700s) < 5-mile total time (3000s), so 5-mile is dominated.
     assert len(result) == 1
     assert result["Distance"].values[0] == 10.0
-    assert result["Pace"].values[0] == 570
 
 
 def test_estimate_pace_at_distance():

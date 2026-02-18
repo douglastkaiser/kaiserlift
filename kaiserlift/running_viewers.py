@@ -11,11 +11,11 @@ import plotly.graph_objects as go
 
 from .running_processers import (
     SECONDS_PER_HOUR,
-    estimate_pace_at_distance,
     highest_pace_per_distance,
     df_next_running_targets,
     seconds_to_pace_string,
     add_speed_metric_column,
+    estimate_pace_at_distance,
 )
 from .plot_utils import (
     slugify,
@@ -25,14 +25,27 @@ from .plot_utils import (
 )
 
 
+def _format_duration_minutes(minutes: float) -> str:
+    """Format a duration in minutes as H:MM:SS or M:SS string."""
+    if pd.isna(minutes) or minutes <= 0:
+        return "N/A"
+    total_seconds = int(round(minutes * 60))
+    hours = total_seconds // 3600
+    mins = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+    if hours > 0:
+        return f"{hours}:{mins:02d}:{secs:02d}"
+    return f"{mins}:{secs:02d}"
+
+
 def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
-    """Plot running performance: Distance vs Speed.
+    """Plot running performance: Distance vs Total Time.
 
     Similar to plot_df for lifting but with running metrics:
     - X-axis: Distance (miles)
-    - Y-axis: Speed (mph, higher is better)
-    - Red line: Pareto front of best speeds
-    - Green X: Target speeds to achieve
+    - Y-axis: Total Time (minutes, lower is better)
+    - Red line: Pareto front of best times
+    - Green X: Target times to achieve
 
     Parameters
     ----------
@@ -55,9 +68,16 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     if Exercise is None:
         raise ValueError("Exercise must be specified")
 
-    # Add Speed to pareto and targets if needed
+    # Filter to specified exercise and compute Duration (total time in minutes)
     if df_pareto is not None:
         df_pareto = df_pareto[df_pareto["Exercise"] == Exercise].copy()
+        if "Duration" not in df_pareto.columns:
+            if "Pace" in df_pareto.columns:
+                df_pareto["Duration"] = df_pareto["Pace"] * df_pareto["Distance"] / 60.0
+            elif "Speed" in df_pareto.columns:
+                df_pareto["Duration"] = (
+                    df_pareto["Distance"] / df_pareto["Speed"] * 60.0
+                )
         if "Speed" not in df_pareto.columns and "Pace" in df_pareto.columns:
             df_pareto["Speed"] = df_pareto["Pace"].apply(
                 lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
@@ -65,10 +85,15 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
     if df_targets is not None:
         df_targets = df_targets[df_targets["Exercise"] == Exercise].copy()
-        if "Speed" not in df_targets.columns and "Pace" in df_targets.columns:
-            df_targets["Speed"] = df_targets["Pace"].apply(
-                lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
-            )
+        if "Duration" not in df_targets.columns:
+            if "Pace" in df_targets.columns:
+                df_targets["Duration"] = (
+                    df_targets["Pace"] * df_targets["Distance"] / 60.0
+                )
+            elif "Speed" in df_targets.columns:
+                df_targets["Duration"] = (
+                    df_targets["Distance"] / df_targets["Speed"] * 60.0
+                )
 
     # Common race distances for vertical marker lines
     race_distances = [
@@ -98,47 +123,40 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
     fig = go.Figure()
 
-    # Initialize pareto curve parameters
-    best_pace = np.nan
+    # Initialize anchor parameters for the Riegel time curve
     best_distance = np.nan
+    anchor_duration = np.nan
 
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
-        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Speed"]))
-        pareto_dists, pareto_speeds = zip(*sorted(pareto_points, key=lambda x: x[0]))
+        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Duration"]))
+        pareto_dists, pareto_durations = zip(*sorted(pareto_points, key=lambda x: x[0]))
 
-        # Compute best speed overall (maximum)
-        max_speed = max(pareto_speeds)
+        # Find the Pareto point with the best pace (max speed) to anchor the
+        # Riegel curve — same anchor logic as before, just displayed in time space.
+        if "Speed" in df_pareto.columns:
+            max_speed_idx = int(df_pareto["Speed"].idxmax())
+            best_distance = float(df_pareto.loc[max_speed_idx, "Distance"])
+            anchor_duration = float(df_pareto.loc[max_speed_idx, "Duration"])
 
-        # Get the pace corresponding to max_speed for curve estimation
-        max_speed_idx = pareto_speeds.index(max_speed)
-        best_pace = SECONDS_PER_HOUR / max_speed if max_speed > 0 else np.nan
-        best_distance = pareto_dists[max_speed_idx]
-
-        # Generate speed curve (convert pace estimates to speed)
-        if not np.isnan(best_pace):
+        # Generate Riegel time curve: T(D) = T_anchor * (D / D_anchor)^1.06
+        if not np.isnan(anchor_duration) and not np.isnan(best_distance):
             x_vals = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             x_vals.append(float(best_distance))
             x_vals = sorted(set(x_vals))
 
-            y_vals = []
-            for d in x_vals:
-                pace_est = estimate_pace_at_distance(best_pace, best_distance, d)
-                if pace_est > 0 and not np.isnan(pace_est):
-                    y_vals.append(SECONDS_PER_HOUR / pace_est)
-                else:
-                    y_vals.append(np.nan)
+            y_vals = [anchor_duration * (d / best_distance) ** 1.06 for d in x_vals]
 
-            # Ensure the curve intersects the Pareto point with best speed
+            # Ensure the curve intersects the anchor Pareto point exactly
             anchor_idx = x_vals.index(best_distance)
-            y_vals[anchor_idx] = max_speed
+            y_vals[anchor_idx] = anchor_duration
 
-            # Compute per-point pace strings for the hover tooltip
+            best_curve_times = [_format_duration_minutes(t) for t in y_vals]
             best_curve_paces = [
-                seconds_to_pace_string(SECONDS_PER_HOUR / s)
-                if s and not np.isnan(s) and s > 0
+                seconds_to_pace_string(t * 60.0 / d)
+                if t and not np.isnan(t) and t > 0 and d > 0
                 else "N/A"
-                for s in y_vals
+                for t, d in zip(y_vals, x_vals)
             ]
 
             fig.add_trace(
@@ -146,105 +164,96 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     x=x_vals,
                     y=y_vals,
                     mode="lines",
-                    name="Best Speed Curve",
+                    name="Best Time Curve",
                     line=dict(color="black", dash="dash", width=2),
                     opacity=0.7,
-                    hovertemplate="<b>Best Speed Curve</b><br>"
+                    hovertemplate="<b>Best Time Curve</b><br>"
                     + "Distance: %{x:.2f} mi<br>"
-                    + "Speed: %{y:.2f} mph<br>"
-                    + "Pace: %{customdata}<extra></extra>",
-                    customdata=best_curve_paces,
+                    + "Time: %{customdata[0]}<br>"
+                    + "Pace: %{customdata[1]}<extra></extra>",
+                    customdata=list(zip(best_curve_times, best_curve_paces)),
                 )
             )
 
-        # Plot step line
-        fig.add_trace(
-            go.Scatter(
-                x=list(pareto_dists),
-                y=list(pareto_speeds),
-                mode="lines",
-                name="Pareto Front (Best Speeds)",
-                line=dict(color="red", shape="vh", width=2),
-                hovertemplate="<b>Pareto Front</b><extra></extra>",
-            )
-        )
-
-        # Plot markers
+        # Pareto step line (hv: horizontal-then-vertical, natural for time
+        # increasing with distance — mirrors the lifting chart staircase)
+        pareto_times_hover = [_format_duration_minutes(t) for t in pareto_durations]
         pareto_paces = [
-            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A"
-            for s in pareto_speeds
+            seconds_to_pace_string(t * 60.0 / d) if t > 0 and d > 0 else "N/A"
+            for t, d in zip(pareto_durations, pareto_dists)
         ]
         fig.add_trace(
             go.Scatter(
                 x=list(pareto_dists),
-                y=list(pareto_speeds),
+                y=list(pareto_durations),
+                mode="lines",
+                name="Pareto Front (Best Times)",
+                line=dict(color="red", shape="hv", width=2),
+                hovertemplate="<b>Pareto Front</b><extra></extra>",
+            )
+        )
+
+        # Pareto markers
+        fig.add_trace(
+            go.Scatter(
+                x=list(pareto_dists),
+                y=list(pareto_durations),
                 mode="markers",
                 name="Pareto Points",
                 marker=dict(color="red", size=10, symbol="circle"),
                 hovertemplate="<b>Pareto Point</b><br>"
                 + "Distance: %{x:.2f} mi<br>"
-                + "Speed: %{y:.2f} mph<br>"
-                + "Pace: %{customdata}<extra></extra>",
-                customdata=pareto_paces,
+                + "Time: %{customdata[0]}<br>"
+                + "Pace: %{customdata[1]}<extra></extra>",
+                customdata=list(zip(pareto_times_hover, pareto_paces)),
                 showlegend=False,
             )
         )
 
     # Plot targets (green X)
     if df_targets is not None and not df_targets.empty:
-        target_points = list(zip(df_targets["Distance"], df_targets["Speed"]))
-        target_dists, target_speeds = zip(*sorted(target_points, key=lambda x: x[0]))
+        target_points = list(zip(df_targets["Distance"], df_targets["Duration"]))
+        target_dists, target_durations = zip(*sorted(target_points, key=lambda x: x[0]))
 
-        # Pick the easiest curve among all green targets (lowest overall speeds)
-        # by sampling each candidate Riegel curve and choosing the minimal mean.
-        def curve_score(
-            anchor_distance: float, anchor_speed: float
+        # Pick the easiest target curve: the one whose Riegel time curve has the
+        # highest mean time (highest = slowest = closest to current Pareto from
+        # below = least improvement required).
+        def curve_score_time(
+            anchor_distance: float, anchor_dur: float
         ) -> tuple[list, list, float]:
-            anchor_pace = (
-                SECONDS_PER_HOUR / anchor_speed if anchor_speed > 0 else np.nan
-            )
-            if np.isnan(anchor_pace):
-                return [], [], np.inf
-
             sample_points = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             sample_points.extend([float(d) for d in target_dists])
             sample_points.append(float(anchor_distance))
             sample_points = sorted(set(sample_points))
 
-            y_vals: list[float] = []
-            for d in sample_points:
-                pace_est = estimate_pace_at_distance(anchor_pace, anchor_distance, d)
-                if pace_est > 0 and not np.isnan(pace_est):
-                    y_vals.append(SECONDS_PER_HOUR / pace_est)
-                else:
-                    y_vals.append(np.nan)
+            y_curve: list[float] = [
+                anchor_dur * (d / anchor_distance) ** 1.06 for d in sample_points
+            ]
+            mean_time = float(np.mean(y_curve)) if y_curve else -np.inf
+            return sample_points, y_curve, mean_time
 
-            finite_vals = [y for y in y_vals if not np.isnan(y)]
-            mean_speed = float(np.mean(finite_vals)) if finite_vals else np.inf
-            return sample_points, y_vals, mean_speed
-
-        best_curve = ([], [], np.inf)
+        best_curve: tuple[list, list, float] = ([], [], -np.inf)
         anchor_idx = 0
-        for i, (t_dist, t_speed) in enumerate(zip(target_dists, target_speeds)):
-            x_curve, y_curve, score = curve_score(t_dist, t_speed)
-            if score < best_curve[2]:
+        for i, (t_dist, t_dur) in enumerate(zip(target_dists, target_durations)):
+            x_curve, y_curve, score = curve_score_time(t_dist, t_dur)
+            if score > best_curve[2]:
                 best_curve = (x_curve, y_curve, score)
                 anchor_idx = i
 
         x_vals, y_vals, _ = best_curve
         if x_vals:
-            # Ensure target speed curve intersects the selected target anchor
+            # Ensure target time curve intersects the selected target anchor
             anchor_distance = target_dists[anchor_idx]
-            anchor_speed = target_speeds[anchor_idx]
+            anchor_dur_val = target_durations[anchor_idx]
             if anchor_distance in x_vals:
-                y_vals[x_vals.index(anchor_distance)] = anchor_speed
+                y_vals[x_vals.index(anchor_distance)] = anchor_dur_val
 
-            # Compute per-point pace strings for the hover tooltip
+            target_curve_times = [_format_duration_minutes(t) for t in y_vals]
             target_curve_paces = [
-                seconds_to_pace_string(SECONDS_PER_HOUR / s)
-                if s and not np.isnan(s) and s > 0
+                seconds_to_pace_string(t * 60.0 / d)
+                if t and not np.isnan(t) and t > 0 and d > 0
                 else "N/A"
-                for s in y_vals
+                for t, d in zip(y_vals, x_vals)
             ]
 
             fig.add_trace(
@@ -252,45 +261,46 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                     x=x_vals,
                     y=y_vals,
                     mode="lines",
-                    name="Target Speed Curve",
+                    name="Target Time Curve",
                     line=dict(color="green", dash="dashdot", width=2),
                     opacity=0.7,
-                    hovertemplate="<b>Target Speed Curve</b><br>"
+                    hovertemplate="<b>Target Time Curve</b><br>"
                     + "Distance: %{x:.2f} mi<br>"
-                    + "Speed: %{y:.2f} mph<br>"
-                    + "Pace: %{customdata}<extra></extra>",
-                    customdata=target_curve_paces,
+                    + "Time: %{customdata[0]}<br>"
+                    + "Pace: %{customdata[1]}<extra></extra>",
+                    customdata=list(zip(target_curve_times, target_curve_paces)),
                 )
             )
 
         # Target markers
+        target_times_hover = [_format_duration_minutes(t) for t in target_durations]
         target_paces = [
-            seconds_to_pace_string(SECONDS_PER_HOUR / s) if s > 0 else "N/A"
-            for s in target_speeds
+            seconds_to_pace_string(t * 60.0 / d) if t > 0 and d > 0 else "N/A"
+            for t, d in zip(target_durations, target_dists)
         ]
         fig.add_trace(
             go.Scatter(
                 x=list(target_dists),
-                y=list(target_speeds),
+                y=list(target_durations),
                 mode="markers",
                 name="Next Targets",
                 marker=dict(color="green", size=12, symbol="x"),
                 hovertemplate="<b>Target</b><br>"
                 + "Distance: %{x:.2f} mi<br>"
-                + "Speed: %{y:.2f} mph<br>"
-                + "Pace: %{customdata}<extra></extra>",
-                customdata=target_paces,
+                + "Time: %{customdata[0]}<br>"
+                + "Pace: %{customdata[1]}<extra></extra>",
+                customdata=list(zip(target_times_hover, target_paces)),
             )
         )
 
-    # Collect all speed values for y-axis range
-    all_speeds = []
+    # Collect all duration values for y-axis range
+    all_durations = []
     if df_pareto is not None and not df_pareto.empty:
-        all_speeds.extend(df_pareto["Speed"].dropna().tolist())
+        all_durations.extend(df_pareto["Duration"].dropna().tolist())
     if df_targets is not None and not df_targets.empty:
-        all_speeds.extend(df_targets["Speed"].dropna().tolist())
-    y_lo = min(all_speeds) * 0.9 if all_speeds else 0
-    y_hi = max(all_speeds) * 1.1 if all_speeds else 10
+        all_durations.extend(df_targets["Duration"].dropna().tolist())
+    y_lo = min(all_durations) * 0.8 if all_durations else 0
+    y_hi = max(all_durations) * 1.2 if all_durations else 100
 
     # Add vertical dotted lines for common race distances with always-visible
     # labels near the top.  Use add_vline for the line (handles log axes) and
@@ -318,12 +328,12 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
     fig.update_layout(
         title=(
-            f"Speed vs. Distance for {Exercise}<br><sup>Targets use 10% of the "
-            "distance & speed deltas between neighboring Pareto points; "
-            "Riegel curve: pace2 = pace1 * (d2/d1)^0.06.</sup>"
+            f"Total Time vs. Distance for {Exercise}<br><sup>Targets use 10% of the "
+            "distance & time deltas between neighboring Pareto points; "
+            "Riegel curve: time2 = time1 \u00d7 (d2/d1)^1.06.</sup>"
         ),
         xaxis_title="Distance (miles)",
-        yaxis_title="Speed (mph, higher=faster)",
+        yaxis_title="Total Time (min, lower=faster)",
         xaxis_type="log",
         xaxis=dict(range=[np.log10(plot_min_dist), np.log10(plot_max_dist)]),
         yaxis=dict(range=[y_lo, y_hi]),

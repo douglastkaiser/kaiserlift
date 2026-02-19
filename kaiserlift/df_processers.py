@@ -254,6 +254,75 @@ def add_1rm_column(df: pd.DataFrame) -> pd.DataFrame:
     return df_copy
 
 
+def highest_1rm_per_rep(df: pd.DataFrame) -> pd.DataFrame:
+    """Find the Pareto front in 1RM-rep space.
+
+    For each (Exercise, Reps) pair finds the max weight (same first step as
+    :func:`highest_weight_per_rep`), then computes the Epley 1RM for each
+    record and applies Pareto dominance in *1RM space*: a record is dominated
+    when another record with strictly more reps implies an equal or greater
+    estimated 1RM.
+
+    This differs from :func:`highest_weight_per_rep`, which uses weight-based
+    dominance.  A lower-rep record can be dominated here even when it was
+    lifted at a heavier weight, if a higher-rep effort implies a greater max
+    strength estimate.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Lifting data with columns: [Exercise, Weight, Reps, …]
+
+    Returns
+    -------
+    pd.DataFrame
+        Pareto records for the 1RM-vs-reps chart (includes a ``1RM`` column).
+
+    Notes
+    -----
+    A record (R, W) is dominated if there exists (R', W') where:
+    - R' > R (strictly more reps)
+    - calculate_1rm(W', R') >= calculate_1rm(W, R)
+    """
+    required_cols = ["Exercise", "Weight", "Reps"]
+    assert all(col in df.columns for col in required_cols)
+
+    df_copy = df.copy()
+    df_copy["Weight"] = pd.to_numeric(df_copy["Weight"], errors="coerce")
+    df_copy["Reps"] = pd.to_numeric(df_copy["Reps"], errors="coerce")
+    df_copy = df_copy.dropna(subset=["Exercise", "Weight", "Reps"])
+    df_copy["Reps"] = df_copy["Reps"].astype(int)
+
+    if df_copy.empty:
+        return pd.DataFrame(columns=list(df.columns) + ["1RM"])
+
+    # Find max weight per (Exercise, Reps)
+    idx = df_copy.groupby(["Exercise", "Reps"])["Weight"].idxmax()
+    max_weight_sets = df_copy.loc[idx].copy()
+
+    # Compute 1RM for each record
+    max_weight_sets["1RM"] = max_weight_sets.apply(
+        lambda row: calculate_1rm(row["Weight"], row["Reps"]), axis=1
+    )
+
+    # Pareto filter in 1RM space
+    def is_dominated_1rm(row, group_df):
+        """Record dominated if a higher-rep set implies >= 1RM."""
+        dominating = group_df[
+            (group_df["Reps"] > row["Reps"]) & (group_df["1RM"] >= row["1RM"])
+        ]
+        return not dominating.empty
+
+    final_indices = []
+    for _exercise_name, group in max_weight_sets.groupby("Exercise"):
+        rows_to_keep = group[
+            ~group.apply(lambda row: is_dominated_1rm(row, group), axis=1)
+        ]
+        final_indices.extend(rows_to_keep.index.tolist())
+
+    return max_weight_sets.loc[final_indices]
+
+
 def df_next_pareto(df_records):
     rows = []
     for ex in df_records["Exercise"].unique():

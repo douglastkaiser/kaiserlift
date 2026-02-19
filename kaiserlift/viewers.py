@@ -534,7 +534,6 @@ def render_table_fragment(df) -> str:
     """
 
     df_records = highest_weight_per_rep(df)
-    df_1rm_pareto = highest_1rm_per_rep(df)
     df_targets = df_next_pareto(df_records)
 
     figures_html: dict[str, str] = {}
@@ -542,14 +541,8 @@ def render_table_fragment(df) -> str:
     exercise_slug = {ex: slugify(ex) for ex in df_records["Exercise"].unique()}
 
     for exercise, slug in exercise_slug.items():
-        # Combined subplot: Weight vs Reps (top) + 1RM vs Reps (bottom),
-        # x-axes shared for synchronized zooming.
-        fig_combined = plot_df_combined(
-            df_records, df_1rm_pareto, df_targets, Exercise=exercise
-        )
-        figures_html[exercise] = plotly_figure_to_html_div(
-            fig_combined, slug, display="none"
-        )
+        fig = plot_df(df_records, df_targets, Exercise=exercise)
+        figures_html[exercise] = plotly_figure_to_html_div(fig, slug, display="none")
 
     all_figures_html = "\n".join(figures_html.values())
 

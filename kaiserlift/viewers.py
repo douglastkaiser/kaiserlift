@@ -4,7 +4,6 @@ import plotly.graph_objects as go
 from .df_processers import (
     calculate_1rm,
     highest_weight_per_rep,
-    highest_1rm_per_rep,
     estimate_weight_from_1rm,
     df_next_pareto,
 )

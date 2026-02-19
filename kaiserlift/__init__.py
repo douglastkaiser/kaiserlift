@@ -35,11 +35,13 @@ try:
 
     from .running_viewers import (
         plot_running_df,
+        plot_running_pace_df,
         gen_running_html_viewer,
     )
 
     from .running_processers import (
         highest_pace_per_distance,
+        highest_pace_per_distance_pace_pareto,
         estimate_pace_at_distance,
         add_speed_metric_column,
         df_next_running_targets,
@@ -72,10 +74,12 @@ __all__ = [
     "running_pipeline",
     "process_running_csv_files",
     "highest_pace_per_distance",
+    "highest_pace_per_distance_pace_pareto",
     "estimate_pace_at_distance",
     "add_speed_metric_column",
     "df_next_running_targets",
     "plot_running_df",
+    "plot_running_pace_df",
     "gen_running_html_viewer",
     "calculate_pace_from_duration",
     "seconds_to_pace_string",

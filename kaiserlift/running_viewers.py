@@ -679,6 +679,149 @@ def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
     return fig
 
 
+def plot_running_combined(
+    df_time_pareto,
+    df_time_targets,
+    df_pace_pareto,
+    df_pace_targets,
+    Exercise: str,
+):
+    """Combined two-row subplot: Total Time vs Distance (top) + Pace vs Distance (bottom).
+
+    The X-axis (distance) is shared between both subplots so that zooming or
+    panning on one row automatically updates the other.
+
+    Parameters
+    ----------
+    df_time_pareto : pd.DataFrame
+        Time-Pareto records (from highest_pace_per_distance).
+    df_time_targets : pd.DataFrame
+        Targets for the time graph.
+    df_pace_pareto : pd.DataFrame
+        Pace-Pareto records (from highest_pace_per_distance_pace_pareto).
+    df_pace_targets : pd.DataFrame
+        Targets for the pace graph (computed from pace-Pareto, not time-Pareto).
+    Exercise : str
+        Exercise to plot.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        Single combined subplot figure.
+    """
+    from plotly.subplots import make_subplots
+
+    fig_time = plot_running_df(df_time_pareto, df_time_targets, Exercise=Exercise)
+    fig_pace = plot_running_pace_df(df_pace_pareto, df_pace_targets, Exercise=Exercise)
+
+    combined = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.06,
+        subplot_titles=["Total Time vs. Distance", "Pace vs. Distance"],
+    )
+
+    # Add time traces to row 1
+    time_trace_names = {t.name for t in fig_time.data if t.name}
+    for trace in fig_time.data:
+        combined.add_trace(trace, row=1, col=1)
+
+    # Add pace traces to row 2; suppress legend entries already shown in row 1
+    for trace in fig_pace.data:
+        if trace.name in time_trace_names:
+            trace.showlegend = False
+        combined.add_trace(trace, row=2, col=1)
+
+    # Shared x-axis: log scale, label on bottom subplot only
+    x_range = list(fig_time.layout.xaxis.range)
+    combined.update_xaxes(type="log", range=x_range)
+    combined.update_xaxes(title_text="Distance (miles)", row=2, col=1)
+
+    # Row 1 y-axis: total time (log scale, normal orientation — short time at top)
+    tl = fig_time.layout
+    combined.update_yaxes(
+        type="log",
+        range=list(tl.yaxis.range),
+        title_text="Total Time (min)",
+        row=1,
+        col=1,
+    )
+
+    # Row 2 y-axis: pace (log scale, inverted so faster = visually higher, custom ticks)
+    pl = fig_pace.layout
+    pace_yaxis_kwargs: dict = dict(
+        type="log",
+        range=list(pl.yaxis.range),
+        title_text="Pace (min/mi)",
+    )
+    if pl.yaxis.tickmode:
+        pace_yaxis_kwargs["tickmode"] = pl.yaxis.tickmode
+    if pl.yaxis.tickvals is not None and len(pl.yaxis.tickvals) > 0:
+        pace_yaxis_kwargs["tickvals"] = list(pl.yaxis.tickvals)
+    if pl.yaxis.ticktext is not None and len(pl.yaxis.ticktext) > 0:
+        pace_yaxis_kwargs["ticktext"] = list(pl.yaxis.ticktext)
+    combined.update_yaxes(row=2, col=1, **pace_yaxis_kwargs)
+
+    # Race distance vlines on both subplots
+    race_distances = [
+        (3.10686, "5K"),
+        (13.1094, "Half"),
+        (26.2188, "Marathon"),
+    ]
+    x_lo = 10 ** x_range[0]
+    x_hi = 10 ** x_range[1]
+    for race_dist, race_label in race_distances:
+        if x_lo <= race_dist <= x_hi:
+            for row in (1, 2):
+                combined.add_vline(
+                    x=race_dist,
+                    line_dash="dot",
+                    line_color="gray",
+                    line_width=1,
+                    opacity=0.6,
+                    row=row,
+                    col=1,
+                )
+            combined.add_annotation(
+                x=np.log10(race_dist),
+                xref="x",
+                y=1,
+                yref="y domain",
+                text=race_label,
+                showarrow=False,
+                font=dict(size=10, color="rgba(150,150,150,0.8)"),
+                yanchor="bottom",
+                yshift=2,
+                row=1,
+                col=1,
+            )
+
+    combined.update_layout(
+        title=(
+            f"Running Performance: {Exercise}<br><sup>"
+            "Red\u202f=\u202fPareto front \u00b7 Black\u202f=\u202fBest Riegel curve \u00b7 "
+            "Green\u202f=\u202fNext targets \u00b7 X-axes linked for synchronized zoom.</sup>"
+        ),
+        hovermode="closest",
+        template="plotly_white",
+        height=880,
+        margin=dict(t=80, l=60, r=20, b=100),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.06,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="rgba(0,0,0,0.1)",
+            borderwidth=1,
+        ),
+    )
+
+    return combined
+
+
 def render_running_table_fragment(df) -> str:
     """Render HTML fragment with running data visualization.
 
@@ -751,43 +894,42 @@ def render_running_table_fragment(df) -> str:
     else:
         df_targets_display = df_targets
 
-    # Compute pace Pareto for the pace-vs-distance graph (different dominance rule)
+    # Compute pace Pareto and pace-specific targets for the pace-vs-distance graph.
+    # Targets must be computed from the pace-Pareto front (not the time-Pareto)
+    # so that the green X markers are positioned correctly relative to the
+    # pace-Pareto staircase.
     df_pace_pareto = highest_pace_per_distance_pace_pareto(df)
     df_pace_pareto = add_speed_metric_column(df_pace_pareto)
+    df_pace_targets = df_next_running_targets(df_pace_pareto)
 
     figures_html: dict[str, str] = {}
 
     exercise_slug = {ex: slugify(ex) for ex in df_records["Exercise"].unique()}
 
-    # Generate both plots for each exercise and stack them vertically
+    # Generate a single combined subplot per exercise (time on top, pace on bottom,
+    # x-axes linked for synchronized zooming).
     for exercise, slug in exercise_slug.items():
         try:
-            # Time graph (distance vs total time)
-            fig_time = plot_running_df(df_records, df_targets, Exercise=exercise)
-            time_html = plotly_figure_to_html_div(
-                fig_time, slug, display="block", css_class="running-figure"
-            )
-
-            # Pace graph (distance vs pace)
             exercise_pace_pareto = df_pace_pareto[
                 df_pace_pareto["Exercise"] == exercise
             ]
             if not exercise_pace_pareto.empty:
-                fig_pace = plot_running_pace_df(
-                    df_pace_pareto, df_targets, Exercise=exercise
+                fig_combined = plot_running_combined(
+                    df_records,
+                    df_targets,
+                    df_pace_pareto,
+                    df_pace_targets,
+                    Exercise=exercise,
                 )
-                pace_html = plotly_figure_to_html_div(
-                    fig_pace,
-                    slug + "-pace",
-                    display="block",
-                    css_class="running-figure",
+                figures_html[exercise] = plotly_figure_to_html_div(
+                    fig_combined, slug, display="block", css_class="running-figure"
                 )
             else:
-                pace_html = ""
-
-            figures_html[exercise] = (
-                f'<div class="exercise-figure-pair">{time_html}\n{pace_html}</div>'
-            )
+                # Fall back to time-only graph if pace data is unavailable
+                fig_time = plot_running_df(df_records, df_targets, Exercise=exercise)
+                figures_html[exercise] = plotly_figure_to_html_div(
+                    fig_time, slug, display="block", css_class="running-figure"
+                )
         except Exception:
             # If plot generation fails, skip this exercise and continue
             plt.close("all")  # Clean up any partial figures

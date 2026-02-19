@@ -10,7 +10,7 @@ from .df_processers import (
 )
 from .plot_utils import (
     slugify,
-    plotly_figures_pair_to_html_div,
+    plotly_figure_to_html_div,
     get_plotly_cdn_html,
     get_plotly_preconnect_html,
 )
@@ -383,6 +383,100 @@ def plot_df_1rm(df_pareto=None, df_targets=None, Exercise: str = None):
     return fig
 
 
+def plot_df_combined(
+    df_weight_pareto=None,
+    df_1rm_pareto=None,
+    df_targets=None,
+    Exercise: str = None,
+):
+    """Combined two-row subplot: Weight vs Reps (top) + Estimated 1RM vs Reps (bottom).
+
+    The X-axis (reps) is shared between both subplots so that zooming or panning
+    on one row automatically updates the other.
+
+    Parameters
+    ----------
+    df_weight_pareto : pd.DataFrame, optional
+        Weight-Pareto records (from highest_weight_per_rep).
+    df_1rm_pareto : pd.DataFrame, optional
+        1RM-Pareto records (from highest_1rm_per_rep).
+    df_targets : pd.DataFrame, optional
+        Target sets (same for both subplots).
+    Exercise : str, optional
+        Exercise to plot.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        Single combined subplot figure.
+    """
+    from plotly.subplots import make_subplots
+
+    fig_weight = plot_df(df_weight_pareto, df_targets, Exercise=Exercise)
+    fig_1rm = plot_df_1rm(df_1rm_pareto, df_targets, Exercise=Exercise)
+
+    combined = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.06,
+        subplot_titles=["Weight vs. Reps", "Estimated 1RM vs. Reps"],
+    )
+
+    # Add weight traces to row 1
+    weight_trace_names = {t.name for t in fig_weight.data if t.name}
+    for trace in fig_weight.data:
+        combined.add_trace(trace, row=1, col=1)
+
+    # Add 1RM traces to row 2; suppress legend entries already shown in row 1
+    for trace in fig_1rm.data:
+        if trace.name in weight_trace_names:
+            trace.showlegend = False
+        combined.add_trace(trace, row=2, col=1)
+
+    # Shared x-axis: label on bottom subplot only
+    wl = fig_weight.layout
+    combined.update_xaxes(range=list(wl.xaxis.range))
+    combined.update_xaxes(title_text="Reps", row=2, col=1)
+
+    # Row 1 y-axis: weight
+    combined.update_yaxes(title_text="Weight (lbs)", row=1, col=1)
+
+    # Row 2 y-axis: 1RM with explicit range from the individual figure
+    ol = fig_1rm.layout
+    combined.update_yaxes(
+        range=list(ol.yaxis.range),
+        title_text="Estimated 1RM (lbs)",
+        row=2,
+        col=1,
+    )
+
+    closest = get_closest_exercise(df_weight_pareto, Exercise)
+    combined.update_layout(
+        title=(
+            f"Lifting Performance: {closest}<br><sup>"
+            "Red\u202f=\u202fPareto front \u00b7 Black\u202f=\u202fBest Epley curve \u00b7 "
+            "Green\u202f=\u202fNext targets \u00b7 X-axes linked for synchronized zoom.</sup>"
+        ),
+        hovermode="closest",
+        template="plotly_white",
+        height=880,
+        margin=dict(t=80, l=60, r=20, b=100),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.06,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="rgba(0,0,0,0.1)",
+            borderwidth=1,
+        ),
+    )
+
+    return combined
+
+
 def print_oldest_exercise(
     df, n_cat=2, n_exercises_per_cat=2, n_target_sets_per_exercises=2
 ) -> None:
@@ -448,15 +542,14 @@ def render_table_fragment(df) -> str:
     exercise_slug = {ex: slugify(ex) for ex in df_records["Exercise"].unique()}
 
     for exercise, slug in exercise_slug.items():
-        # Weight vs Reps graph (existing)
-        fig_weight = plot_df(df_records, df_targets, Exercise=exercise)
-        # 1RM vs Reps graph (new — different Pareto dominance rule)
-        fig_1rm = plot_df_1rm(df_1rm_pareto, df_targets, Exercise=exercise)
-        # Wrap both in a single container so JS show/hide controls them together
-        pair_html = plotly_figures_pair_to_html_div(
-            fig_weight, fig_1rm, slug, display="none"
+        # Combined subplot: Weight vs Reps (top) + 1RM vs Reps (bottom),
+        # x-axes shared for synchronized zooming.
+        fig_combined = plot_df_combined(
+            df_records, df_1rm_pareto, df_targets, Exercise=exercise
         )
-        figures_html[exercise] = pair_html
+        figures_html[exercise] = plotly_figure_to_html_div(
+            fig_combined, slug, display="none"
+        )
 
     all_figures_html = "\n".join(figures_html.values())
 

@@ -9,6 +9,7 @@ from kaiserlift.running_processers import (
     seconds_to_pace_string,
     highest_pace_per_distance,
     estimate_pace_at_distance,
+    riegel_pace_exponent,
     df_next_running_targets,
     add_speed_metric_column,
     predict_race_pace,
@@ -131,14 +132,33 @@ def test_highest_pace_per_distance_time_dominance():
     assert result["Distance"].values[0] == 10.0
 
 
+def test_riegel_pace_exponent():
+    """Test that the variable exponent grows with distance."""
+    # Standard Riegel holds up to half marathon
+    assert riegel_pace_exponent(5.0) == 0.06
+    assert riegel_pace_exponent(13.1) == 0.06
+
+    # Exponent grows beyond half marathon
+    assert riegel_pace_exponent(26.2) > 0.06  # marathon
+    assert riegel_pace_exponent(50.0) > riegel_pace_exponent(26.2)
+    assert riegel_pace_exponent(100.0) > riegel_pace_exponent(50.0)
+
+    # Caps beyond 100 miles
+    assert riegel_pace_exponent(150.0) == riegel_pace_exponent(100.0)
+
+    # Monotonically non-decreasing over the whole range
+    distances = [1, 5, 10, 13.1, 20, 26.2, 35, 50, 75, 100, 150]
+    exponents = [riegel_pace_exponent(d) for d in distances]
+    for i in range(len(exponents) - 1):
+        assert exponents[i] <= exponents[i + 1]
+
+
 def test_estimate_pace_at_distance():
-    """Test pace estimation at different distances using Riegel's formula."""
+    """Test pace estimation at different distances."""
     # Best pace: 9:30 (570 sec/mi) at 5 miles
-    # Estimate at 10 miles (2x distance)
-    # Riegel's formula: pace2 = pace1 * (distance2/distance1)^0.06
-    # 570 * (10/5)^0.06 = 570 * 2^0.06 ≈ 594.05
+    # Estimate at 10 miles (2x distance, target ≤ 13.1 mi → exponent still 0.06)
     estimated = estimate_pace_at_distance(570, 5.0, 10.0)
-    expected = 570 * (10.0 / 5.0) ** 0.06  # Riegel's formula
+    expected = 570 * (10.0 / 5.0) ** 0.06
     assert abs(estimated - expected) < 0.1
 
     # Same distance should return same pace
@@ -148,6 +168,13 @@ def test_estimate_pace_at_distance():
     # Shorter distance should be faster
     estimated = estimate_pace_at_distance(570, 5.0, 2.5)
     assert estimated < 570
+
+    # Ultra distance (50 mi) should predict a slower pace than standard 0.06 would
+    est_50 = estimate_pace_at_distance(440, 10.0, 50.0)
+    standard_50 = 440 * (50.0 / 10.0) ** 0.06
+    assert est_50 > standard_50, (
+        "50-mile prediction should be slower than standard Riegel"
+    )
 
 
 def test_estimate_pace_at_distance_edge_cases():

@@ -16,6 +16,7 @@ from .running_processers import (
     seconds_to_pace_string,
     add_speed_metric_column,
     estimate_pace_at_distance,
+    riegel_pace_exponent,
 )
 from .plot_utils import (
     slugify,
@@ -139,13 +140,17 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             best_distance = float(df_pareto.loc[max_speed_idx, "Distance"])
             anchor_duration = float(df_pareto.loc[max_speed_idx, "Duration"])
 
-        # Generate Riegel time curve: T(D) = T_anchor * (D / D_anchor)^1.06
+        # Generate Riegel time curve: T(D) = T_anchor * (D / D_anchor)^(1+exponent(D))
+        # The exponent grows with distance to capture ultra-marathon fatigue.
         if not np.isnan(anchor_duration) and not np.isnan(best_distance):
             x_vals = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             x_vals.append(float(best_distance))
             x_vals = sorted(set(x_vals))
 
-            y_vals = [anchor_duration * (d / best_distance) ** 1.06 for d in x_vals]
+            y_vals = [
+                anchor_duration * (d / best_distance) ** (1 + riegel_pace_exponent(d))
+                for d in x_vals
+            ]
 
             # Ensure the curve intersects the anchor Pareto point exactly
             anchor_idx = x_vals.index(best_distance)
@@ -228,7 +233,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             sample_points = sorted(set(sample_points))
 
             y_curve: list[float] = [
-                anchor_dur * (d / anchor_distance) ** 1.06 for d in sample_points
+                anchor_dur * (d / anchor_distance) ** (1 + riegel_pace_exponent(d))
+                for d in sample_points
             ]
             mean_time = float(np.mean(y_curve)) if y_curve else -np.inf
             return sample_points, y_curve, mean_time
@@ -331,7 +337,8 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         title=(
             f"Total Time vs. Distance for {Exercise}<br><sup>Targets use 10% of the "
             "distance & time deltas between neighboring Pareto points; "
-            "Riegel curve: time2 = time1 \u00d7 (d2/d1)^1.06.</sup>"
+            "Riegel curve: time2 = time1 \u00d7 (d2/d1)^e, "
+            "e\u202f=\u202f0.06\u2013-0.14 (grows with distance).</sup>"
         ),
         xaxis_title="Distance (miles)",
         yaxis_title="Total Time (min, upper=faster)",

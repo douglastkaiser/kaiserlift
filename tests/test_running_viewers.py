@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from kaiserlift.running_viewers import plot_running_df
+from kaiserlift.running_processers import riegel_pace_exponent
 
 
 def _get_trace(fig, name: str):
@@ -56,7 +57,7 @@ def test_running_curves_anchor_to_points():
     best_target_idx = 0
     sample = np.linspace(0.5, 10.0, 50).tolist()
     for i, (t_dist, t_dur) in enumerate(zip(df_targets["Distance"], target_durations)):
-        times = [t_dur * (d / t_dist) ** 1.06 for d in sample]
+        times = [t_dur * (d / t_dist) ** (1 + riegel_pace_exponent(d)) for d in sample]
         mean_t = float(np.mean(times))
         if mean_t > best_score:
             best_score = mean_t

@@ -8,6 +8,7 @@ from kaiserlift.running_processers import (
     calculate_pace_from_duration,
     seconds_to_pace_string,
     highest_pace_per_distance,
+    highest_pace_per_distance_pace_pareto,
     estimate_pace_at_distance,
     riegel_pace_exponent,
     df_next_running_targets,
@@ -348,6 +349,75 @@ def test_multiple_exercises():
 
     assert len(running_records) == 2
     assert len(cycling_records) == 2
+
+
+def test_highest_pace_per_distance_pace_pareto_basic():
+    """Test pace-distance Pareto keeps all non-dominated pace records."""
+    df = pd.DataFrame(
+        {
+            "Date": [datetime(2024, 1, i) for i in range(1, 4)],
+            "Exercise": ["Running"] * 3,
+            "Category": ["Cardio"] * 3,
+            "Distance": [3.0, 5.0, 10.0],
+            "Pace": [540, 570, 600],  # 9:00, 9:30, 10:00
+        }
+    )
+
+    result = highest_pace_per_distance_pace_pareto(df)
+
+    # All three survive: no record has both longer distance AND faster pace.
+    assert len(result) == 3
+    assert sorted(result["Distance"].tolist()) == [3.0, 5.0, 10.0]
+
+
+def test_highest_pace_per_distance_pace_pareto_dominated():
+    """Test that a record dominated in pace-distance space is removed."""
+    # 5mi @ 9:00 dominates 5mi @ 9:30 (same distance, faster pace).
+    # But since groupby already picks the best pace per distance, this
+    # tests cross-distance dominance: 10mi @ 8:30 dominates 5mi @ 9:00
+    # because 10 >= 5 and 510 <= 540.
+    df = pd.DataFrame(
+        {
+            "Date": [datetime(2024, 1, i) for i in range(1, 3)],
+            "Exercise": ["Running"] * 2,
+            "Category": ["Cardio"] * 2,
+            "Distance": [5.0, 10.0],
+            "Pace": [540, 510],  # 9:00, 8:30 — longer AND faster
+        }
+    )
+
+    result = highest_pace_per_distance_pace_pareto(df)
+
+    # 5mi @ 9:00 is dominated by 10mi @ 8:30 (farther and faster pace).
+    assert len(result) == 1
+    assert result["Distance"].values[0] == 10.0
+    assert result["Pace"].values[0] == 510
+
+
+def test_highest_pace_per_distance_pace_pareto_time_pareto_differs():
+    """Pace Pareto and time Pareto can yield different fronts."""
+    # 5mi @ 10:00 (total 50 min) vs 10mi @ 9:30 (total 95 min).
+    # Time Pareto: 10mi takes MORE total time, so 5mi survives.
+    # Pace Pareto: 10mi has faster pace (570 < 600), so 5mi IS dominated.
+    df = pd.DataFrame(
+        {
+            "Date": [datetime(2024, 1, i) for i in range(1, 3)],
+            "Exercise": ["Running"] * 2,
+            "Category": ["Cardio"] * 2,
+            "Distance": [5.0, 10.0],
+            "Pace": [600, 570],  # 10:00, 9:30
+        }
+    )
+
+    time_result = highest_pace_per_distance(df)
+    pace_result = highest_pace_per_distance_pace_pareto(df)
+
+    # Time Pareto: both survive (10mi takes more total time)
+    assert len(time_result) == 2
+
+    # Pace Pareto: 5mi is dominated (10mi is farther AND faster pace)
+    assert len(pace_result) == 1
+    assert pace_result["Distance"].values[0] == 10.0
 
 
 def test_running_targets_multiple_exercises():

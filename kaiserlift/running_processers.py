@@ -479,6 +479,74 @@ def df_next_running_targets(df_records: pd.DataFrame) -> pd.DataFrame:
     return add_speed_metric_column(target_df)
 
 
+def highest_pace_per_distance_pace_pareto(df: pd.DataFrame) -> pd.DataFrame:
+    """Find Pareto front in pace-distance space (best pace per distance).
+
+    Groups by (Exercise, Distance) and finds minimum pace (fastest), then
+    applies Pareto dominance in pace-distance space: removes records dominated
+    by others that ran at least as far at least as fast a pace.
+
+    This differs from ``highest_pace_per_distance`` which uses total-time
+    dominance (distance-vs-time chart axes).  Here dominance is defined purely
+    on pace: a record (D, P) is dominated when another record (D', P') has
+    D' >= D *and* P' <= P (faster or equal pace over at least as long a
+    distance).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Running data with columns: [Date, Exercise, Category, Distance, Pace]
+
+    Returns
+    -------
+    pd.DataFrame
+        Pareto records for the pace-vs-distance chart
+
+    Notes
+    -----
+    A record (D, P) is dominated if there exists another record (D', P') where:
+    - D' >= D (at least as far)
+    - P' <= P (at least as fast pace, i.e. fewer seconds per mile)
+    """
+
+    df_copy = df.copy()
+    df_copy["Distance"] = pd.to_numeric(df_copy["Distance"], errors="coerce")
+    df_copy["Pace"] = pd.to_numeric(df_copy["Pace"], errors="coerce")
+    df_copy = df_copy.dropna(subset=["Exercise", "Distance", "Pace"])
+
+    if df_copy.empty:
+        return pd.DataFrame(columns=df.columns)
+
+    # Find fastest pace (minimum) for each (Exercise, Distance) pair.
+    idx = df_copy.groupby(["Exercise", "Distance"])["Pace"].idxmin()
+    best_pace_sets = df_copy.loc[idx].copy()
+
+    # Apply Pareto dominance filter in pace-distance space.
+    def is_dominated_pace(row, group_df):
+        """Check if this record is dominated in pace-distance space.
+
+        Record (D, P) is dominated if exists (D', P') where:
+        - D' >= D (at least as far)
+        - P' <= P (at least as fast pace)
+        """
+        dominating = group_df[
+            (group_df["Distance"] >= row["Distance"])
+            & (group_df["Pace"] <= row["Pace"])
+        ]
+        # More than just itself means it's dominated
+        return len(dominating) > 1
+
+    final_indices = []
+    for exercise_name, group in best_pace_sets.groupby("Exercise"):
+        rows_to_keep = group[
+            ~group.apply(lambda row: is_dominated_pace(row, group), axis=1)
+        ]
+        final_indices.extend(rows_to_keep.index.tolist())
+
+    result = best_pace_sets.loc[final_indices].sort_values(["Exercise", "Distance"])
+    return result
+
+
 def predict_race_pace(
     df_records: pd.DataFrame, exercise: str, target_distance: float
 ) -> dict:

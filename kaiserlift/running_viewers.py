@@ -12,6 +12,7 @@ import plotly.graph_objects as go
 from .running_processers import (
     SECONDS_PER_HOUR,
     highest_pace_per_distance,
+    highest_pace_per_distance_pace_pareto,
     df_next_running_targets,
     seconds_to_pace_string,
     add_speed_metric_column,
@@ -365,6 +366,462 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
     return fig
 
 
+def _pace_axis_ticks(y_lo: float, y_hi: float) -> tuple[list, list]:
+    """Generate tick values and M:SS labels for a pace axis (sec/mile)."""
+    pace_range = y_hi - y_lo
+    if pace_range <= 120:
+        interval = 15
+    elif pace_range <= 300:
+        interval = 30
+    elif pace_range <= 600:
+        interval = 60
+    else:
+        interval = 120
+    start = int(y_lo // interval) * interval
+    stop = int(y_hi // interval + 1) * interval
+    tick_vals = [
+        t for t in range(start, stop + 1, interval) if y_lo * 0.95 <= t <= y_hi * 1.05
+    ]
+    tick_texts = [seconds_to_pace_string(t) for t in tick_vals]
+    return tick_vals, tick_texts
+
+
+def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
+    """Plot running performance: Distance vs Pace (min/mi).
+
+    Same colour scheme as plot_running_df but with pace on the Y-axis
+    (inverted so faster pace is visually higher) and a pace-based Pareto front
+    whose dominance is computed in pace-distance space rather than
+    time-distance space.
+
+    Parameters
+    ----------
+    df_pareto : pd.DataFrame, optional
+        Pace-Pareto records (from highest_pace_per_distance_pace_pareto)
+    df_targets : pd.DataFrame, optional
+        Target running goals (same as used by plot_running_df)
+    Exercise : str, optional
+        Specific exercise to plot. Must be specified.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        The generated interactive figure
+    """
+
+    if df_pareto is None or df_pareto.empty:
+        raise ValueError("df_pareto must be provided and non-empty")
+
+    if Exercise is None:
+        raise ValueError("Exercise must be specified")
+
+    # Filter to exercise and add Speed if missing
+    df_pareto = df_pareto[df_pareto["Exercise"] == Exercise].copy()
+    if "Speed" not in df_pareto.columns and "Pace" in df_pareto.columns:
+        df_pareto["Speed"] = df_pareto["Pace"].apply(
+            lambda p: SECONDS_PER_HOUR / p if pd.notna(p) and p > 0 else np.nan
+        )
+
+    if df_targets is not None:
+        df_targets = df_targets[df_targets["Exercise"] == Exercise].copy()
+
+    # Common race distances for vertical marker lines
+    race_distances = [
+        (3.10686, "5K"),
+        (13.1094, "Half Marathon"),
+        (26.2188, "Marathon"),
+    ]
+
+    # Calculate axis limits
+    distance_series = [df_pareto["Distance"]]
+    if df_targets is not None and not df_targets.empty:
+        distance_series.append(df_targets["Distance"])
+
+    min_dist = min(s.min() for s in distance_series)
+    max_dist = max(s.max() for s in distance_series)
+    plot_min_dist = min_dist * 0.7
+    plot_max_dist = max_dist * 1.3
+
+    for race_dist, _ in race_distances:
+        if race_dist <= max_dist:
+            plot_min_dist = min(plot_min_dist, race_dist * 0.85)
+        if race_dist >= min_dist:
+            plot_max_dist = max(plot_max_dist, race_dist * 1.15)
+
+    fig = go.Figure()
+
+    # Anchor for Riegel pace curve: point with best (fastest) pace = max speed
+    best_distance = np.nan
+    anchor_pace = np.nan
+
+    # Plot Pareto front (red line + circles)
+    if not df_pareto.empty:
+        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Pace"]))
+        pareto_dists, pareto_paces = zip(*sorted(pareto_points, key=lambda x: x[0]))
+
+        if "Speed" in df_pareto.columns:
+            max_speed_idx = int(df_pareto["Speed"].idxmax())
+            best_distance = float(df_pareto.loc[max_speed_idx, "Distance"])
+            anchor_pace = float(df_pareto.loc[max_speed_idx, "Pace"])
+
+        # Riegel pace curve: P(D) = P_anchor * (D/D_anchor)^exponent(D)
+        # Derived from T(D) = P(D)*D = P_anchor*D_anchor*(D/D_anchor)^(1+e)
+        # → P(D) = P_anchor * (D/D_anchor)^e
+        if not np.isnan(anchor_pace) and not np.isnan(best_distance):
+            x_vals = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
+            x_vals.append(float(best_distance))
+            x_vals = sorted(set(x_vals))
+
+            y_vals = [
+                anchor_pace * (d / best_distance) ** riegel_pace_exponent(d)
+                for d in x_vals
+            ]
+
+            # Ensure curve passes through the anchor point exactly
+            anchor_idx = x_vals.index(best_distance)
+            y_vals[anchor_idx] = anchor_pace
+
+            best_curve_paces = [seconds_to_pace_string(p) for p in y_vals]
+            best_curve_speeds = [
+                f"{SECONDS_PER_HOUR / p:.2f} mph" if p and p > 0 else "N/A"
+                for p in y_vals
+            ]
+
+            fig.add_trace(
+                go.Scatter(
+                    x=x_vals,
+                    y=y_vals,
+                    mode="lines",
+                    name="Best Pace Curve",
+                    line=dict(color="black", dash="dash", width=2),
+                    opacity=0.7,
+                    hovertemplate="<b>Best Pace Curve</b><br>"
+                    + "Distance: %{x:.2f} mi<br>"
+                    + "Pace: %{customdata[0]}<br>"
+                    + "Speed: %{customdata[1]}<extra></extra>",
+                    customdata=list(zip(best_curve_paces, best_curve_speeds)),
+                )
+            )
+
+        pareto_pace_strs = [seconds_to_pace_string(p) for p in pareto_paces]
+        pareto_speed_strs = [
+            f"{SECONDS_PER_HOUR / p:.2f} mph" if p and p > 0 else "N/A"
+            for p in pareto_paces
+        ]
+
+        fig.add_trace(
+            go.Scatter(
+                x=list(pareto_dists),
+                y=list(pareto_paces),
+                mode="lines",
+                name="Pareto Front (Best Paces)",
+                line=dict(color="red", shape="vh", width=2),
+                hovertemplate="<b>Pareto Front</b><extra></extra>",
+            )
+        )
+
+        fig.add_trace(
+            go.Scatter(
+                x=list(pareto_dists),
+                y=list(pareto_paces),
+                mode="markers",
+                name="Pareto Points",
+                marker=dict(color="red", size=10, symbol="circle"),
+                hovertemplate="<b>Pareto Point</b><br>"
+                + "Distance: %{x:.2f} mi<br>"
+                + "Pace: %{customdata[0]}<br>"
+                + "Speed: %{customdata[1]}<extra></extra>",
+                customdata=list(zip(pareto_pace_strs, pareto_speed_strs)),
+                showlegend=False,
+            )
+        )
+
+    # Plot targets (green dashed curve + X markers)
+    if df_targets is not None and not df_targets.empty:
+        target_points = list(zip(df_targets["Distance"], df_targets["Pace"]))
+        target_dists, target_paces = zip(*sorted(target_points, key=lambda x: x[0]))
+
+        # Select the "easiest" target curve: highest mean pace (slowest = closest
+        # to current Pareto from below on the inverted axis = least effort).
+        def curve_score_pace(
+            anchor_distance: float, anchor_p: float
+        ) -> tuple[list, list, float]:
+            sample_points = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
+            sample_points.extend([float(d) for d in target_dists])
+            sample_points.append(float(anchor_distance))
+            sample_points = sorted(set(sample_points))
+
+            y_curve: list[float] = [
+                anchor_p * (d / anchor_distance) ** riegel_pace_exponent(d)
+                for d in sample_points
+            ]
+            mean_pace = float(np.mean(y_curve)) if y_curve else -np.inf
+            return sample_points, y_curve, mean_pace
+
+        best_curve: tuple[list, list, float] = ([], [], -np.inf)
+        anchor_idx = 0
+        for i, (t_dist, t_pace) in enumerate(zip(target_dists, target_paces)):
+            x_curve, y_curve, score = curve_score_pace(t_dist, t_pace)
+            if score > best_curve[2]:
+                best_curve = (x_curve, y_curve, score)
+                anchor_idx = i
+
+        x_vals, y_vals, _ = best_curve
+        if x_vals:
+            anchor_distance = target_dists[anchor_idx]
+            anchor_pace_val = target_paces[anchor_idx]
+            if anchor_distance in x_vals:
+                y_vals[x_vals.index(anchor_distance)] = anchor_pace_val
+
+            target_curve_paces = [seconds_to_pace_string(p) for p in y_vals]
+
+            fig.add_trace(
+                go.Scatter(
+                    x=x_vals,
+                    y=y_vals,
+                    mode="lines",
+                    name="Target Pace Curve",
+                    line=dict(color="green", dash="dashdot", width=2),
+                    opacity=0.7,
+                    hovertemplate="<b>Target Pace Curve</b><br>"
+                    + "Distance: %{x:.2f} mi<br>"
+                    + "Pace: %{customdata}<extra></extra>",
+                    customdata=target_curve_paces,
+                )
+            )
+
+        target_pace_strs = [seconds_to_pace_string(p) for p in target_paces]
+        target_speed_strs = [
+            f"{SECONDS_PER_HOUR / p:.2f} mph" if p and p > 0 else "N/A"
+            for p in target_paces
+        ]
+        fig.add_trace(
+            go.Scatter(
+                x=list(target_dists),
+                y=list(target_paces),
+                mode="markers",
+                name="Next Targets",
+                marker=dict(color="green", size=12, symbol="x"),
+                hovertemplate="<b>Target</b><br>"
+                + "Distance: %{x:.2f} mi<br>"
+                + "Pace: %{customdata[0]}<br>"
+                + "Speed: %{customdata[1]}<extra></extra>",
+                customdata=list(zip(target_pace_strs, target_speed_strs)),
+            )
+        )
+
+    # Y-axis range (pace in sec/mile; inverted so faster = visually higher)
+    all_paces = []
+    if not df_pareto.empty:
+        all_paces.extend(df_pareto["Pace"].dropna().tolist())
+    if df_targets is not None and not df_targets.empty:
+        all_paces.extend(df_targets["Pace"].dropna().tolist())
+    y_lo = min(all_paces) * 0.8 if all_paces else 300
+    y_hi = max(all_paces) * 1.2 if all_paces else 900
+
+    tick_vals, tick_texts = _pace_axis_ticks(y_lo, y_hi)
+
+    # Race distance vertical lines
+    for race_dist, race_label in race_distances:
+        if plot_min_dist <= race_dist <= plot_max_dist:
+            fig.add_vline(
+                x=race_dist,
+                line_dash="dot",
+                line_color="gray",
+                line_width=1,
+                opacity=0.6,
+            )
+            fig.add_annotation(
+                x=np.log10(race_dist),
+                y=1,
+                yref="paper",
+                text=race_label,
+                showarrow=False,
+                font=dict(size=10, color="rgba(150,150,150,0.8)"),
+                yanchor="bottom",
+                yshift=2,
+            )
+
+    fig.update_layout(
+        title=(
+            f"Pace vs. Distance for {Exercise}<br><sup>Pareto dominance: a point is "
+            "kept only if no other point has both longer distance and faster pace; "
+            "Riegel curve: pace2 = pace1 \u00d7 (d2/d1)^e, "
+            "e\u202f=\u202f0.06\u2013-0.14 (grows with distance).</sup>"
+        ),
+        xaxis_title="Distance (miles)",
+        yaxis_title="Pace (min/mi, upper=faster)",
+        xaxis_type="log",
+        yaxis_type="log",
+        xaxis=dict(range=[np.log10(plot_min_dist), np.log10(plot_max_dist)]),
+        yaxis=dict(
+            range=[np.log10(y_hi), np.log10(y_lo)],  # inverted: faster pace at top
+            tickmode="array",
+            tickvals=tick_vals,
+            ticktext=tick_texts,
+        ),
+        hovermode="closest",
+        template="plotly_white",
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.25,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="rgba(0,0,0,0.1)",
+            borderwidth=1,
+        ),
+        height=540,
+        margin=dict(t=120, l=60, r=20, b=150),
+    )
+
+    return fig
+
+
+def plot_running_combined(
+    df_time_pareto,
+    df_time_targets,
+    df_pace_pareto,
+    df_pace_targets,
+    Exercise: str,
+):
+    """Combined two-row subplot: Total Time vs Distance (top) + Pace vs Distance (bottom).
+
+    The X-axis (distance) is shared between both subplots so that zooming or
+    panning on one row automatically updates the other.
+
+    Parameters
+    ----------
+    df_time_pareto : pd.DataFrame
+        Time-Pareto records (from highest_pace_per_distance).
+    df_time_targets : pd.DataFrame
+        Targets for the time graph.
+    df_pace_pareto : pd.DataFrame
+        Pace-Pareto records (from highest_pace_per_distance_pace_pareto).
+    df_pace_targets : pd.DataFrame
+        Targets for the pace graph (computed from pace-Pareto, not time-Pareto).
+    Exercise : str
+        Exercise to plot.
+
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        Single combined subplot figure.
+    """
+    from plotly.subplots import make_subplots
+
+    fig_time = plot_running_df(df_time_pareto, df_time_targets, Exercise=Exercise)
+    fig_pace = plot_running_pace_df(df_pace_pareto, df_pace_targets, Exercise=Exercise)
+
+    combined = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.06,
+        subplot_titles=["Total Time vs. Distance", "Pace vs. Distance"],
+    )
+
+    # Add time traces to row 1
+    time_trace_names = {t.name for t in fig_time.data if t.name}
+    for trace in fig_time.data:
+        combined.add_trace(trace, row=1, col=1)
+
+    # Add pace traces to row 2; suppress legend entries already shown in row 1
+    for trace in fig_pace.data:
+        if trace.name in time_trace_names:
+            trace.showlegend = False
+        combined.add_trace(trace, row=2, col=1)
+
+    # Shared x-axis: log scale, label on bottom subplot only
+    x_range = list(fig_time.layout.xaxis.range)
+    combined.update_xaxes(type="log", range=x_range)
+    combined.update_xaxes(title_text="Distance (miles)", row=2, col=1)
+
+    # Row 1 y-axis: total time (log scale, normal orientation — short time at top)
+    tl = fig_time.layout
+    combined.update_yaxes(
+        type="log",
+        range=list(tl.yaxis.range),
+        title_text="Total Time (min)",
+        row=1,
+        col=1,
+    )
+
+    # Row 2 y-axis: pace (log scale, inverted so faster = visually higher, custom ticks)
+    pl = fig_pace.layout
+    pace_yaxis_kwargs: dict = dict(
+        type="log",
+        range=list(pl.yaxis.range),
+        title_text="Pace (min/mi)",
+    )
+    if pl.yaxis.tickmode:
+        pace_yaxis_kwargs["tickmode"] = pl.yaxis.tickmode
+    if pl.yaxis.tickvals is not None and len(pl.yaxis.tickvals) > 0:
+        pace_yaxis_kwargs["tickvals"] = list(pl.yaxis.tickvals)
+    if pl.yaxis.ticktext is not None and len(pl.yaxis.ticktext) > 0:
+        pace_yaxis_kwargs["ticktext"] = list(pl.yaxis.ticktext)
+    combined.update_yaxes(row=2, col=1, **pace_yaxis_kwargs)
+
+    # Race distance vlines on both subplots
+    race_distances = [
+        (3.10686, "5K"),
+        (13.1094, "Half"),
+        (26.2188, "Marathon"),
+    ]
+    x_lo = 10 ** x_range[0]
+    x_hi = 10 ** x_range[1]
+    for race_dist, race_label in race_distances:
+        if x_lo <= race_dist <= x_hi:
+            for row in (1, 2):
+                combined.add_vline(
+                    x=race_dist,
+                    line_dash="dot",
+                    line_color="gray",
+                    line_width=1,
+                    opacity=0.6,
+                    row=row,
+                    col=1,
+                )
+            combined.add_annotation(
+                x=np.log10(race_dist),
+                xref="x",
+                y=1,
+                yref="y domain",
+                text=race_label,
+                showarrow=False,
+                font=dict(size=10, color="rgba(150,150,150,0.8)"),
+                yanchor="bottom",
+                yshift=2,
+                row=1,
+                col=1,
+            )
+
+    combined.update_layout(
+        title=(
+            f"Running Performance: {Exercise}<br><sup>"
+            "Red\u202f=\u202fPareto front \u00b7 Black\u202f=\u202fBest Riegel curve \u00b7 "
+            "Green\u202f=\u202fNext targets \u00b7 X-axes linked for synchronized zoom.</sup>"
+        ),
+        hovermode="closest",
+        template="plotly_white",
+        height=880,
+        margin=dict(t=80, l=60, r=20, b=100),
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.06,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(255,255,255,0.9)",
+            bordercolor="rgba(0,0,0,0.1)",
+            borderwidth=1,
+        ),
+    )
+
+    return combined
+
+
 def render_running_table_fragment(df) -> str:
     """Render HTML fragment with running data visualization.
 
@@ -437,19 +894,42 @@ def render_running_table_fragment(df) -> str:
     else:
         df_targets_display = df_targets
 
+    # Compute pace Pareto and pace-specific targets for the pace-vs-distance graph.
+    # Targets must be computed from the pace-Pareto front (not the time-Pareto)
+    # so that the green X markers are positioned correctly relative to the
+    # pace-Pareto staircase.
+    df_pace_pareto = highest_pace_per_distance_pace_pareto(df)
+    df_pace_pareto = add_speed_metric_column(df_pace_pareto)
+    df_pace_targets = df_next_running_targets(df_pace_pareto)
+
     figures_html: dict[str, str] = {}
 
     exercise_slug = {ex: slugify(ex) for ex in df_records["Exercise"].unique()}
 
-    # Generate plots for each exercise
+    # Generate a single combined subplot per exercise (time on top, pace on bottom,
+    # x-axes linked for synchronized zooming).
     for exercise, slug in exercise_slug.items():
         try:
-            fig = plot_running_df(df_records, df_targets, Exercise=exercise)
-            # Convert Plotly figure to HTML div with wrapper
-            img_html = plotly_figure_to_html_div(
-                fig, slug, display="block", css_class="running-figure"
-            )
-            figures_html[exercise] = img_html
+            exercise_pace_pareto = df_pace_pareto[
+                df_pace_pareto["Exercise"] == exercise
+            ]
+            if not exercise_pace_pareto.empty:
+                fig_combined = plot_running_combined(
+                    df_records,
+                    df_targets,
+                    df_pace_pareto,
+                    df_pace_targets,
+                    Exercise=exercise,
+                )
+                figures_html[exercise] = plotly_figure_to_html_div(
+                    fig_combined, slug, display="block", css_class="running-figure"
+                )
+            else:
+                # Fall back to time-only graph if pace data is unavailable
+                fig_time = plot_running_df(df_records, df_targets, Exercise=exercise)
+                figures_html[exercise] = plotly_figure_to_html_div(
+                    fig_time, slug, display="block", css_class="running-figure"
+                )
         except Exception:
             # If plot generation fails, skip this exercise and continue
             plt.close("all")  # Clean up any partial figures

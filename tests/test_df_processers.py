@@ -7,6 +7,7 @@ from kaiserlift import (
     add_1rm_column,
     df_next_pareto,
     highest_weight_per_rep,
+    highest_1rm_per_rep,
     assert_frame_equal,
 )
 import pandas as pd
@@ -235,3 +236,60 @@ def test_df_next_pareto():
             )
         ),
     )
+
+
+def test_highest_1rm_per_rep_basic():
+    """All records survive when 1RM decreases monotonically with reps."""
+    df = pd.DataFrame(
+        {
+            "Exercise": ["Bench"] * 3,
+            "Weight": [150.0, 120.0, 100.0],
+            "Reps": [1, 5, 10],
+            "Category": ["Strength"] * 3,
+        }
+    )
+    result = highest_1rm_per_rep(df)
+
+    # 1RM: 150*(1+0/30)=150, 120*(1+4/30)≈136, 100*(1+9/30)=130 — decreasing.
+    # No higher-rep record dominates any lower-rep record.
+    assert len(result) == 3
+    assert set(result["Reps"].tolist()) == {1, 5, 10}
+
+
+def test_highest_1rm_per_rep_dominated():
+    """A lower-rep record is removed when a higher-rep record implies >= 1RM."""
+    # 5 reps @ 100 → 1RM ≈ 113.3
+    # 10 reps @ 90 → 1RM = 90*(1+9/30) = 117 > 113.3 with more reps → dominates
+    df = pd.DataFrame(
+        {
+            "Exercise": ["Bench"] * 2,
+            "Weight": [100.0, 90.0],
+            "Reps": [5, 10],
+            "Category": ["Strength"] * 2,
+        }
+    )
+    result = highest_1rm_per_rep(df)
+
+    assert len(result) == 1
+    assert result.iloc[0]["Reps"] == 10
+
+
+def test_highest_1rm_per_rep_differs_from_weight_pareto():
+    """1RM Pareto and weight Pareto can yield different fronts."""
+    # Weight Pareto: 10 reps @ 90 does NOT supersede 5 reps @ 100 (90 < 100).
+    # 1RM Pareto: 10 reps @ 90 DOES dominate 5 reps @ 100 (10 > 5 and 1RM 117 > 113).
+    df = pd.DataFrame(
+        {
+            "Exercise": ["Bench"] * 2,
+            "Weight": [100.0, 90.0],
+            "Reps": [5, 10],
+            "Category": ["Strength"] * 2,
+        }
+    )
+
+    weight_result = highest_weight_per_rep(df)
+    one_rm_result = highest_1rm_per_rep(df)
+
+    assert len(weight_result) == 2  # both survive weight-Pareto
+    assert len(one_rm_result) == 1  # 5-rep record dominated in 1RM-Pareto
+    assert one_rm_result.iloc[0]["Reps"] == 10

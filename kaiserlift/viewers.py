@@ -12,6 +12,7 @@ from .plot_utils import (
     plotly_figure_to_html_div,
     get_plotly_cdn_html,
     get_plotly_preconnect_html,
+    dates_to_marker_props,
 )
 
 
@@ -47,10 +48,15 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
     fig = go.Figure()
 
     if df_pareto is not None and not df_pareto.empty:
-        pareto_points = list(zip(df_pareto["Reps"], df_pareto["Weight"]))
-        pareto_reps, pareto_weights = zip(*sorted(pareto_points, key=lambda x: x[0]))
-        pareto_reps = list(pareto_reps)
-        pareto_weights = list(pareto_weights)
+        has_dates = "Date" in df_pareto.columns
+        cols = [df_pareto["Reps"], df_pareto["Weight"]]
+        if has_dates:
+            cols.append(df_pareto["Date"])
+        pareto_points = list(zip(*cols))
+        pareto_points.sort(key=lambda x: x[0])
+        pareto_reps = [p[0] for p in pareto_points]
+        pareto_weights = [p[1] for p in pareto_points]
+        pareto_dates = [p[2] for p in pareto_points] if has_dates else []
 
         # Compute best 1RM from Pareto front and anchor the line to that point
         one_rms = [calculate_1rm(w, r) for w, r in zip(pareto_weights, pareto_reps)]
@@ -94,19 +100,37 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
-        # Pareto markers
+        # Pareto markers (colored by date when available)
+        marker_props = (
+            dates_to_marker_props(pareto_dates)
+            if pareto_dates
+            else dict(color="red", size=10, symbol="circle")
+        )
+        date_strs = (
+            [d.strftime("%Y-%m-%d") for d in pareto_dates] if pareto_dates else None
+        )
+        hover_tpl = (
+            "<b>Pareto Point</b><br>"
+            + "Reps: %{x}<br>"
+            + "Weight: %{y} lbs<br>"
+            + "1RM: %{customdata[0]:.1f}<br>"
+            + "Date: %{customdata[1]}<extra></extra>"
+            if date_strs
+            else "<b>Pareto Point</b><br>"
+            + "Reps: %{x}<br>"
+            + "Weight: %{y} lbs<br>"
+            + "1RM: %{customdata:.1f}<extra></extra>"
+        )
+        custom = list(zip(one_rms, date_strs)) if date_strs else one_rms
         fig.add_trace(
             go.Scatter(
                 x=pareto_reps,
                 y=pareto_weights,
                 mode="markers",
                 name="Pareto Points",
-                marker=dict(color="red", size=10, symbol="circle"),
-                hovertemplate="<b>Pareto Point</b><br>"
-                + "Reps: %{x}<br>"
-                + "Weight: %{y} lbs<br>"
-                + "1RM: %{customdata:.1f}<extra></extra>",
-                customdata=one_rms,
+                marker=marker_props,
+                hovertemplate=hover_tpl,
+                customdata=custom,
                 showlegend=False,
             )
         )
@@ -258,13 +282,16 @@ def plot_df_1rm(df_pareto=None, df_targets=None, Exercise: str = None):
 
     # Pareto points in 1RM space
     if not df_pareto.empty:
-        pareto_points = list(
-            zip(df_pareto["Reps"], df_pareto["1RM"], df_pareto["Weight"])
-        )
+        has_dates = "Date" in df_pareto.columns
+        cols = [df_pareto["Reps"], df_pareto["1RM"], df_pareto["Weight"]]
+        if has_dates:
+            cols.append(df_pareto["Date"])
+        pareto_points = list(zip(*cols))
         pareto_points.sort(key=lambda x: x[0])
         pareto_reps = [p[0] for p in pareto_points]
         pareto_1rms = [p[1] for p in pareto_points]
         pareto_weights = [p[2] for p in pareto_points]
+        pareto_dates = [p[3] for p in pareto_points] if has_dates else []
 
         best_1rm = max(pareto_1rms)
         x_line = [min_rep, plot_max_rep]
@@ -294,19 +321,37 @@ def plot_df_1rm(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
-        # 1RM Pareto markers
+        # 1RM Pareto markers (colored by date when available)
+        marker_props = (
+            dates_to_marker_props(pareto_dates)
+            if pareto_dates
+            else dict(color="red", size=10, symbol="circle")
+        )
+        date_strs = (
+            [d.strftime("%Y-%m-%d") for d in pareto_dates] if pareto_dates else None
+        )
+        hover_tpl = (
+            "<b>Pareto Point</b><br>"
+            + "Reps: %{x}<br>"
+            + "1RM: %{y:.1f} lbs<br>"
+            + "Weight: %{customdata[0]} lbs<br>"
+            + "Date: %{customdata[1]}<extra></extra>"
+            if date_strs
+            else "<b>Pareto Point</b><br>"
+            + "Reps: %{x}<br>"
+            + "1RM: %{y:.1f} lbs<br>"
+            + "Weight: %{customdata} lbs<extra></extra>"
+        )
+        custom = list(zip(pareto_weights, date_strs)) if date_strs else pareto_weights
         fig.add_trace(
             go.Scatter(
                 x=pareto_reps,
                 y=pareto_1rms,
                 mode="markers",
                 name="Pareto Points",
-                marker=dict(color="red", size=10, symbol="circle"),
-                hovertemplate="<b>Pareto Point</b><br>"
-                + "Reps: %{x}<br>"
-                + "1RM: %{y:.1f} lbs<br>"
-                + "Weight: %{customdata} lbs<extra></extra>",
-                customdata=pareto_weights,
+                marker=marker_props,
+                hovertemplate=hover_tpl,
+                customdata=custom,
                 showlegend=False,
             )
         )
@@ -454,7 +499,8 @@ def plot_df_combined(
     combined.update_layout(
         title=(
             f"Lifting Performance: {closest}<br><sup>"
-            "Red\u202f=\u202fPareto front \u00b7 Black\u202f=\u202fBest Epley curve \u00b7 "
+            "Red\u202f=\u202fPareto front (darker\u202f=\u202frecent) \u00b7 "
+            "Black\u202f=\u202fBest Epley curve \u00b7 "
             "Green\u202f=\u202fNext targets \u00b7 X-axes linked for synchronized zoom.</sup>"
         ),
         hovermode="closest",

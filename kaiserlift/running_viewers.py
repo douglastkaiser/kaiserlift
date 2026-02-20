@@ -24,6 +24,7 @@ from .plot_utils import (
     plotly_figure_to_html_div,
     get_plotly_cdn_html,
     get_plotly_preconnect_html,
+    dates_to_marker_props,
 )
 
 
@@ -131,8 +132,15 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
-        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Duration"]))
-        pareto_dists, pareto_durations = zip(*sorted(pareto_points, key=lambda x: x[0]))
+        has_dates = "Date" in df_pareto.columns
+        cols = [df_pareto["Distance"], df_pareto["Duration"]]
+        if has_dates:
+            cols.append(df_pareto["Date"])
+        pareto_tuples = list(zip(*cols))
+        pareto_tuples.sort(key=lambda x: x[0])
+        pareto_dists = [p[0] for p in pareto_tuples]
+        pareto_durations = [p[1] for p in pareto_tuples]
+        pareto_dates = [p[2] for p in pareto_tuples] if has_dates else []
 
         # Find the Pareto point with the best pace (max speed) to anchor the
         # Riegel curve — same anchor logic as before, just displayed in time space.
@@ -200,19 +208,41 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
-        # Pareto markers
+        # Pareto markers (colored by date when available)
+        marker_props = (
+            dates_to_marker_props(pareto_dates)
+            if pareto_dates
+            else dict(color="red", size=10, symbol="circle")
+        )
+        date_strs = (
+            [d.strftime("%Y-%m-%d") for d in pareto_dates] if pareto_dates else None
+        )
+        hover_tpl = (
+            "<b>Pareto Point</b><br>"
+            + "Distance: %{x:.2f} mi<br>"
+            + "Time: %{customdata[0]}<br>"
+            + "Pace: %{customdata[1]}<br>"
+            + "Date: %{customdata[2]}<extra></extra>"
+            if date_strs
+            else "<b>Pareto Point</b><br>"
+            + "Distance: %{x:.2f} mi<br>"
+            + "Time: %{customdata[0]}<br>"
+            + "Pace: %{customdata[1]}<extra></extra>"
+        )
+        custom = (
+            list(zip(pareto_times_hover, pareto_paces, date_strs))
+            if date_strs
+            else list(zip(pareto_times_hover, pareto_paces))
+        )
         fig.add_trace(
             go.Scatter(
                 x=list(pareto_dists),
                 y=list(pareto_durations),
                 mode="markers",
                 name="Pareto Points",
-                marker=dict(color="red", size=10, symbol="circle"),
-                hovertemplate="<b>Pareto Point</b><br>"
-                + "Distance: %{x:.2f} mi<br>"
-                + "Time: %{customdata[0]}<br>"
-                + "Pace: %{customdata[1]}<extra></extra>",
-                customdata=list(zip(pareto_times_hover, pareto_paces)),
+                marker=marker_props,
+                hovertemplate=hover_tpl,
+                customdata=custom,
                 showlegend=False,
             )
         )
@@ -456,8 +486,15 @@ def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
     # Plot Pareto front (red line + circles)
     if not df_pareto.empty:
-        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Pace"]))
-        pareto_dists, pareto_paces = zip(*sorted(pareto_points, key=lambda x: x[0]))
+        has_dates = "Date" in df_pareto.columns
+        cols = [df_pareto["Distance"], df_pareto["Pace"]]
+        if has_dates:
+            cols.append(df_pareto["Date"])
+        pareto_tuples = list(zip(*cols))
+        pareto_tuples.sort(key=lambda x: x[0])
+        pareto_dists = [p[0] for p in pareto_tuples]
+        pareto_paces = [p[1] for p in pareto_tuples]
+        pareto_dates = [p[2] for p in pareto_tuples] if has_dates else []
 
         if "Speed" in df_pareto.columns:
             max_speed_idx = int(df_pareto["Speed"].idxmax())
@@ -520,18 +557,41 @@ def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
+        # Pareto markers (colored by date when available)
+        marker_props = (
+            dates_to_marker_props(pareto_dates)
+            if pareto_dates
+            else dict(color="red", size=10, symbol="circle")
+        )
+        date_strs = (
+            [d.strftime("%Y-%m-%d") for d in pareto_dates] if pareto_dates else None
+        )
+        hover_tpl = (
+            "<b>Pareto Point</b><br>"
+            + "Distance: %{x:.2f} mi<br>"
+            + "Pace: %{customdata[0]}<br>"
+            + "Speed: %{customdata[1]}<br>"
+            + "Date: %{customdata[2]}<extra></extra>"
+            if date_strs
+            else "<b>Pareto Point</b><br>"
+            + "Distance: %{x:.2f} mi<br>"
+            + "Pace: %{customdata[0]}<br>"
+            + "Speed: %{customdata[1]}<extra></extra>"
+        )
+        custom = (
+            list(zip(pareto_pace_strs, pareto_speed_strs, date_strs))
+            if date_strs
+            else list(zip(pareto_pace_strs, pareto_speed_strs))
+        )
         fig.add_trace(
             go.Scatter(
                 x=list(pareto_dists),
                 y=list(pareto_paces),
                 mode="markers",
                 name="Pareto Points",
-                marker=dict(color="red", size=10, symbol="circle"),
-                hovertemplate="<b>Pareto Point</b><br>"
-                + "Distance: %{x:.2f} mi<br>"
-                + "Pace: %{customdata[0]}<br>"
-                + "Speed: %{customdata[1]}<extra></extra>",
-                customdata=list(zip(pareto_pace_strs, pareto_speed_strs)),
+                marker=marker_props,
+                hovertemplate=hover_tpl,
+                customdata=custom,
                 showlegend=False,
             )
         )
@@ -800,7 +860,8 @@ def plot_running_combined(
     combined.update_layout(
         title=(
             f"Running Performance: {Exercise}<br><sup>"
-            "Red\u202f=\u202fPareto front \u00b7 Black\u202f=\u202fBest Riegel curve \u00b7 "
+            "Red\u202f=\u202fPareto front (darker\u202f=\u202frecent) \u00b7 "
+            "Black\u202f=\u202fBest Riegel curve \u00b7 "
             "Green\u202f=\u202fNext targets \u00b7 X-axes linked for synchronized zoom.</sup>"
         ),
         hovermode="closest",

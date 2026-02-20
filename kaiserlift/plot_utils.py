@@ -2,6 +2,67 @@
 
 import re
 
+import numpy as np
+import pandas as pd
+
+
+def dates_to_marker_props(dates) -> dict:
+    """Map a sequence of dates to Plotly marker properties with a date-based colorscale.
+
+    Recent PRs are shown in saturated dark red; older PRs fade toward light salmon.
+    When only a single date is present, all markers are solid red.
+
+    Parameters
+    ----------
+    dates : sequence of datetime-like
+        One date per Pareto point, in the same order as the marker coordinates.
+
+    Returns
+    -------
+    dict
+        Keyword dict suitable for ``go.Scatter(marker=...)``.
+    """
+    ts = pd.to_datetime(dates)
+    n = len(ts)
+
+    if n == 0:
+        return dict(color="red", size=10, symbol="circle")
+
+    if n == 1 or ts.min() == ts.max():
+        return dict(color="red", size=10, symbol="circle")
+
+    # Map dates to 0..1 (oldest=0, newest=1)
+    day_nums = np.array([(d - ts.min()).days for d in ts], dtype=float)
+    day_nums /= day_nums.max()
+
+    # Build colorbar tick marks (up to 5 evenly-spaced dates)
+    n_ticks = min(5, n)
+    tick_positions = np.linspace(0, 1, n_ticks)
+    tick_dates = pd.to_datetime(
+        [ts.min() + (ts.max() - ts.min()) * p for p in tick_positions]
+    )
+    tick_labels = [d.strftime("%Y-%m-%d") for d in tick_dates]
+
+    return dict(
+        color=day_nums.tolist(),
+        colorscale=[
+            [0, "rgba(255, 180, 160, 0.8)"],
+            [0.5, "rgba(230, 80, 50, 0.9)"],
+            [1, "rgba(180, 20, 10, 1)"],
+        ],
+        size=10,
+        symbol="circle",
+        colorbar=dict(
+            title=dict(text="Date", font=dict(size=11)),
+            tickvals=tick_positions.tolist(),
+            ticktext=tick_labels,
+            len=0.5,
+            thickness=12,
+            x=1.02,
+        ),
+        line=dict(color="darkred", width=0.5),
+    )
+
 
 def slugify(name: str) -> str:
     """Return a normalized slug for the given exercise name.

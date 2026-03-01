@@ -2,66 +2,73 @@
 
 import re
 
-import numpy as np
-import pandas as pd
 
+def combined_pareto_front(pareto_vals, target_vals):
+    """Merge Pareto and target points into a combined Pareto front.
 
-def dates_to_marker_props(dates) -> dict:
-    """Map a sequence of dates to Plotly marker properties with a date-based colorscale.
-
-    Recent PRs are shown in saturated dark red; older PRs fade toward light salmon.
-    When only a single date is present, all markers are solid red.
+    Takes two lists of (x, y) tuples — current Pareto points and target
+    points — and returns the non-dominated Pareto front of their union.
+    For each unique x, keeps the max y, then removes dominated points
+    (those where a higher-x point has >= y).
 
     Parameters
     ----------
-    dates : sequence of datetime-like
-        One date per Pareto point, in the same order as the marker coordinates.
+    pareto_vals : list[tuple]
+        Sorted (x, y) pairs from the current Pareto front.
+    target_vals : list[tuple]
+        Sorted (x, y) pairs from the target set.
 
     Returns
     -------
-    dict
-        Keyword dict suitable for ``go.Scatter(marker=...)``.
+    tuple[list, list]
+        (combined_x, combined_y) — the merged Pareto front sorted by x.
     """
-    ts = pd.to_datetime(dates)
-    n = len(ts)
+    merged = {}
+    for x, y in pareto_vals:
+        merged[x] = max(merged.get(x, y), y)
+    for x, y in target_vals:
+        merged[x] = max(merged.get(x, y), y)
 
-    if n == 0:
-        return dict(color="red", size=10, symbol="circle")
+    combined = sorted(merged.items())
+    filtered = []
+    for i, (x, y) in enumerate(combined):
+        dominated = any(y2 >= y for _, y2 in combined[i + 1 :])
+        if not dominated:
+            filtered.append((x, y))
+    return [p[0] for p in filtered], [p[1] for p in filtered]
 
-    if n == 1 or ts.min() == ts.max():
-        return dict(color="red", size=10, symbol="circle")
 
-    # Map dates to 0..1 (oldest=0, newest=1)
-    day_nums = np.array([(d - ts.min()).days for d in ts], dtype=float)
-    day_nums /= day_nums.max()
+def combined_pareto_front_min(pareto_vals, target_vals):
+    """Like combined_pareto_front but for minimisation (running: lower y = better).
 
-    # Build colorbar tick marks (up to 5 evenly-spaced dates)
-    n_ticks = min(5, n)
-    tick_positions = np.linspace(0, 1, n_ticks)
-    tick_dates = pd.to_datetime(
-        [ts.min() + (ts.max() - ts.min()) * p for p in tick_positions]
-    )
-    tick_labels = [d.strftime("%Y-%m-%d") for d in tick_dates]
+    For each unique x, keeps the min y, then removes dominated points
+    (those where a higher-x point has <= y).
 
-    return dict(
-        color=day_nums.tolist(),
-        colorscale=[
-            [0, "rgba(255, 180, 160, 0.8)"],
-            [0.5, "rgba(230, 80, 50, 0.9)"],
-            [1, "rgba(180, 20, 10, 1)"],
-        ],
-        size=10,
-        symbol="circle",
-        colorbar=dict(
-            title=dict(text="Date", font=dict(size=11)),
-            tickvals=tick_positions.tolist(),
-            ticktext=tick_labels,
-            len=0.5,
-            thickness=12,
-            x=1.02,
-        ),
-        line=dict(color="darkred", width=0.5),
-    )
+    Parameters
+    ----------
+    pareto_vals : list[tuple]
+        Sorted (x, y) pairs from the current Pareto front (lower y = better).
+    target_vals : list[tuple]
+        Sorted (x, y) pairs from the target set.
+
+    Returns
+    -------
+    tuple[list, list]
+        (combined_x, combined_y) — the merged Pareto front sorted by x.
+    """
+    merged = {}
+    for x, y in pareto_vals:
+        merged[x] = min(merged.get(x, y), y)
+    for x, y in target_vals:
+        merged[x] = min(merged.get(x, y), y)
+
+    combined = sorted(merged.items())
+    filtered = []
+    for i, (x, y) in enumerate(combined):
+        dominated = any(y2 <= y for _, y2 in combined[i + 1 :])
+        if not dominated:
+            filtered.append((x, y))
+    return [p[0] for p in filtered], [p[1] for p in filtered]
 
 
 def slugify(name: str) -> str:

@@ -3,6 +3,74 @@
 import re
 
 
+def combined_pareto_front(pareto_vals, target_vals):
+    """Merge Pareto and target points into a combined Pareto front.
+
+    Takes two lists of (x, y) tuples — current Pareto points and target
+    points — and returns the non-dominated Pareto front of their union.
+    For each unique x, keeps the max y, then removes dominated points
+    (those where a higher-x point has >= y).
+
+    Parameters
+    ----------
+    pareto_vals : list[tuple]
+        Sorted (x, y) pairs from the current Pareto front.
+    target_vals : list[tuple]
+        Sorted (x, y) pairs from the target set.
+
+    Returns
+    -------
+    tuple[list, list]
+        (combined_x, combined_y) — the merged Pareto front sorted by x.
+    """
+    merged = {}
+    for x, y in pareto_vals:
+        merged[x] = max(merged.get(x, y), y)
+    for x, y in target_vals:
+        merged[x] = max(merged.get(x, y), y)
+
+    combined = sorted(merged.items())
+    filtered = []
+    for i, (x, y) in enumerate(combined):
+        dominated = any(y2 >= y for _, y2 in combined[i + 1 :])
+        if not dominated:
+            filtered.append((x, y))
+    return [p[0] for p in filtered], [p[1] for p in filtered]
+
+
+def combined_pareto_front_min(pareto_vals, target_vals):
+    """Like combined_pareto_front but for minimisation (running: lower y = better).
+
+    For each unique x, keeps the min y, then removes dominated points
+    (those where a higher-x point has <= y).
+
+    Parameters
+    ----------
+    pareto_vals : list[tuple]
+        Sorted (x, y) pairs from the current Pareto front (lower y = better).
+    target_vals : list[tuple]
+        Sorted (x, y) pairs from the target set.
+
+    Returns
+    -------
+    tuple[list, list]
+        (combined_x, combined_y) — the merged Pareto front sorted by x.
+    """
+    merged = {}
+    for x, y in pareto_vals:
+        merged[x] = min(merged.get(x, y), y)
+    for x, y in target_vals:
+        merged[x] = min(merged.get(x, y), y)
+
+    combined = sorted(merged.items())
+    filtered = []
+    for i, (x, y) in enumerate(combined):
+        dominated = any(y2 <= y for _, y2 in combined[i + 1 :])
+        if not dominated:
+            filtered.append((x, y))
+    return [p[0] for p in filtered], [p[1] for p in filtered]
+
+
 def slugify(name: str) -> str:
     """Return a normalized slug for the given exercise name.
 

@@ -12,6 +12,7 @@ from .plot_utils import (
     plotly_figure_to_html_div,
     get_plotly_cdn_html,
     get_plotly_preconnect_html,
+    combined_pareto_front,
 )
 
 
@@ -48,9 +49,9 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
     if df_pareto is not None and not df_pareto.empty:
         pareto_points = list(zip(df_pareto["Reps"], df_pareto["Weight"]))
-        pareto_reps, pareto_weights = zip(*sorted(pareto_points, key=lambda x: x[0]))
-        pareto_reps = list(pareto_reps)
-        pareto_weights = list(pareto_weights)
+        pareto_points.sort(key=lambda x: x[0])
+        pareto_reps = [p[0] for p in pareto_points]
+        pareto_weights = [p[1] for p in pareto_points]
 
         # Compute best 1RM from Pareto front and anchor the line to that point
         one_rms = [calculate_1rm(w, r) for w, r in zip(pareto_weights, pareto_reps)]
@@ -59,7 +60,54 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         anchor_rep = pareto_reps[best_idx]
         anchor_weight = pareto_weights[best_idx]
 
-        # Generate dotted Epley decay line (ensure it passes through the anchor)
+        # Pre-process target data for fills
+        target_reps = target_weights = target_one_rms = None
+        if df_targets is not None and not df_targets.empty:
+            tgt = list(zip(df_targets["Reps"], df_targets["Weight"]))
+            tgt.sort(key=lambda x: x[0])
+            target_reps = [p[0] for p in tgt]
+            target_weights = [p[1] for p in tgt]
+            target_one_rms = [
+                calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
+            ]
+
+        # --- Area fills (drawn first so they sit behind lines/markers) ---
+
+        if target_reps:
+            # Green expansion fill: combined Pareto+targets staircase
+            comb_reps, comb_weights = combined_pareto_front(
+                list(zip(pareto_reps, pareto_weights)),
+                list(zip(target_reps, target_weights)),
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=comb_reps,
+                    y=comb_weights,
+                    fill="tozeroy",
+                    fillcolor="rgba(76, 175, 80, 0.18)",
+                    line=dict(color="rgba(0,0,0,0)", shape="vh", width=0),
+                    name="Target Expansion",
+                    hoverinfo="skip",
+                )
+            )
+
+        # Light red Pareto area fill (on top of green → covers overlap)
+        fig.add_trace(
+            go.Scatter(
+                x=pareto_reps,
+                y=pareto_weights,
+                fill="tozeroy",
+                fillcolor="rgba(255, 205, 210, 0.35)",
+                line=dict(color="rgba(0,0,0,0)", shape="vh", width=0),
+                name="Pareto Area",
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+
+        # --- Curves and lines ---
+
+        # Epley decay line
         x_vals = np.linspace(min_rep, plot_max_rep, 100).tolist()
         x_vals.append(anchor_rep)
         x_vals = sorted(set(x_vals))
@@ -111,57 +159,50 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
-    if df_targets is not None and not df_targets.empty:
-        target_points = list(zip(df_targets["Reps"], df_targets["Weight"]))
-        target_reps, target_weights = zip(*sorted(target_points, key=lambda x: x[0]))
+        # --- Targets ---
+        if target_reps:
+            weakest_idx = int(np.argmin(target_one_rms))
+            min_target_1rm = target_one_rms[weakest_idx]
+            target_anchor_rep = target_reps[weakest_idx]
+            target_anchor_weight = target_weights[weakest_idx]
 
-        target_one_rms = [
-            calculate_1rm(w, r) for w, r in zip(target_weights, target_reps)
-        ]
+            x_vals = np.linspace(min_rep, plot_max_rep, 100).tolist()
+            x_vals.append(target_anchor_rep)
+            x_vals = sorted(set(x_vals))
 
-        # Lowest target 1RM equivalence line (anchored to the weakest target)
-        weakest_idx = int(np.argmin(target_one_rms))
-        min_target_1rm = target_one_rms[weakest_idx]
-        target_anchor_rep = target_reps[weakest_idx]
-        target_anchor_weight = target_weights[weakest_idx]
-
-        x_vals = np.linspace(min_rep, plot_max_rep, 100).tolist()
-        x_vals.append(target_anchor_rep)
-        x_vals = sorted(set(x_vals))
-
-        target_curve = [estimate_weight_from_1rm(min_target_1rm, r) for r in x_vals]
-        anchor_idx = x_vals.index(target_anchor_rep)
-        target_curve[anchor_idx] = target_anchor_weight
-        fig.add_trace(
-            go.Scatter(
-                x=x_vals,
-                y=target_curve,
-                mode="lines",
-                name="Lowest Target 1RM",
-                line=dict(color="green", dash="dot", width=2),
-                opacity=0.7,
-                hovertemplate="<b>Target 1RM Curve</b><br>"
-                + "Reps: %{x}<br>"
-                + "Weight: %{y:.1f} lbs<br>"
-                + f"1RM: {min_target_1rm:.1f}<extra></extra>",
+            target_curve = [estimate_weight_from_1rm(min_target_1rm, r) for r in x_vals]
+            anchor_idx = x_vals.index(target_anchor_rep)
+            target_curve[anchor_idx] = target_anchor_weight
+            fig.add_trace(
+                go.Scatter(
+                    x=x_vals,
+                    y=target_curve,
+                    mode="lines",
+                    name="Lowest Target 1RM",
+                    line=dict(color="green", dash="dot", width=2),
+                    opacity=0.7,
+                    hovertemplate="<b>Target 1RM Curve</b><br>"
+                    + "Reps: %{x}<br>"
+                    + "Weight: %{y:.1f} lbs<br>"
+                    + f"1RM: {min_target_1rm:.1f}<extra></extra>",
+                )
             )
-        )
 
-        # Target markers
-        fig.add_trace(
-            go.Scatter(
-                x=target_reps,
-                y=target_weights,
-                mode="markers",
-                name="Targets",
-                marker=dict(color="green", size=12, symbol="x"),
-                hovertemplate="<b>Target</b><br>"
-                + "Reps: %{x}<br>"
-                + "Weight: %{y} lbs<br>"
-                + "1RM: %{customdata:.1f}<extra></extra>",
-                customdata=target_one_rms,
+            # Target markers
+            fig.add_trace(
+                go.Scatter(
+                    x=target_reps,
+                    y=target_weights,
+                    mode="markers",
+                    name="Targets",
+                    marker=dict(color="green", size=12, symbol="x"),
+                    hovertemplate="<b>Target</b><br>"
+                    + "Reps: %{x}<br>"
+                    + "Weight: %{y} lbs<br>"
+                    + "1RM: %{customdata:.1f}<extra></extra>",
+                    customdata=target_one_rms,
+                )
             )
-        )
 
     fig.update_layout(
         title=(
@@ -269,6 +310,51 @@ def plot_df_1rm(df_pareto=None, df_targets=None, Exercise: str = None):
         best_1rm = max(pareto_1rms)
         x_line = [min_rep, plot_max_rep]
 
+        # Pre-process target data for fills
+        target_reps = target_weights = sorted_target_1rms = None
+        if df_targets is not None and not df_targets.empty and target_one_rms:
+            tgt = list(zip(df_targets["Reps"], df_targets["Weight"], target_one_rms))
+            tgt.sort(key=lambda x: x[0])
+            target_reps = [p[0] for p in tgt]
+            target_weights = [p[1] for p in tgt]
+            sorted_target_1rms = [p[2] for p in tgt]
+
+        # --- Area fills (background) ---
+
+        if target_reps:
+            # Green expansion fill: combined Pareto+targets in 1RM space
+            comb_reps, comb_1rms = combined_pareto_front(
+                list(zip(pareto_reps, pareto_1rms)),
+                list(zip(target_reps, sorted_target_1rms)),
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=comb_reps,
+                    y=comb_1rms,
+                    fill="tozeroy",
+                    fillcolor="rgba(76, 175, 80, 0.18)",
+                    line=dict(color="rgba(0,0,0,0)", shape="vh", width=0),
+                    name="Target Expansion",
+                    hoverinfo="skip",
+                )
+            )
+
+        # Light red Pareto area fill
+        fig.add_trace(
+            go.Scatter(
+                x=pareto_reps,
+                y=pareto_1rms,
+                fill="tozeroy",
+                fillcolor="rgba(255, 205, 210, 0.35)",
+                line=dict(color="rgba(0,0,0,0)", shape="vh", width=0),
+                name="Pareto Area",
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+
+        # --- Curves and lines ---
+
         # Best 1RM horizontal reference line
         fig.add_trace(
             go.Scatter(
@@ -311,46 +397,38 @@ def plot_df_1rm(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
-    # Targets
-    if df_targets is not None and not df_targets.empty and target_one_rms:
-        target_points = list(
-            zip(df_targets["Reps"], df_targets["Weight"], target_one_rms)
-        )
-        target_points.sort(key=lambda x: x[0])
-        target_reps = [p[0] for p in target_points]
-        target_weights = [p[1] for p in target_points]
-        sorted_target_1rms = [p[2] for p in target_points]
+        # --- Targets ---
+        if target_reps:
+            min_target_1rm = min(sorted_target_1rms)
 
-        min_target_1rm = min(target_one_rms)
-
-        # Lowest target 1RM horizontal reference line
-        fig.add_trace(
-            go.Scatter(
-                x=x_line,
-                y=[min_target_1rm, min_target_1rm],
-                mode="lines",
-                name="Lowest Target 1RM",
-                line=dict(color="green", dash="dot", width=2),
-                opacity=0.7,
-                hovertemplate=f"<b>Target 1RM</b><br>1RM: {min_target_1rm:.1f} lbs<extra></extra>",
+            # Lowest target 1RM horizontal reference line
+            fig.add_trace(
+                go.Scatter(
+                    x=x_line,
+                    y=[min_target_1rm, min_target_1rm],
+                    mode="lines",
+                    name="Lowest Target 1RM",
+                    line=dict(color="green", dash="dot", width=2),
+                    opacity=0.7,
+                    hovertemplate=f"<b>Target 1RM</b><br>1RM: {min_target_1rm:.1f} lbs<extra></extra>",
+                )
             )
-        )
 
-        # Target markers
-        fig.add_trace(
-            go.Scatter(
-                x=target_reps,
-                y=sorted_target_1rms,
-                mode="markers",
-                name="Targets",
-                marker=dict(color="green", size=12, symbol="x"),
-                hovertemplate="<b>Target</b><br>"
-                + "Reps: %{x}<br>"
-                + "Weight: %{customdata} lbs<br>"
-                + "1RM: %{y:.1f} lbs<extra></extra>",
-                customdata=target_weights,
+            # Target markers
+            fig.add_trace(
+                go.Scatter(
+                    x=target_reps,
+                    y=sorted_target_1rms,
+                    mode="markers",
+                    name="Targets",
+                    marker=dict(color="green", size=12, symbol="x"),
+                    hovertemplate="<b>Target</b><br>"
+                    + "Reps: %{x}<br>"
+                    + "Weight: %{customdata} lbs<br>"
+                    + "1RM: %{y:.1f} lbs<extra></extra>",
+                    customdata=target_weights,
+                )
             )
-        )
 
     fig.update_layout(
         title=(
@@ -454,8 +532,8 @@ def plot_df_combined(
     combined.update_layout(
         title=(
             f"Lifting Performance: {closest}<br><sup>"
-            "Red\u202f=\u202fPareto front \u00b7 Black\u202f=\u202fBest Epley curve \u00b7 "
-            "Green\u202f=\u202fNext targets \u00b7 X-axes linked for synchronized zoom.</sup>"
+            "Red fill\u202f=\u202fPareto area \u00b7 Green fill\u202f=\u202ftarget expansion \u00b7 "
+            "Black\u202f=\u202fBest Epley curve \u00b7 X-axes linked for synchronized zoom.</sup>"
         ),
         hovermode="closest",
         template="plotly_white",

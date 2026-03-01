@@ -24,6 +24,7 @@ from .plot_utils import (
     plotly_figure_to_html_div,
     get_plotly_cdn_html,
     get_plotly_preconnect_html,
+    combined_pareto_front_min,
 )
 
 
@@ -123,6 +124,15 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
         if race_dist >= min_dist:
             plot_max_dist = max(plot_max_dist, race_dist * 1.15)
 
+    # Compute y-axis limits upfront (needed for polygon fills)
+    all_durations = []
+    if df_pareto is not None and not df_pareto.empty:
+        all_durations.extend(df_pareto["Duration"].dropna().tolist())
+    if df_targets is not None and not df_targets.empty:
+        all_durations.extend(df_targets["Duration"].dropna().tolist())
+    y_lo = min(all_durations) * 0.8 if all_durations else 0.1
+    y_hi = max(all_durations) * 1.2 if all_durations else 100
+
     fig = go.Figure()
 
     # Initialize anchor parameters for the Riegel time curve
@@ -131,8 +141,10 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
     # Plot Pareto front (red line)
     if df_pareto is not None and not df_pareto.empty:
-        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Duration"]))
-        pareto_dists, pareto_durations = zip(*sorted(pareto_points, key=lambda x: x[0]))
+        pareto_tuples = list(zip(df_pareto["Distance"], df_pareto["Duration"]))
+        pareto_tuples.sort(key=lambda x: x[0])
+        pareto_dists = [p[0] for p in pareto_tuples]
+        pareto_durations = [p[1] for p in pareto_tuples]
 
         # Find the Pareto point with the best pace (max speed) to anchor the
         # Riegel curve — same anchor logic as before, just displayed in time space.
@@ -141,8 +153,67 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
             best_distance = float(df_pareto.loc[max_speed_idx, "Distance"])
             anchor_duration = float(df_pareto.loc[max_speed_idx, "Duration"])
 
-        # Generate Riegel time curve: T(D) = T_anchor * (D / D_anchor)^(1+exponent(D))
-        # The exponent grows with distance to capture ultra-marathon fatigue.
+        # Pre-process target data for fills
+        target_dists_list = target_durations_list = None
+        if df_targets is not None and not df_targets.empty:
+            tgt = list(zip(df_targets["Distance"], df_targets["Duration"]))
+            tgt.sort(key=lambda x: x[0])
+            target_dists_list = [p[0] for p in tgt]
+            target_durations_list = [p[1] for p in tgt]
+
+        # --- Area fills (polygon-based for inverted log axes) ---
+        # On inverted y (lower time = top), "area under" = region below staircase
+        # toward y_hi (slow times at bottom). Use fill='toself' with explicit
+        # polygon vertices closing at y_hi.
+
+        def _build_vh_polygon(xs, ys, y_bottom):
+            """Build a closed polygon following a vh staircase down to y_bottom."""
+            path_x, path_y = [xs[0]], [ys[0]]
+            for i in range(1, len(xs)):
+                path_x.extend([xs[i], xs[i]])
+                path_y.extend([ys[i - 1], ys[i]])
+            # Close along bottom
+            path_x.extend([xs[-1], xs[0], xs[0]])
+            path_y.extend([y_bottom, y_bottom, ys[0]])
+            return path_x, path_y
+
+        if target_dists_list:
+            # Green expansion fill: combined Pareto+targets
+            comb_dists, comb_durs = combined_pareto_front_min(
+                list(zip(pareto_dists, pareto_durations)),
+                list(zip(target_dists_list, target_durations_list)),
+            )
+            poly_x, poly_y = _build_vh_polygon(comb_dists, comb_durs, y_hi)
+            fig.add_trace(
+                go.Scatter(
+                    x=poly_x,
+                    y=poly_y,
+                    fill="toself",
+                    fillcolor="rgba(76, 175, 80, 0.18)",
+                    line=dict(color="rgba(0,0,0,0)", width=0),
+                    name="Target Expansion",
+                    hoverinfo="skip",
+                )
+            )
+
+        # Light red Pareto area fill
+        poly_x, poly_y = _build_vh_polygon(pareto_dists, pareto_durations, y_hi)
+        fig.add_trace(
+            go.Scatter(
+                x=poly_x,
+                y=poly_y,
+                fill="toself",
+                fillcolor="rgba(255, 205, 210, 0.35)",
+                line=dict(color="rgba(0,0,0,0)", width=0),
+                name="Pareto Area",
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+
+        # --- Curves and lines ---
+
+        # Generate Riegel time curve
         if not np.isnan(anchor_duration) and not np.isnan(best_distance):
             x_vals = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             x_vals.append(float(best_distance))
@@ -181,9 +252,7 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 )
             )
 
-        # Pareto step line (vh: vertical-then-horizontal; with the y-axis
-        # inverted, this produces the same upper-right staircase shape as the
-        # lifting charts where upper-right = better performance)
+        # Pareto step line
         pareto_times_hover = [_format_duration_minutes(t) for t in pareto_durations]
         pareto_paces = [
             seconds_to_pace_string(t * 60.0 / d) if t > 0 and d > 0 else "N/A"
@@ -300,15 +369,6 @@ def plot_running_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 customdata=list(zip(target_times_hover, target_paces)),
             )
         )
-
-    # Collect all duration values for y-axis range
-    all_durations = []
-    if df_pareto is not None and not df_pareto.empty:
-        all_durations.extend(df_pareto["Duration"].dropna().tolist())
-    if df_targets is not None and not df_targets.empty:
-        all_durations.extend(df_targets["Duration"].dropna().tolist())
-    y_lo = min(all_durations) * 0.8 if all_durations else 0
-    y_hi = max(all_durations) * 1.2 if all_durations else 100
 
     # Add vertical dotted lines for common race distances with always-visible
     # labels near the top.  Use add_vline for the line (handles log axes) and
@@ -448,6 +508,15 @@ def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
         if race_dist >= min_dist:
             plot_max_dist = max(plot_max_dist, race_dist * 1.15)
 
+    # Compute y-axis limits upfront (needed for polygon fills)
+    all_paces = []
+    if not df_pareto.empty:
+        all_paces.extend(df_pareto["Pace"].dropna().tolist())
+    if df_targets is not None and not df_targets.empty:
+        all_paces.extend(df_targets["Pace"].dropna().tolist())
+    y_lo = min(all_paces) * 0.8 if all_paces else 300
+    y_hi = max(all_paces) * 1.2 if all_paces else 900
+
     fig = go.Figure()
 
     # Anchor for Riegel pace curve: point with best (fastest) pace = max speed
@@ -456,17 +525,73 @@ def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
 
     # Plot Pareto front (red line + circles)
     if not df_pareto.empty:
-        pareto_points = list(zip(df_pareto["Distance"], df_pareto["Pace"]))
-        pareto_dists, pareto_paces = zip(*sorted(pareto_points, key=lambda x: x[0]))
+        pareto_tuples = list(zip(df_pareto["Distance"], df_pareto["Pace"]))
+        pareto_tuples.sort(key=lambda x: x[0])
+        pareto_dists = [p[0] for p in pareto_tuples]
+        pareto_paces = [p[1] for p in pareto_tuples]
 
         if "Speed" in df_pareto.columns:
             max_speed_idx = int(df_pareto["Speed"].idxmax())
             best_distance = float(df_pareto.loc[max_speed_idx, "Distance"])
             anchor_pace = float(df_pareto.loc[max_speed_idx, "Pace"])
 
-        # Riegel pace curve: P(D) = P_anchor * (D/D_anchor)^exponent(D)
-        # Derived from T(D) = P(D)*D = P_anchor*D_anchor*(D/D_anchor)^(1+e)
-        # → P(D) = P_anchor * (D/D_anchor)^e
+        # Pre-process target data for fills
+        target_dists_list = target_paces_list = None
+        if df_targets is not None and not df_targets.empty:
+            tgt = list(zip(df_targets["Distance"], df_targets["Pace"]))
+            tgt.sort(key=lambda x: x[0])
+            target_dists_list = [p[0] for p in tgt]
+            target_paces_list = [p[1] for p in tgt]
+
+        # --- Area fills (polygon-based for inverted log axes) ---
+
+        def _build_vh_polygon(xs, ys, y_bottom):
+            """Build a closed polygon following a vh staircase down to y_bottom."""
+            path_x, path_y = [xs[0]], [ys[0]]
+            for i in range(1, len(xs)):
+                path_x.extend([xs[i], xs[i]])
+                path_y.extend([ys[i - 1], ys[i]])
+            path_x.extend([xs[-1], xs[0], xs[0]])
+            path_y.extend([y_bottom, y_bottom, ys[0]])
+            return path_x, path_y
+
+        if target_dists_list:
+            # Green expansion fill: combined Pareto+targets
+            comb_dists, comb_paces = combined_pareto_front_min(
+                list(zip(pareto_dists, pareto_paces)),
+                list(zip(target_dists_list, target_paces_list)),
+            )
+            poly_x, poly_y = _build_vh_polygon(comb_dists, comb_paces, y_hi)
+            fig.add_trace(
+                go.Scatter(
+                    x=poly_x,
+                    y=poly_y,
+                    fill="toself",
+                    fillcolor="rgba(76, 175, 80, 0.18)",
+                    line=dict(color="rgba(0,0,0,0)", width=0),
+                    name="Target Expansion",
+                    hoverinfo="skip",
+                )
+            )
+
+        # Light red Pareto area fill
+        poly_x, poly_y = _build_vh_polygon(pareto_dists, pareto_paces, y_hi)
+        fig.add_trace(
+            go.Scatter(
+                x=poly_x,
+                y=poly_y,
+                fill="toself",
+                fillcolor="rgba(255, 205, 210, 0.35)",
+                line=dict(color="rgba(0,0,0,0)", width=0),
+                name="Pareto Area",
+                showlegend=False,
+                hoverinfo="skip",
+            )
+        )
+
+        # --- Curves and lines ---
+
+        # Riegel pace curve
         if not np.isnan(anchor_pace) and not np.isnan(best_distance):
             x_vals = np.linspace(plot_min_dist, plot_max_dist, 100).tolist()
             x_vals.append(float(best_distance))
@@ -477,7 +602,6 @@ def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 for d in x_vals
             ]
 
-            # Ensure curve passes through the anchor point exactly
             anchor_idx = x_vals.index(best_distance)
             y_vals[anchor_idx] = anchor_pace
 
@@ -520,6 +644,7 @@ def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
             )
         )
 
+        # Pareto markers
         fig.add_trace(
             go.Scatter(
                 x=list(pareto_dists),
@@ -609,15 +734,6 @@ def plot_running_pace_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 customdata=list(zip(target_pace_strs, target_speed_strs)),
             )
         )
-
-    # Y-axis range (pace in sec/mile; inverted so faster = visually higher)
-    all_paces = []
-    if not df_pareto.empty:
-        all_paces.extend(df_pareto["Pace"].dropna().tolist())
-    if df_targets is not None and not df_targets.empty:
-        all_paces.extend(df_targets["Pace"].dropna().tolist())
-    y_lo = min(all_paces) * 0.8 if all_paces else 300
-    y_hi = max(all_paces) * 1.2 if all_paces else 900
 
     tick_vals, tick_texts = _pace_axis_ticks(y_lo, y_hi)
 
@@ -800,8 +916,8 @@ def plot_running_combined(
     combined.update_layout(
         title=(
             f"Running Performance: {Exercise}<br><sup>"
-            "Red\u202f=\u202fPareto front \u00b7 Black\u202f=\u202fBest Riegel curve \u00b7 "
-            "Green\u202f=\u202fNext targets \u00b7 X-axes linked for synchronized zoom.</sup>"
+            "Red fill\u202f=\u202fPareto area \u00b7 Green fill\u202f=\u202ftarget expansion \u00b7 "
+            "Black\u202f=\u202fBest Riegel curve \u00b7 X-axes linked for synchronized zoom.</sup>"
         ),
         hovermode="closest",
         template="plotly_white",

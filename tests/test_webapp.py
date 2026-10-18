@@ -39,3 +39,23 @@ def test_upload_csv() -> None:
     assert "<!DOCTYPE html>" in response.text
     assert "<script" in response.text
     assert response.text.count('id="result"') == 1
+
+
+@pytest.mark.parametrize(
+    ("path", "chart_class"),
+    [("/lifting/", "exercise-figure"), ("/running/", "running-figure")],
+)
+def test_dashboard_navigation_routes(path, chart_class):
+    response = client.get(path)
+    assert response.status_code == 200
+    assert chart_class in response.text
+    assert "window.initializeDashboard" in response.text
+
+
+def test_browser_entrypoint_and_version_are_served():
+    entrypoint = client.get("/main.js")
+    metadata = client.get("/version.js")
+    assert entrypoint.status_code == 200
+    assert "export async function init" in entrypoint.text
+    assert metadata.status_code == 200
+    assert "export const VERSION" in metadata.text

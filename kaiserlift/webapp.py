@@ -16,7 +16,7 @@ from __future__ import annotations
 import os
 
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse, Response
 
 from .pipeline import pipeline
 from .running_pipeline import running_pipeline
@@ -280,9 +280,7 @@ async def index() -> HTMLResponse:
                     loading.style.display = 'block';
 
                     try {
-                        const response = await fetch('/demo-data');
-                        const html = await response.text();
-                        document.body.innerHTML = html;
+                        window.location.href = '/lifting/';
                     } catch (error) {
                         alert('Failed to load demo data: ' + error.message);
                     } finally {
@@ -322,6 +320,7 @@ async def upload_running(file: UploadFile = File(...)) -> str:
     return running_pipeline([file.file], embed_assets=True)
 
 
+@app.get("/lifting/", response_class=HTMLResponse)
 @app.get("/demo-data", response_class=HTMLResponse)
 async def demo_data() -> str:
     """Serve pre-generated demo HTML with sample lifting data.
@@ -351,6 +350,41 @@ async def demo_data() -> str:
         csv_content = f.read()
 
     return pipeline([io.StringIO(csv_content)], embed_assets=True)
+
+
+@app.get("/running/", response_class=HTMLResponse)
+async def running_demo() -> str:
+    """Open the running dashboard with bundled sample data."""
+    from pathlib import Path
+
+    sample = Path(__file__).parent.parent / "tests/example_use/running_sample.csv"
+    if not sample.exists():
+        return HTMLResponse("Running demo data is not available.", status_code=404)
+    return running_pipeline([sample], embed_assets=True)
+
+
+@app.get("/main.js")
+async def browser_client() -> FileResponse:
+    """Serve the same browser entrypoint used by static dashboard exports."""
+    from pathlib import Path
+
+    return FileResponse(
+        Path(__file__).parent.parent / "client/main.js",
+        media_type="text/javascript",
+    )
+
+
+@app.get("/version.js")
+async def client_version() -> Response:
+    """Expose package metadata for the browser client and dashboard footer."""
+    import json
+    from importlib.metadata import version
+
+    return Response(
+        f"export const VERSION = {json.dumps(version('kaiserlift'))};"
+        "export const GIT_HASH = 'local'; export const GIT_HASH_FULL = '';",
+        media_type="text/javascript",
+    )
 
 
 def main() -> None:

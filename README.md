@@ -188,3 +188,16 @@ run on the main branch, the generated pages are deployed to GitHub Pages:
 - Running demo: `running/index.html`
 
 The HTML is also available as a downloadable artifact for all branches.
+
+### Graph-first dashboards
+
+The lifting dashboard opens with an exercise selected and its interactive graph
+above the target table. A star marks the proposed target with the lowest estimated
+1RM; select a target marker or table row to inspect its weight and reps. The
+recommendation panel follows your selection. Formula and chart explanations are
+available under **How to read this graph**.
+
+Running dashboards also show performance graphs before the target table. Both
+views share responsive styling. When using the FastAPI server, open `/lifting/`
+or `/running/` for sample dashboards. Static exports use the same chart
+initializer, including after importing a lifting CSV or restoring cached results.

@@ -7,6 +7,7 @@ running/cardio data visualization.
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from .dashboard import dashboard_assets
 import plotly.graph_objects as go
 
 from .running_processers import (
@@ -942,14 +943,15 @@ def render_running_table_fragment(df) -> str:
     )
 
     return """
-    <div class="content-card">
-        <div class="table-wrapper">
-            {table_html}
-        </div>
-    </div>
-    <div class="figures-grid">
-        {all_figures_html}
-    </div>
+    <section class="content-card">
+        <div class="dashboard-toolbar"><div><p class="eyebrow">Your training, in focus</p>
+        <h2>Explore your running performance</h2></div></div>
+        <div class="figures-grid">{all_figures_html}</div>
+    </section>
+    <section class="content-card target-table">
+        <h2>Explore running targets</h2>
+        <div class="table-wrapper">{table_html}</div>
+    </section>
     """.format(table_html=table_html, all_figures_html=all_figures_html)
 
 
@@ -1435,7 +1437,8 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     <a href="/" class="back-link">&larr; Back to Home</a>
     <div class="page-header">
         <h1><span class="brand-name">KAISER</span><span class="brand-accent">LIFT</span></h1>
-        <p class="subtitle">Running Data Analysis</p>
+        <p class="subtitle">Go further. Find your pace.</p>
+        <nav class="dashboard-nav" aria-label="Training mode"><a href="../lifting/">Lifting</a><a href="../running/" aria-current="page">Running</a></nav>
     </div>
     <div class="content-card">
         <div class="upload-controls">
@@ -1480,7 +1483,10 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
         versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--primary-green);">${GIT_HASH}</a>)`;
     </script>
     """
-    body_html = upload_html + f'<div id="result">{fragment}</div>' + version_footer
-    return (
-        f"<html><head>{meta}{js_and_css}</head><body>{body_html}{scripts}</body></html>"
+    body_html = (
+        dashboard_assets()
+        + upload_html
+        + f'<div id="result">{fragment}</div>'
+        + version_footer
     )
+    return f"<!DOCTYPE html><html><head>{meta}{js_and_css}</head><body>{body_html}{scripts}</body></html>"

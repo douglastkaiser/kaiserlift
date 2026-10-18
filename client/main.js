@@ -1,6 +1,11 @@
 import { VERSION } from "./version.js";
 
 export function initializeUI(root = document) {
+  if (typeof window !== "undefined" && window.initializeDashboard &&
+      root.querySelector("[data-exercise-panel], [data-plot]")) {
+    window.initializeDashboard(root);
+    return;
+  }
   if (typeof $ === "undefined") {
     return;
   }
@@ -22,7 +27,7 @@ export function initializeUI(root = document) {
       $(".exercise-figure").hide();
       const figId = $(this).find("option:selected").data("fig");
       if (figId) {
-        $("#fig-" + figId).show();
+        $("#fig-" + figId + "-wrapper").show();
       }
     });
 }

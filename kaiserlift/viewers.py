@@ -1,3 +1,5 @@
+from html import escape
+from .dashboard import dashboard_assets
 import numpy as np
 from difflib import get_close_matches
 import plotly.graph_objects as go
@@ -89,7 +91,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 y=pareto_weights,
                 mode="lines",
                 name="Pareto Front",
-                line=dict(color="red", shape="vh", width=2),
+                line=dict(color="#4979aa", shape="vh", width=2),
                 hovertemplate="<b>Pareto Front</b><extra></extra>",
             )
         )
@@ -101,7 +103,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 y=pareto_weights,
                 mode="markers",
                 name="Pareto Points",
-                marker=dict(color="red", size=10, symbol="circle"),
+                marker=dict(color="#4979aa", size=10, symbol="circle"),
                 hovertemplate="<b>Pareto Point</b><br>"
                 + "Reps: %{x}<br>"
                 + "Weight: %{y} lbs<br>"
@@ -154,7 +156,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
                 y=target_weights,
                 mode="markers",
                 name="Targets",
-                marker=dict(color="green", size=12, symbol="x"),
+                marker=dict(color="#236b45", size=12, symbol="x"),
                 hovertemplate="<b>Target</b><br>"
                 + "Reps: %{x}<br>"
                 + "Weight: %{y} lbs<br>"
@@ -164,11 +166,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         )
 
     fig.update_layout(
-        title=(
-            f"Weight vs. Reps for {closest_match}<br><sup>"
-            "1RM uses Epley: 1RM = weight * (1 + reps/30); targets add +5 lbs or +1 rep to fill gaps between Pareto steps."
-            "</sup>"
-        ),
+        title=None,
         xaxis_title="Reps",
         yaxis_title="Weight (lbs)",
         xaxis=dict(range=[0, plot_max_rep]),
@@ -177,7 +175,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
         legend=dict(
             orientation="h",
             yanchor="top",
-            y=-0.25,
+            y=-0.18,
             xanchor="center",
             x=0.5,
             bgcolor="rgba(255,255,255,0.9)",
@@ -185,7 +183,7 @@ def plot_df(df_pareto=None, df_targets=None, Exercise: str = None):
             borderwidth=1,
         ),
         height=520,
-        margin=dict(t=100, l=60, r=20, b=140),
+        margin=dict(t=24, l=50, r=16, b=100),
     )
 
     return fig
@@ -527,61 +525,101 @@ def print_oldest_exercise(
 def render_table_fragment(df) -> str:
     """Render the viewer fragment without external assets.
 
-    The returned HTML contains only the dropdown, table, and figures while
-    omitting any ``<script>`` or ``<link>`` tags so that assets can be injected
-    separately.
+    The fragment contains the exercise selector, charts, recommendation panels,
+    and target table. Inert JSON script tags hold chart specifications; the
+    surrounding page supplies assets and calls ``initializeDashboard`` after
+    inserting a fragment.
     """
 
     df_records = highest_weight_per_rep(df)
     df_targets = df_next_pareto(df_records)
 
-    figures_html: dict[str, str] = {}
-
-    exercise_slug = {ex: slugify(ex) for ex in df_records["Exercise"].unique()}
-
-    for exercise, slug in exercise_slug.items():
+    exercises = sorted(df_records["Exercise"].dropna().unique())
+    panels = []
+    options = []
+    for index, exercise in enumerate(exercises):
+        slug = f"{index}-{slugify(exercise)}"
+        name = escape(str(exercise), quote=True)
+        options.append(f'<option value="{name}">{name}</option>')
         fig = plot_df(df_records, df_targets, Exercise=exercise)
-        figures_html[exercise] = plotly_figure_to_html_div(fig, slug, display="none")
-
-    all_figures_html = "\n".join(figures_html.values())
-
-    exercise_column = "Exercise"  # Adjust if needed
-    exercise_options = sorted(df_records[exercise_column].dropna().unique())
-
-    dropdown_html = """
-    <div class="control-stack">
-        <label for="exerciseDropdown">Filter by Exercise:</label>
-        <select id="exerciseDropdown">
-            <option value="">All</option>
-    """
-    dropdown_html += "".join(
-        f'<option value="{x}" data-fig="{exercise_slug.get(x, "")}">{x}</option>'
-        for x in exercise_options
+        targets = df_targets[df_targets["Exercise"] == exercise].sort_values("1RM")
+        target_text = "No targets available"
+        if not targets.empty:
+            target = targets.iloc[0]
+            target_text = f"{target['Weight']:g} lbs × {target['Reps']:g} reps"
+            fig.add_trace(
+                go.Scatter(
+                    x=[target["Reps"]],
+                    y=[target["Weight"]],
+                    mode="markers",
+                    name="Recommended target",
+                    marker=dict(color="#236b45", size=17, symbol="star"),
+                    hovertemplate="Recommended target<br>%{y} lbs × %{x} reps<extra></extra>",
+                )
+            )
+        fig.add_trace(
+            go.Scatter(
+                x=[],
+                y=[],
+                mode="markers",
+                name="Selected target",
+                showlegend=False,
+                marker=dict(
+                    color="#213c32", size=20, symbol="diamond-open", line=dict(width=3)
+                ),
+                hoverinfo="skip",
+            )
+        )
+        chart = plotly_figure_to_html_div(fig, slug, display="block")
+        hidden = " hidden" if index else ""
+        panels.append(f"""
+        <section data-exercise-panel="{name}"{hidden}>
+            <div class="dashboard-grid">
+                <div class="chart-card">
+                    <h3>{name}</h3>
+                    {chart}
+                    <details class="chart-help">
+                        <summary>How to read this graph</summary>
+                        <p>Circles show your best recorded sets; crosses show potential
+                        new records. The star marks the target with the lowest estimated
+                        one-rep maximum. Tap a target to see its weight and reps.</p>
+                        <p>Dotted curves compare sets using the Epley estimate.
+                        Targets add weight or reps to your recorded performances.
+                        Estimated one-rep maximums help compare different rep counts.</p>
+                    </details>
+                </div>
+                <aside class="target-card" aria-label="Workout recommendation">
+                    <span class="eyebrow" data-target-label>Next target</span>
+                    <output class="target-value" aria-live="polite">{target_text}</output>
+                    <p data-target-explanation>This target has the lowest estimated one-rep maximum
+                    among this exercise's proposed records.</p>
+                    <p>Select a cross on the graph or a row below to explore another target.</p>
+                </aside>
+            </div>
+        </section>
+        """)
+    table_html = df_targets.round({"1RM": 1}).to_html(
+        classes="display compact cell-border",
+        table_id="exerciseTable",
+        index=False,
+        float_format=lambda value: f"{value:.15g}",
     )
-    dropdown_html += """
-        </select>
-    </div>
-    """
-
-    table_html = df_targets.to_html(
-        classes="display compact cell-border", table_id="exerciseTable", index=False
-    )
-
-    return """
-    <div class="content-card">
-        {dropdown_html}
-        <div class="table-wrapper">
-            {table_html}
+    return f"""
+    <section class="content-card">
+        <div class="dashboard-toolbar">
+            <div><p class="eyebrow">Your training, in focus</p><h2>Find your next PR</h2></div>
+            <div class="control-stack">
+                <label for="exerciseDropdown">Exercise</label>
+                <select id="exerciseDropdown">{"".join(options)}</select>
+            </div>
         </div>
-    </div>
-    <div class="figures-grid">
-        {all_figures_html}
-    </div>
-    """.format(
-        dropdown_html=dropdown_html,
-        table_html=table_html,
-        all_figures_html=all_figures_html,
-    )
+        <div class="figures-grid">{"".join(panels)}</div>
+    </section>
+    <section class="content-card target-table">
+        <h2>Explore target sets</h2>
+        <div class="table-wrapper">{table_html}</div>
+    </section>
+    """
 
 
 def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
@@ -1132,21 +1170,23 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
     <a href="/" class="back-link">&larr; Back to Home</a>
     <div class="page-header">
         <h1><span class="brand-name">KAISER</span><span class="brand-accent">LIFT</span></h1>
-        <p class="subtitle">Lifting Data Analysis</p>
+        <p class="subtitle">Build on your best.</p>
+        <nav class="dashboard-nav" aria-label="Training mode"><a href="../lifting/" aria-current="page">Lifting</a><a href="../running/">Running</a></nav>
     </div>
-    <div class="content-card">
+    <details class="content-card import-panel">
+        <summary>Import training data</summary>
         <div class="upload-controls">
             <input type="file" id="csvFile">
             <button id="uploadButton">Upload</button>
             <button id="clearButton">Clear</button>
             <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
         </div>
-    </div>
+    </details>
     """
 
     scripts = """
     <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js" defer></script>
-    <script type="module" src="main.js"></script>
+    <script type="module" src="../main.js"></script>
     """
     meta = """
     <meta charset="utf-8">
@@ -1167,35 +1207,7 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--primary-green);">${GIT_HASH}</a>)`;
     </script>
     """
-    interactive_script = """
-    <script>
-    $(document).ready(function() {
-        const tableEl = $('#exerciseTable');
-        const dropdownEl = $('#exerciseDropdown');
-
-        const table = ($.fn.DataTable && $.fn.DataTable.isDataTable(tableEl))
-            ? tableEl.DataTable()
-            : tableEl.DataTable({ responsive: true });
-
-        dropdownEl
-            .select2({ placeholder: 'Filter by Exercise', allowClear: true })
-            .on('change', function() {
-                const val = $.fn.dataTable.util.escapeRegex($(this).val());
-                table.column(0).search(val ? '^' + val + '$' : '', true, false).draw();
-                $('.exercise-figure').hide();
-                const figId = $(this).find('option:selected').data('fig');
-                if (figId) {
-                    $('#fig-' + figId + '-wrapper').show();
-                }
-            });
-
-        const initialFig = dropdownEl.find('option:selected').data('fig');
-        if (initialFig) {
-            $('#fig-' + initialFig + '-wrapper').show();
-        }
-    });
-    </script>
-    """
+    interactive_script = dashboard_assets()
 
     body_html = (
         upload_html
@@ -1203,4 +1215,6 @@ def gen_html_viewer(df, *, embed_assets: bool = True) -> str:
         + interactive_script
         + version_footer
     )
-    return f"<html><head>{head_html}</head><body>{body_html}</body></html>"
+    return (
+        f"<!DOCTYPE html><html><head>{head_html}</head><body>{body_html}</body></html>"
+    )

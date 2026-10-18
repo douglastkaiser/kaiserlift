@@ -24,7 +24,10 @@ def slugify(name: str) -> str:
 def plotly_figure_to_html_div(
     fig, slug: str, display: str = "none", css_class: str = "exercise-figure"
 ) -> str:
-    """Convert a Plotly figure to an HTML div with wrapper.
+    """Convert a Plotly figure to a wrapper containing an inert JSON payload.
+
+    Standalone viewers include the shared dashboard initializer. Call
+    ``initializeDashboard(root)`` after inserting a fragment in the browser.
 
     Parameters
     ----------
@@ -42,15 +45,12 @@ def plotly_figure_to_html_div(
     str
         HTML string with Plotly div wrapped in a container
     """
-    plotly_html = fig.to_html(
-        include_plotlyjs=False,
-        full_html=False,
-        div_id=f"fig-{slug}",
-        config={
-            "displayModeBar": True,
-            "displaylogo": False,
-            "responsive": True,
-        },
+    # JSON payloads can be initialized after uploads and cache restoration without
+    # evaluating inline scripts. Escape '<' so exercise names cannot close the tag.
+    payload = fig.to_json().replace("<", "\\u003c")
+    plotly_html = (
+        f'<div id="fig-{slug}" class="plotly-graph-div" data-plot>'
+        f'<script type="application/json">{payload}</script></div>'
     )
 
     return (

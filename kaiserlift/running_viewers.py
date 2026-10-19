@@ -4,6 +4,8 @@ This module provides plotting and HTML generation functionality for
 running/cardio data visualization.
 """
 
+from __future__ import annotations
+
 from html import escape
 
 import numpy as np

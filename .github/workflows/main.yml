@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.12', '3.13']
+        python-version: ['3.8', '3.12', '3.13']
       fail-fast: false
 
     steps:
@@ -45,7 +45,7 @@ jobs:
       - name: Create venv and install package
         run: |
           uv venv
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[dev,server]"
 
       - name: Inject version into client
         run: uv run --with setuptools-scm python scripts/inject_version.py
@@ -88,13 +88,28 @@ jobs:
           uv venv
           uv build
           WHEEL=$(ls dist/*.whl)
-          uv pip install "${WHEEL}[dev]"
-
-      - name: Inject version into client
-        run: uv run --with setuptools-scm python scripts/inject_version.py
+          uv pip install "${WHEEL}[dev,server]"
 
       - name: Run tests using installed package
-        run: uv run --no-project pytest tests --benchmark-skip
+        run: |
+          SITE_PACKAGES=$(.venv/bin/python -c "import sysconfig; print(sysconfig.get_path('purelib'))")
+          EXPECTED_PACKAGE="$SITE_PACKAGES/kaiserlift/__init__.py" .venv/bin/pytest tests --import-mode=importlib --benchmark-skip
+
+      - name: Smoke test wheel outside the checkout
+        run: |
+          PYTHON="$PWD/.venv/bin/python"
+          CLI="$PWD/.venv/bin/kaiserlift-cli"
+          cd "$RUNNER_TEMP"
+          "$CLI" --help
+          "$PYTHON" - <<'PY'
+          from fastapi.testclient import TestClient
+          from kaiserlift.webapp import app
+
+          with TestClient(app) as client:
+              for path in ("/", "/lifting/", "/running/", "/main.js", "/version.js"):
+                  response = client.get(path)
+                  assert response.status_code == 200, (path, response.text)
+          PY
 
   generate-example-html:
     name: Generate example HTML

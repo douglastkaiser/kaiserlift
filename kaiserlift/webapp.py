@@ -14,6 +14,7 @@ launch a Uvicorn development server.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse, FileResponse, Response
@@ -23,6 +24,7 @@ from .running_pipeline import running_pipeline
 
 
 app = FastAPI()
+ASSETS = Path(__file__).parent / "assets"
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -63,53 +65,21 @@ async def upload_running(file: UploadFile = File(...)) -> str:
 @app.get("/lifting/", response_class=HTMLResponse)
 @app.get("/demo-data", response_class=HTMLResponse)
 async def demo_data() -> str:
-    """Serve pre-generated demo HTML with sample lifting data.
-
-    This endpoint loads the example FitNotes CSV file from the test fixtures
-    and processes it through the lifting pipeline to generate an interactive
-    HTML demo that users can explore without uploading their own data.
-    """
-
-    import io
-    from pathlib import Path
-
-    # Load example CSV from test fixtures
-    example_csv = (
-        Path(__file__).parent.parent
-        / "tests/example_use/FitNotes_Export_2025_05_21_08_39_11.csv"
-    )
-
-    if not example_csv.exists():
-        return HTMLResponse(
-            "<html><body><h1>Demo data not found</h1>"
-            "<p>The example CSV file is not available in this deployment.</p></body></html>",
-            status_code=404,
-        )
-
-    with open(example_csv, encoding="utf-8") as f:
-        csv_content = f.read()
-
-    return pipeline([io.StringIO(csv_content)], embed_assets=True)
+    """Open the lifting dashboard with sample data bundled in the package."""
+    return pipeline([ASSETS / "lifting_sample.csv"], embed_assets=True)
 
 
 @app.get("/running/", response_class=HTMLResponse)
 async def running_demo() -> str:
     """Open the running dashboard with bundled sample data."""
-    from pathlib import Path
-
-    sample = Path(__file__).parent.parent / "tests/example_use/running_sample.csv"
-    if not sample.exists():
-        return HTMLResponse("Running demo data is not available.", status_code=404)
-    return running_pipeline([sample], embed_assets=True)
+    return running_pipeline([ASSETS / "running_sample.csv"], embed_assets=True)
 
 
 @app.get("/main.js")
 async def browser_client() -> FileResponse:
     """Serve the same browser entrypoint used by static dashboard exports."""
-    from pathlib import Path
-
     return FileResponse(
-        Path(__file__).parent.parent / "client/main.js",
+        ASSETS / "main.js",
         media_type="text/javascript",
     )
 

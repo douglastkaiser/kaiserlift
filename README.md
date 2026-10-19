@@ -25,6 +25,7 @@ uv pip install kaiserlift
 ### Run the Web Interface
 
 ```bash
+pip install "kaiserlift[server]"
 kaiserlift-cli
 ```
 
@@ -122,6 +123,8 @@ rerun the command until it reports no changes.
 
 Import data and run the pareto calculations:
 ```
+import glob
+
 from kaiserlift import (
     process_csv_files,
     highest_weight_per_rep,
@@ -137,17 +140,17 @@ Plotting the data:
 ```
 from kaiserlift import plot_df
 
-# Simple view of all data (only the blue dots)
+# Plot recorded sets
 fig = plot_df(df, Exercise="Dumbbell Curl")
-fig.savefig("build/Dumbbell_Curl_Raw.png")
+fig.write_image("build/Dumbbell_Curl_Raw.png")  # Requires the optional kaleido package
 
-# View with pareto front plotted (the red line)
-fig = plot_df(df, df_pareto=df_pareto, Exercise="Dumbbell Curl")
-fig.savefig("build/Dumbbell_Curl_Pareto.png")
+# Plot the Pareto front
+fig = plot_df(df_pareto=df_pareto, Exercise="Dumbbell Curl")
+fig.write_image("build/Dumbbell_Curl_Pareto.png")
 
 # View with pareto and targets (the green x's)
-fig = plot_df(df, df_pareto=df_pareto, df_targets=df_targets, Exercise="Dumbbell Curl")
-fig.savefig("build/Dumbbell_Curl_Pareto_and_Targets.png")
+fig = plot_df(df_pareto=df_pareto, df_targets=df_targets, Exercise="Dumbbell Curl")
+fig.write_image("build/Dumbbell_Curl_Pareto_and_Targets.png")
 ```
 
 Generate views:

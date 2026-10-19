@@ -5,6 +5,8 @@ calculating pace metrics, and generating training targets based on
 Pareto front analysis.
 """
 
+from __future__ import annotations
+
 import os
 from pathlib import Path
 from typing import IO, Iterable
@@ -89,8 +91,8 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
     -------
     pd.DataFrame
         DataFrame with columns: [Date, Exercise, Category, Distance, Pace]
-        Pace is calculated from Duration and Distance and returned in seconds/mile.
-        Distance in miles.
+        Pace is read as seconds/mile, or calculated from Duration (minutes)
+        and Distance (miles) when missing. Explicit Pace values take precedence.
     """
 
     file_list = list(files)
@@ -132,12 +134,17 @@ def process_running_csv_files(files: Iterable[IO | Path]) -> pd.DataFrame:
     )
 
     # Calculate pace from Duration (minutes) and Distance (miles)
-    df_sorted["Pace"] = df_sorted.apply(
+    calculated_pace = df_sorted.apply(
         lambda row: calculate_pace_from_duration(
             row.get("Duration", np.nan), row.get("Distance", np.nan)
         ),
         axis=1,
     )
+    supplied_pace = pd.to_numeric(
+        df_sorted.get("Pace", pd.Series(np.nan, index=df_sorted.index)),
+        errors="coerce",
+    )
+    df_sorted["Pace"] = supplied_pace.combine_first(calculated_pace)
 
     # Filter to only Cardio category
     df_sorted = df_sorted[df_sorted["Category"] == "Cardio"]
@@ -196,7 +203,7 @@ def highest_pace_per_distance(df: pd.DataFrame) -> pd.DataFrame:
     time does NOT dominate a shorter run, even if the pace was faster.
     """
 
-    df_copy = df.copy()
+    df_copy = df.copy() if df.index.is_unique else df.reset_index(drop=True)
     df_copy["Distance"] = pd.to_numeric(df_copy["Distance"], errors="coerce")
     df_copy["Pace"] = pd.to_numeric(df_copy["Pace"], errors="coerce")
     df_copy = df_copy.dropna(subset=["Exercise", "Distance", "Pace"])
@@ -509,7 +516,7 @@ def highest_pace_per_distance_pace_pareto(df: pd.DataFrame) -> pd.DataFrame:
     - P' <= P (at least as fast pace, i.e. fewer seconds per mile)
     """
 
-    df_copy = df.copy()
+    df_copy = df.copy() if df.index.is_unique else df.reset_index(drop=True)
     df_copy["Distance"] = pd.to_numeric(df_copy["Distance"], errors="coerce")
     df_copy["Pace"] = pd.to_numeric(df_copy["Pace"], errors="coerce")
     df_copy = df_copy.dropna(subset=["Exercise", "Distance", "Pace"])
@@ -619,6 +626,10 @@ def predict_race_pace(
     else:
         # Use optimistic + 10% buffer
         conservative = optimistic * 1.10
+
+    # Either neighboring performance may imply the faster prediction. Keep
+    # the public bounds ordered even when the training history is uneven.
+    optimistic, conservative = sorted((optimistic, conservative))
 
     def total_time_str(pace_sec_per_mi: float, distance_mi: float) -> str:
         """Convert pace and distance to total time string."""

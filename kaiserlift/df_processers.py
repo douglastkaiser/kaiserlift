@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import os
 from pathlib import Path
@@ -150,7 +152,7 @@ def highest_weight_per_rep(df: pd.DataFrame) -> pd.DataFrame:
 
     # --- Make it simple: Basic Checks and Copy ---
     # Work on a copy to avoid modifying the original DataFrame
-    df_copy = df.copy()
+    df_copy = df.copy() if df.index.is_unique else df.reset_index(drop=True)
 
     # Convert Weight and Reps to numeric, coercing errors to NaN
     df_copy["Weight"] = pd.to_numeric(df_copy["Weight"], errors="coerce")
@@ -287,7 +289,7 @@ def highest_1rm_per_rep(df: pd.DataFrame) -> pd.DataFrame:
     required_cols = ["Exercise", "Weight", "Reps"]
     assert all(col in df.columns for col in required_cols)
 
-    df_copy = df.copy()
+    df_copy = df.copy() if df.index.is_unique else df.reset_index(drop=True)
     df_copy["Weight"] = pd.to_numeric(df_copy["Weight"], errors="coerce")
     df_copy["Reps"] = pd.to_numeric(df_copy["Reps"], errors="coerce")
     df_copy = df_copy.dropna(subset=["Exercise", "Weight", "Reps"])

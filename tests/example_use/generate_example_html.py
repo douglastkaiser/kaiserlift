@@ -3,6 +3,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import kaiserlift
+
 from kaiserlift import (
     gen_html_viewer,
     process_csv_files,
@@ -75,8 +77,10 @@ def main() -> None:
 
     # Copy client files
     client_dir = here.parent.parent / "client"
-    for name in ("main.js", "version.js"):
-        shutil.copy(client_dir / name, out_dir / name)
+    shutil.copy(
+        Path(kaiserlift.__file__).parent / "assets/main.js", out_dir / "main.js"
+    )
+    shutil.copy(client_dir / "version.js", out_dir / "version.js")
 
     # Create .nojekyll to prevent GitHub Pages from processing through Jekyll
     # This ensures clean URLs work properly (e.g., /lifting/ instead of /lifting/index.html)

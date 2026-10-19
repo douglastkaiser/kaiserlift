@@ -9,11 +9,7 @@ from __future__ import annotations
 
 from typing import IO, Iterable
 
-from .df_processers import (
-    df_next_pareto,
-    highest_weight_per_rep,
-    process_csv_files,
-)
+from .df_processers import process_csv_files
 from .viewers import gen_html_viewer
 
 
@@ -45,8 +41,5 @@ def pipeline(files: Iterable[IO], *, embed_assets: bool = True) -> str:
 
     df = process_csv_files(files)
 
-    # Execute full pipeline for side effects and potential validation.
-    records = highest_weight_per_rep(df)
-    _ = df_next_pareto(records)
-
+    # The viewer owns analysis for both direct DataFrame and CSV callers.
     return gen_html_viewer(df, embed_assets=embed_assets)

@@ -8,11 +8,7 @@ from __future__ import annotations
 
 from typing import IO, Iterable
 
-from .running_processers import (
-    highest_pace_per_distance,
-    process_running_csv_files,
-    df_next_running_targets,
-)
+from .running_processers import process_running_csv_files
 from .running_viewers import gen_running_html_viewer
 
 
@@ -27,7 +23,8 @@ def running_pipeline(files: Iterable[IO], *, embed_assets: bool = True) -> str:
     ----------
     files:
         Iterable of file paths or file-like objects containing running CSV data.
-        CSV should have columns: Date, Exercise, Category, Distance, Pace
+        CSV should have Date, Exercise, Category, Distance (miles), and
+        either Pace (seconds/mile) or Duration (minutes).
     embed_assets:
         If True (default), return standalone HTML with embedded CSS/JS.
         If False, return fragment only (for embedding in existing pages).
@@ -52,11 +49,5 @@ def running_pipeline(files: Iterable[IO], *, embed_assets: bool = True) -> str:
     # Load & parse running CSV
     df = process_running_csv_files(files)
 
-    # Extract records (Pareto front)
-    records = highest_pace_per_distance(df)
-
-    # Generate targets (validates pipeline)
-    _ = df_next_running_targets(records)
-
-    # Generate HTML
+    # The viewer owns analysis for both direct DataFrame and CSV callers.
     return gen_running_html_viewer(df, embed_assets=embed_assets)

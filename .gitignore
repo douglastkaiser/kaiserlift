@@ -192,6 +192,7 @@ cython_debug/
 
 # From the actual data source as a test
 *.csv
+!kaiserlift/assets/*.csv
 
 # Allow personal data CSVs in data/ directory (for pre-processed website data)
 # Comment out the line below if you want to keep your data private

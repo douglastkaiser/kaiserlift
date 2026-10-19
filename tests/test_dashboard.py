@@ -62,7 +62,8 @@ def test_dashboard_shows_first_chart_and_matches_recommendation():
     assert "hidden" not in parser.panels[0]
     assert "hidden" in parser.panels[1]
     assert html.index("data-exercise-panel") < html.index('id="exerciseTable"')
-    for payload, output in zip(parser.payloads, parser.outputs, strict=True):
+    assert len(parser.payloads) == len(parser.outputs)
+    for payload, output in zip(parser.payloads, parser.outputs):
         recommendation = next(
             t for t in payload["data"] if t["name"] == "Recommended target"
         )

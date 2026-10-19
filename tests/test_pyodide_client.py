@@ -5,6 +5,16 @@ import textwrap
 from pathlib import Path
 
 import pytest
+import kaiserlift
+
+
+def client_module(tmp_path: Path) -> Path:
+    """Exercise the browser asset from the installed distribution."""
+    client = tmp_path / "client"
+    client.mkdir()
+    shutil.copy(Path(kaiserlift.__file__).parent / "assets/main.js", client / "main.js")
+    (client / "version.js").write_text("export const VERSION = '0.0.0';\n")
+    return client / "main.js"
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
@@ -12,11 +22,11 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
     """Execute the pipeline through the browser client using a Pyodide stub."""
 
     script = tmp_path / "run.mjs"
-    (Path("client/version.js")).write_text("export const VERSION = '0.0.0';\n")
+    module = client_module(tmp_path)
     script.write_text(
         textwrap.dedent(
             f"""
-            import {{ init }} from 'file://{Path("client/main.js").resolve().as_posix()}';
+            import {{ init }} from 'file://{module.as_posix()}';
             import {{ spawnSync }} from 'child_process';
             globalThis.fetch = async (url) => {{
               console.log(url.href.endsWith('/client/kaiserlift.whl'));
@@ -154,11 +164,11 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
 def test_running_import_cache_and_runtime_failure(tmp_path: Path) -> None:
     """Running imports use their own pipeline/cache and failures preserve charts."""
-    (Path("client/version.js")).write_text("export const VERSION = '0.0.0';\n")
+    module = client_module(tmp_path)
     script = tmp_path / "running.mjs"
     script.write_text(
         "import { init } from "
-        + repr("file://" + Path("client/main.js").resolve().as_posix())
+        + repr("file://" + module.as_posix())
         + ";\n"
         + r"""
 import assert from 'node:assert/strict';

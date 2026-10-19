@@ -201,3 +201,18 @@ Running dashboards also show performance graphs before the target table. Both
 views share responsive styling. When using the FastAPI server, open `/lifting/`
 or `/running/` for sample dashboards. Static exports use the same chart
 initializer, including after importing a lifting CSV or restoring cached results.
+
+### Neo-retro training labs
+
+The homepage, lifting lab, and running lab share a minimal early-web design:
+numbered navigation, a page directory, bold headings, square instrument panels,
+and a target register. Charts use the same paper, ink, cobalt, and green palette;
+recorded performances and proposed targets keep distinct marker shapes.
+
+Each plot has **Reset view** and **Save plot** controls. **Import data** lives
+below the target register and is also linked from the page directory and homepage.
+The browser importer supports both lifting and running exports, keeps their saved
+histories separate, and preserves the current graphs when an import fails.
+Clearing saved data returns to the example performance map. The static homepage
+and FastAPI homepage use the same renderer; the server homepage also offers direct
+CSV upload forms.

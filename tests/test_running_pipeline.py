@@ -16,7 +16,7 @@ def test_running_pipeline_with_sample_data():
     # Verify output is valid HTML
     assert isinstance(html_output, str)
     assert len(html_output) > 0
-    assert "<html>" in html_output
+    assert '<html lang="en">' in html_output
     assert "<table" in html_output
     assert "Running" in html_output
 

@@ -149,3 +149,72 @@ def test_pipeline_via_pyodide(tmp_path: Path) -> None:
         error_msg = f"Expected 24 'true' lines, got:\n{lines[-24:]}\n"
         error_msg += f"\n=== FULL STDOUT ===\n{result.stdout}"
         raise AssertionError(error_msg)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
+def test_running_import_cache_and_runtime_failure(tmp_path: Path) -> None:
+    """Running imports use their own pipeline/cache and failures preserve charts."""
+    (Path("client/version.js")).write_text("export const VERSION = '0.0.0';\n")
+    script = tmp_path / "running.mjs"
+    script.write_text(
+        "import { init } from "
+        + repr("file://" + Path("client/main.js").resolve().as_posix())
+        + ";\n"
+        + r"""
+import assert from 'node:assert/strict';
+const saved = new Map([['kaiserliftHtml', 'lifting history']]);
+globalThis.localStorage = {
+    getItem: key => saved.get(key) ?? null,
+    setItem: (key, value) => saved.set(key, value),
+    removeItem: key => saved.delete(key),
+};
+globalThis.fetch = async () => new Response(new Uint8Array(), {status: 200});
+const csv = 'Date,Exercise,Distance,Duration\n2025-01-01,Running,3,27';
+const elements = {
+    result: {innerHTML: 'sample chart'},
+    csvFile: {files: [{name: 'RUN.CSV', text: async () => csv}]},
+    uploadButton: {addEventListener(event, fn) { this.click = fn; }},
+    clearButton: {addEventListener(event, fn) { this.click = fn; }},
+    uploadProgress: {style: {}, value: 0},
+    runtimeStatus: {textContent: ''},
+    importError: {hidden: true, innerHTML: ''},
+};
+const doc = {
+    body: {dataset: {trainingMode: 'running'}},
+    getElementById: id => elements[id],
+};
+const calls = [];
+const globals = new Map();
+const pyodide = {
+    globals, FS: {writeFile() {}}, loadPackage: async () => {},
+    runPythonAsync: async code => {
+        calls.push(code);
+        if (code.includes('pipeline([buffer]')) {
+            assert.equal(globals.get('csv_text'), csv);
+            return '<section data-lab-view="neo-retro">running chart</section>';
+        }
+    },
+};
+await init(async () => pyodide, doc);
+assert.equal(elements.uploadButton.disabled, false);
+await elements.uploadButton.click();
+assert(calls.some(code => code.includes('from kaiserlift.running_pipeline import running_pipeline as pipeline')));
+assert.equal(saved.get('kaiserliftRunningCsv'), csv);
+assert.equal(saved.get('kaiserliftHtml'), 'lifting history');
+assert.equal(globals.has('csv_text'), false);
+assert.equal(elements.uploadProgress.value, 100);
+assert.equal(elements.uploadButton.disabled, false);
+// Cache restoration happens before the importer loads; failure must preserve it.
+const cached = saved.get('kaiserliftRunningHtml');
+elements.result.innerHTML = 'sample chart';
+await init(async () => { throw new Error('offline'); }, doc);
+assert.equal(elements.result.innerHTML, cached);
+assert(elements.runtimeStatus.textContent.includes('CSV importer unavailable'));
+console.log('PASS');
+"""
+    )
+    result = subprocess.run(
+        ["node", str(script)], capture_output=True, text=True, timeout=30
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "PASS" in result.stdout

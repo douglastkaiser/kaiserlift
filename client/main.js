@@ -75,12 +75,19 @@ async function fetchWheel(doc) {
 
 export async function init(loadPyodide, doc = document) {
   const result = doc.getElementById("result");
+  const sampleHtml = result.innerHTML;
+  const running = doc.body?.dataset?.trainingMode === "running";
+  const cachePrefix = running ? "kaiserliftRunning" : "kaiserlift";
+  const runtimeStatus = doc.getElementById("runtimeStatus");
+  const importButton = doc.getElementById("uploadButton");
+  if (importButton) importButton.disabled = true;
+  const setStatus = message => { if (runtimeStatus) runtimeStatus.textContent = message; };
 
   // Ensure the initial UI is usable even if Pyodide fails to load.
   initializeUI(doc);
 
-  const cachedHtml = localStorage.getItem("kaiserliftHtml");
-  if (cachedHtml) {
+  const cachedHtml = localStorage.getItem(cachePrefix + "Html");
+  if (cachedHtml && cachedHtml.includes('data-lab-view')) {
     result.innerHTML = cachedHtml;
     initializeUI(result);
   }
@@ -120,16 +127,47 @@ await micropip.install('kaiserlift')
     const uploadButton = doc.getElementById("uploadButton");
     const progressBar = doc.getElementById("uploadProgress");
     const clearButton = doc.getElementById("clearButton");
+    uploadButton.disabled = false;
+    setStatus("Importer ready / Choose a CSV file to begin.");
+
+    async function processText(text) {
+      pyodide.globals.set("csv_text", text);
+      try {
+        const pipelineImport = running
+          ? "from kaiserlift.running_pipeline import running_pipeline as pipeline"
+          : "from kaiserlift.pipeline import pipeline";
+        return await pyodide.runPythonAsync(`
+import io
+${pipelineImport}
+buffer = io.StringIO(csv_text)
+pipeline([buffer], embed_assets=False)
+`);
+      } finally {
+        pyodide.globals.delete("csv_text");
+      }
+    }
+
+    // Rebuild older cached layouts from their original CSV in the new design.
+    const savedCsv = localStorage.getItem(cachePrefix + "Csv");
+    if (cachedHtml && !cachedHtml.includes('data-lab-view') && savedCsv) {
+      result.innerHTML = await processText(savedCsv);
+      initializeUI(result);
+      localStorage.setItem(cachePrefix + "Html", result.innerHTML);
+    }
 
     if (clearButton) {
       clearButton.addEventListener("click", () => {
-        localStorage.removeItem("kaiserliftCsv");
-        localStorage.removeItem("kaiserliftHtml");
-        result.innerHTML = "";
+        localStorage.removeItem(cachePrefix + "Csv");
+        localStorage.removeItem(cachePrefix + "Html");
+        result.innerHTML = sampleHtml;
+        initializeUI(result);
+        setStatus("Saved data cleared / Showing the example performance map.");
       });
     }
 
     uploadButton.addEventListener("click", async () => {
+      const importError = doc.getElementById("importError");
+      if (importError) importError.hidden = true;
       const file = fileInput.files?.[0];
       if (!file) {
         showError("No file selected", "Please select a CSV file to upload.");
@@ -137,27 +175,20 @@ await micropip.install('kaiserlift')
       }
 
       // Validate file type
-      if (!file.name.endsWith('.csv')) {
+      if (!file.name.toLowerCase().endsWith('.csv')) {
         showError("Invalid file type", "Please upload a CSV file. Selected file: " + file.name);
         return;
       }
 
-      let progressInterval;
-      let advance = () => {};
-      if (progressBar) {
-        progressBar.style.display = "block";
-        progressBar.value = 0;
-        let targetProgress = 0;
-        advance = (val) => {
-          if (val > targetProgress) targetProgress = val;
-        };
-        progressInterval = setInterval(() => {
-          if (progressBar.value < Math.min(targetProgress, 90)) {
-            progressBar.value += 1;
-          }
-        }, 100);
-        advance(10);
-      }
+      uploadButton.disabled = true;
+      setStatus("Reading your training history…");
+      const advance = value => {
+        if (progressBar) {
+          progressBar.style.display = "block";
+          progressBar.value = value;
+        }
+      };
+      advance(10);
 
       try {
         const text = await file.text();
@@ -168,45 +199,30 @@ await micropip.install('kaiserlift')
           throw new Error('Invalid CSV format. Please ensure your CSV contains "Date" and "Exercise" columns. Use FitNotes export format.');
         }
 
-        pyodide.globals.set("csv_text", text);
         advance(50);
-        advance(75);
-        const html = await pyodide.runPythonAsync(`
-          import io
-          from kaiserlift.pipeline import pipeline
-          buffer = io.StringIO(csv_text)
-          pipeline([buffer], embed_assets=False)
-        `);
+        const html = await processText(text);
         result.innerHTML = "";
         result.innerHTML = html;
-        localStorage.setItem("kaiserliftCsv", text);
-        localStorage.setItem("kaiserliftHtml", html);
+        localStorage.setItem(cachePrefix + "Csv", text);
+        localStorage.setItem(cachePrefix + "Html", html);
         initializeUI(result);
-        if (progressBar) {
-          advance(90);
-          await new Promise((resolve) => {
-            const wait = setInterval(() => {
-              if (progressBar.value >= 90) {
-                clearInterval(wait);
-                resolve();
-              }
-            }, 50);
-          });
-          if (progressInterval) clearInterval(progressInterval);
-          progressBar.value = 100;
-        }
+        advance(100);
+        setStatus("Data loaded / Your performance map is ready.");
+
       } catch (err) {
         console.error(err);
         showError("Processing Failed", getErrorMessage(err));
       } finally {
-        if (progressInterval) clearInterval(progressInterval);
-        pyodide.globals.delete("csv_text");
+        uploadButton.disabled = false;
         if (progressBar) progressBar.style.display = "none";
       }
     });
 
     function getErrorMessage(err) {
       const errorStr = err.toString();
+      if (running) {
+        return "Use a running CSV with Date, Exercise, Distance and Duration columns. " + errorStr;
+      }
 
       if (errorStr.includes('KeyError') || errorStr.includes('columns')) {
         return `Missing required columns in CSV. Please ensure your CSV has these columns: Date, Exercise, Category, Weight, Reps.
@@ -238,30 +254,21 @@ Please check your CSV file and try again.`;
     }
 
     function showError(title, message) {
-      result.innerHTML = `
-        <div style="
-          background: #fee;
-          border: 2px solid #fcc;
-          border-radius: 8px;
-          padding: 20px;
-          margin: 20px 0;
-          text-align: left;
-          max-width: 600px;
-        ">
-          <h3 style="color: #c00; margin-top: 0;">❌ ${title}</h3>
-          <pre style="
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-family: monospace;
-            font-size: 0.9em;
-            color: #333;
-          ">${message}</pre>
-        </div>
-      `;
+      const escape = value => String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;", "'": "&#39;"
+      })[char]);
+      setStatus(title + " / " + message);
+      // A separate alert preserves the graph while explaining import errors.
+      const alert = doc.getElementById("importError");
+      if (alert) {
+        alert.hidden = false;
+        alert.innerHTML = `<h3>${escape(title)}</h3><pre>${escape(message)}</pre>`;
+      }
     }
+
   } catch (err) {
     console.error(err);
-    result.textContent = "Failed to initialize Pyodide: " + err;
+    setStatus("CSV importer unavailable. Reload to try again. Your charts are still available.");
   }
 }
 

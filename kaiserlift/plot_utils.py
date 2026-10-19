@@ -21,6 +21,81 @@ def slugify(name: str) -> str:
     return slug.lower()
 
 
+def apply_plot_theme(fig) -> None:
+    """Apply the lab's instrument styling without altering any data or curves."""
+    fig.update_layout(
+        paper_bgcolor="#fffef8",
+        plot_bgcolor="#fffef8",
+        font=dict(family="Courier New, monospace", size=11, color="#171915"),
+        hoverlabel=dict(
+            bgcolor="#171915", font=dict(color="#f3f1e9", family="Courier New")
+        ),
+        legend=dict(
+            bgcolor="#fffef8",
+            bordercolor="#b7b9ab",
+            borderwidth=1,
+            font=dict(size=10),
+            orientation="h",
+            y=-0.18,
+            x=0,
+            xanchor="left",
+        ),
+    )
+    if fig.layout.title and fig.layout.title.text:
+        fig.update_layout(title=None, margin=dict(t=48))
+    # Race-distance labels compete with subplot titles on narrow screens.
+    fig.layout.annotations = tuple(
+        annotation
+        for annotation in fig.layout.annotations
+        if annotation.text not in {"5K", "Half", "Marathon"}
+    )
+    for annotation in fig.layout.annotations or ():
+        annotation.font.update(
+            family="Courier New, monospace", size=12, color="#171915"
+        )
+    for axis_name in fig.layout:
+        if axis_name.startswith(("xaxis", "yaxis")):
+            axis = fig.layout[axis_name]
+            if axis.type == "log" and axis.tickmode != "array":
+                ticks = [0.5, 1, 2, 3, 5, 10, 20, 30, 60, 120, 240, 600]
+                axis.update(
+                    tickmode="array", tickvals=ticks, ticktext=[str(t) for t in ticks]
+                )
+    fig.update_xaxes(
+        gridcolor="#e0e2d5",
+        zerolinecolor="#171915",
+        linecolor="#171915",
+        showline=True,
+        ticks="outside",
+        tickcolor="#171915",
+        automargin=True,
+    )
+    fig.update_yaxes(
+        gridcolor="#e0e2d5",
+        zerolinecolor="#171915",
+        linecolor="#171915",
+        showline=True,
+        ticks="outside",
+        tickcolor="#171915",
+        automargin=True,
+    )
+    for trace in fig.data:
+        name = trace.name or ""
+        if "Selected" in name:
+            color = "#171915"
+        elif "Recommended" in name:
+            color = "#d04c26"
+        elif "Target" in name or "target" in name:
+            color = "#13795a"
+        elif "Pareto" in name:
+            color = "#2744da"
+        else:
+            color = "#64695b"
+        if trace.type == "scatter":
+            trace.line.color = color
+            trace.marker.color = color
+
+
 def plotly_figure_to_html_div(
     fig, slug: str, display: str = "none", css_class: str = "exercise-figure"
 ) -> str:
@@ -47,6 +122,7 @@ def plotly_figure_to_html_div(
     """
     # JSON payloads can be initialized after uploads and cache restoration without
     # evaluating inline scripts. Escape '<' so exercise names cannot close the tag.
+    apply_plot_theme(fig)
     payload = fig.to_json().replace("<", "\\u003c")
     plotly_html = (
         f'<div id="fig-{slug}" class="plotly-graph-div" data-plot>'

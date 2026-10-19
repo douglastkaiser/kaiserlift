@@ -91,3 +91,44 @@ def test_chart_payload_is_safe_to_restore_without_script_execution():
     assert len(parser.payloads) == 1
     assert parser.payloads[0]["data"][0]["name"] == fig.data[0].name
     assert "Plotly.newPlot" not in html
+
+
+def test_home_and_labs_share_navigation_and_accessible_shell():
+    from kaiserlift.site import render_home
+
+    for html in (
+        render_home(),
+        render_home(server=True),
+        gen_html_viewer(sample_lifts()),
+    ):
+        assert '<html lang="en">' in html
+        assert 'aria-label="Main navigation"' in html
+        assert 'class="skip-link"' in html
+        assert 'id="main"' in html
+        assert "fonts.googleapis.com" not in html
+    assert 'action="/upload-running"' in render_home(server=True)
+    assert 'href="running/#import"' in render_home()
+
+
+def test_plot_theme_preserves_anchor_coordinates():
+    from kaiserlift.viewers import plot_df
+
+    records = sample_lifts()
+    fig = plot_df(records, Exercise="Curl")
+    original = [(list(trace.x), list(trace.y)) for trace in fig.data]
+    parser = DashboardParser()
+    parser.feed(plotly_figure_to_html_div(fig, "curl"))
+    assert [
+        (trace["x"], trace["y"]) for trace in parser.payloads[0]["data"]
+    ] == original
+    assert parser.payloads[0]["layout"]["plot_bgcolor"] == "#fffef8"
+
+
+def test_plot_theme_keeps_pace_labels_in_minutes_and_seconds():
+    fig = go.Figure(go.Scatter(x=[1, 2], y=[420, 600]))
+    fig.update_yaxes(
+        type="log", tickmode="array", tickvals=[420, 600], ticktext=["7:00", "10:00"]
+    )
+    parser = DashboardParser()
+    parser.feed(plotly_figure_to_html_div(fig, "pace"))
+    assert parser.payloads[0]["layout"]["yaxis"]["ticktext"] == ["7:00", "10:00"]

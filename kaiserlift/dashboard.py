@@ -1,56 +1,7 @@
 """Shared presentation and browser behavior for generated dashboards."""
 
-DASHBOARD_STYLE = """
-<style>
-body { background: #f3f6f4; color: #213c32; max-width: 1440px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
-h1, h2, h3 { font-family: inherit; text-transform: none; letter-spacing: -.025em; }
-.page-header { position: relative; text-align: left; margin-bottom: 16px; padding-bottom: 16px; }
-.back-link { margin-bottom: 12px; }
-.page-header h1 { font-size: 1.6rem; margin-bottom: 2px; font-weight: 750; }
-.page-header .subtitle { font-style: normal; font-weight: 400; }
-.content-card { width: 100%; border-radius: 16px; box-shadow: none; padding: 24px; }
-.dashboard-toolbar { display: flex; justify-content: space-between; gap: 24px;
-    align-items: center; margin-bottom: 24px; }
-.dashboard-toolbar .control-stack { margin: 0; min-width: min(100%, 320px); }
-.dashboard-toolbar h2 { font-size: 1.8rem; font-weight: 700; }
-.eyebrow { color: #4a7c59; font-size: .75rem; font-weight: 750;
-    text-transform: uppercase; letter-spacing: .12em; }
-.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 270px;
-    gap: 24px; align-items: start; }
-.chart-card { min-width: 0; overflow: hidden; }
-.chart-card h3 { font-size: 1.1rem; font-weight: 650; }
-.figures-grid { display: block; min-width: 0; }
-.target-card { background: #e8f2eb; border: 1px solid #cadfce; border-radius: 14px;
-    padding: 24px; margin-top: 4px; }
-.target-value { display: block; font-size: 1.8rem; line-height: 1.25;
-    font-weight: 750; margin: 16px 0; }
-.target-card p, .chart-help { font-size: .9rem; color: #51665b; }
-.chart-help { margin-top: 16px; }
-.chart-help summary { cursor: pointer; padding: 10px 0; }
-.chart-help p { max-width: 70ch; }
-.target-table h2 { font-size: 1.2rem; font-weight: 650; margin-bottom: 16px; }
-.target-table tr.is-selected td { background: #dceee2 !important; }
-.target-table tbody tr { cursor: pointer; }
-.import-panel { margin-bottom: 20px; }
-.import-panel summary { cursor: pointer; font-weight: 600; min-height: 24px; }
-.dashboard-nav { display: flex; gap: 8px; margin-top: 12px; }
-@media (min-width: 600px) { .dashboard-nav { position: absolute; right: 0; top: 0; margin-top: 0; } }
-.dashboard-nav a { color: #365342; padding: 8px 16px; border-radius: 8px;
-    text-decoration: none; border: 1px solid #d5dfd8; }
-.dashboard-nav a[aria-current] { background: #244f39; color: white; }
-:focus-visible { outline: 3px solid #477cbd; outline-offset: 3px; }
-.exercise-figure, .running-figure { border: 0; padding: 0; box-shadow: none; margin: 12px 0; opacity: 1; animation: none; }
-[data-exercise-panel][hidden] { display: none !important; }
-select#exerciseDropdown { min-height: 44px; width: 100%; }
-@media (max-width: 900px) {
-    .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
-    .target-card { margin-top: 0; }
-    .dashboard-toolbar { align-items: stretch; flex-direction: column; gap: 16px; }
-    .content-card { padding: 16px; }
-}
-</style>
-"""
+from .site import site_shell
+from .plot_utils import get_plotly_cdn_html
 
 DASHBOARD_SCRIPT = r"""
 <script>
@@ -60,6 +11,10 @@ window.initializeDashboard = function(root = document) {
     const table = tableEl && window.jQuery && jQuery.fn.DataTable
         ? (jQuery.fn.DataTable.isDataTable(tableEl) ? jQuery(tableEl).DataTable()
             : jQuery(tableEl).DataTable({pageLength: 10, autoWidth: false})) : null;
+    const runningTable = root.querySelector('#runningTable');
+    if (runningTable && window.jQuery && jQuery.fn.DataTable && !jQuery.fn.DataTable.isDataTable(runningTable)) {
+        jQuery(runningTable).DataTable({pageLength: 10, autoWidth: false, order: [[4, 'desc']]});
+    }
     const panels = root.querySelectorAll('[data-exercise-panel]');
     function selectTarget(weight, reps, panel) {
         const output = panel.querySelector('.target-value');
@@ -135,6 +90,33 @@ window.initializeDashboard = function(root = document) {
             if (panel) selectTarget(Number(data[headings.indexOf('Weight')]), Number(data[headings.indexOf('Reps')]), panel);
         });
     }
+    root.querySelectorAll('[data-chart-action]').forEach(button => {
+        if (button.dataset.bound) return;
+        button.dataset.bound = 'true';
+        button.addEventListener('click', () => {
+            const panel = button.closest('[data-exercise-panel], .running-workspace');
+            const plot = panel && panel.querySelector('[data-plot]');
+            if (!plot || !plot.data || !window.Plotly) return;
+            if (button.dataset.chartAction === 'reset') {
+                const reset = {};
+                Object.keys(plot.layout).filter(key => /^([xy]axis)([0-9]*)$/.test(key))
+                    .forEach(axis => { reset[axis + '.autorange'] = true; });
+                Plotly.relayout(plot, reset);
+            } else {
+                Plotly.downloadImage(plot, {format: 'png', filename: 'kaiserlift-performance', scale: 2});
+            }
+        });
+    });
+    // Fragment identifiers also open imports when arriving from the home page.
+    const openImport = () => {
+        const importer = document.querySelector('#import');
+        if (importer && location.hash === '#import') importer.open = true;
+    };
+    openImport();
+    if (!window.dashboardHashBound) {
+        window.addEventListener('hashchange', openImport);
+        window.dashboardHashBound = true;
+    }
     // Running charts do not need an exercise filter.
     root.querySelectorAll('.running-figure').forEach(hydrate);
     update();
@@ -146,4 +128,46 @@ document.addEventListener('DOMContentLoaded', () => window.initializeDashboard()
 
 def dashboard_assets() -> str:
     """Return shared styles and initialization for standalone viewers."""
-    return DASHBOARD_STYLE + DASHBOARD_SCRIPT
+    return DASHBOARD_SCRIPT
+
+
+def render_dashboard(fragment: str, *, mode: str) -> str:
+    """Render a complete lab with shared navigation, imports, and chart assets."""
+    running = mode == "running"
+    heading = "Running lab." if running else "Lifting lab."
+    description = (
+        "Distance. Time. Pace. Find the next line to cross."
+        if running
+        else "Your best sets, mapped. Your next personal record, in sight."
+    )
+    csv_hint = (
+        "Use your FitNotes running export with distance and duration columns."
+        if running
+        else "Use your FitNotes export with Date, Exercise, Category, Weight, and Reps columns."
+    )
+    content = f"""
+    <header class="page-intro"><div><p class="eyebrow">{"02 / Endurance" if running else "01 / Strength"} / Performance workspace</p>
+    <h1>{heading}</h1></div><p>{description}</p></header>
+    <div id="result">{fragment}</div>
+    <details id="import" class="import-panel">
+        <summary>03 / Import data — open a CSV export</summary>
+        <div class="import-content"><p>{csv_hint}</p>
+        <div id="importError" class="error-panel" role="alert" hidden></div>
+        <div class="upload-controls">
+            <label class="eyebrow" for="csvFile">Training file</label>
+            <input type="file" id="csvFile" accept=".csv">
+            <button id="uploadButton">Load training data ↗</button>
+            <button id="clearButton" class="secondary">Clear saved data</button>
+            <progress id="uploadProgress" value="0" max="100" style="display:none;" aria-label="Import progress"></progress>
+        </div><p id="runtimeStatus" role="status">Preparing the CSV importer. You can explore the charts now.</p></div>
+    </details>
+    """
+    assets = (
+        get_plotly_cdn_html()
+        + '<script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>'
+        + '<link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css">'
+        + '<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js" defer></script>'
+        + '<script type="module" src="../main.js"></script>'
+        + dashboard_assets()
+    )
+    return site_shell(content, mode=mode, assets=assets)

@@ -4,10 +4,12 @@ This module provides plotting and HTML generation functionality for
 running/cardio data visualization.
 """
 
+from html import escape
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from .dashboard import dashboard_assets
+from .dashboard import render_dashboard
 import plotly.graph_objects as go
 
 from .running_processers import (
@@ -23,8 +25,6 @@ from .running_processers import (
 from .plot_utils import (
     slugify,
     plotly_figure_to_html_div,
-    get_plotly_cdn_html,
-    get_plotly_preconnect_html,
 )
 
 
@@ -935,7 +935,19 @@ def render_running_table_fragment(df) -> str:
             # If plot generation fails, skip this exercise and continue
             plt.close("all")  # Clean up any partial figures
 
-    all_figures_html = "\n".join(figures_html.values())
+    all_figures_html = "\n".join(
+        f'<section class="running-workspace running-plot-card">'
+        f'<div class="chart-heading"><h3>{escape(str(exercise))}</h3>'
+        '<div class="chart-controls"><button data-chart-action="reset">Reset view</button>'
+        '<button data-chart-action="export">Save plot ↗</button></div></div>'
+        f'{chart}<details class="chart-help"><summary>How to read these graphs</summary>'
+        "<p>Blue circles show recorded performance; green crosses mark proposed records. "
+        "The upper graph compares distance and total time. The lower graph compares "
+        "distance and pace. Both use the same distance axis.</p>"
+        "<p>Dashed vertical lines mark 5K, half-marathon, and marathon distances. "
+        "Dotted curves compare performances using the Riegel model.</p></details></section>"
+        for exercise, chart in figures_html.items()
+    )
 
     # Convert targets to table
     table_html = df_targets_display.to_html(
@@ -943,13 +955,13 @@ def render_running_table_fragment(df) -> str:
     )
 
     return """
-    <section class="content-card">
-        <div class="dashboard-toolbar"><div><p class="eyebrow">Your training, in focus</p>
-        <h2>Explore your running performance</h2></div></div>
+    <section id="performance" data-lab-view="neo-retro" class="content-card">
+        <div class="dashboard-toolbar"><div><p class="eyebrow">01 / Performance map</p>
+        <h2>Distance × Time × Pace</h2></div></div>
         <div class="figures-grid">{all_figures_html}</div>
     </section>
-    <section class="content-card target-table">
-        <h2>Explore running targets</h2>
+    <section id="targets" class="content-card target-table">
+        <div class="section-heading"><h2>02 / Target register</h2><span>Running / proposed records</span></div>
         <div class="table-wrapper">{table_html}</div>
     </section>
     """.format(table_html=table_html, all_figures_html=all_figures_html)
@@ -976,517 +988,4 @@ def gen_running_html_viewer(df, *, embed_assets: bool = True) -> str:
     if not embed_assets:
         return fragment
 
-    # Include same CSS/JS as lifting viewer
-    js_and_css = (
-        """
-    <!-- Preconnect to CDNs for faster loading -->
-    <link rel="preconnect" href="https://code.jquery.com">
-    <link rel="preconnect" href="https://cdn.datatables.net">
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;700&family=Lato:ital,wght@0,300;0,400;0,700;1,300;1,400&display=swap" rel="stylesheet">
-    """
-        + get_plotly_preconnect_html()
-        + "\n"
-        + get_plotly_cdn_html()
-        + """
-
-    <!-- DataTables -->
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.4/css/jquery.dataTables.min.css"/>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
-    <script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js" defer></script>
-
-    <!-- Custom Styling -->
-    <style>
-    :root {
-        --primary-green: #4a7c59;
-        --primary-green-hover: #3d6a4a;
-        --bg: #f9f9f9;
-        --fg: #444444;
-        --fg-light: #666666;
-        --bg-alt: #ffffff;
-        --border: #e0e0e0;
-        --shadow: 0 2px 4px rgba(0,0,0,0.1);
-        --link: #4a7c59;
-    }
-
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    body {
-        font-family: 'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 16px;
-        padding: clamp(16px, 4vw, 32px);
-        background-color: var(--bg);
-        color: var(--fg);
-        line-height: 1.6;
-        max-width: 1200px;
-        width: 100%;
-        margin: 0 auto;
-    }
-
-    h1, h2, h3 {
-        font-family: 'Oswald', sans-serif;
-        font-weight: 400;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    .page-header {
-        text-align: center;
-        margin-bottom: 40px;
-        padding-bottom: 20px;
-        border-bottom: 1px solid var(--border);
-    }
-
-    .page-header h1 {
-        font-size: 2.5em;
-        margin-bottom: 10px;
-    }
-
-    .page-header h1 .brand-name {
-        color: var(--fg);
-    }
-
-    .page-header h1 .brand-accent {
-        color: var(--primary-green);
-    }
-
-    .page-header .subtitle {
-        font-style: italic;
-        font-weight: 300;
-        color: var(--fg-light);
-    }
-
-    /* Table wrapper for horizontal scrolling on mobile */
-    .table-wrapper {
-        width: 100%;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        margin-bottom: 16px;
-    }
-
-    .content-card {
-        background-color: var(--bg-alt);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 18px;
-        box-shadow: var(--shadow);
-        margin-bottom: 20px;
-        width: min(100%, 1100px);
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-    .figures-grid {
-        display: grid;
-        gap: clamp(12px, 2vw, 20px);
-    }
-
-    @media (min-width: 720px) {
-        .figures-grid {
-            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-        }
-    }
-
-    table.dataTable {
-        font-size: 14px;
-        width: 100% !important;
-        min-width: min(720px, 100%);
-        word-wrap: break-word;
-        background-color: var(--bg-alt);
-        color: var(--fg);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        overflow: hidden;
-        box-shadow: var(--shadow);
-        table-layout: auto;
-    }
-
-    table.dataTable thead th {
-        background-color: var(--primary-green);
-        color: white;
-        font-family: 'Lato', sans-serif;
-        font-weight: 700;
-        text-transform: uppercase;
-        font-size: 0.85em;
-        letter-spacing: 0.5px;
-        padding: 12px 10px;
-        border-bottom: none;
-        white-space: nowrap;
-    }
-
-    table.dataTable tbody td {
-        padding: 10px;
-        border-bottom: 1px solid var(--border);
-        word-break: break-word;
-    }
-
-    table.dataTable tbody tr:hover {
-        background-color: rgba(74, 124, 89, 0.05);
-    }
-
-    table.dataTable tbody tr:nth-child(even) {
-        background-color: rgba(0, 0, 0, 0.02);
-    }
-
-    /* DataTables controls styling */
-    .dataTables_wrapper {
-        font-size: 14px;
-    }
-
-    .dataTables_wrapper .dataTables_length,
-    .dataTables_wrapper .dataTables_filter {
-        margin-bottom: 15px;
-    }
-
-    .dataTables_wrapper .dataTables_filter input {
-        font-family: 'Lato', sans-serif;
-        font-size: 14px;
-        padding: 8px 12px;
-        border-radius: 4px;
-        border: 1px solid var(--border);
-        background-color: var(--bg-alt);
-        color: var(--fg);
-        min-height: 40px;
-    }
-
-    .dataTables_wrapper .dataTables_filter input:focus {
-        outline: none;
-        border-color: var(--primary-green);
-        box-shadow: 0 0 0 2px rgba(74, 124, 89, 0.1);
-    }
-
-    .dataTables_wrapper .dataTables_length select {
-        font-family: 'Lato', sans-serif;
-        font-size: 14px;
-        padding: 8px;
-        border-radius: 4px;
-        border: 1px solid var(--border);
-        background-color: var(--bg-alt);
-        color: var(--fg);
-        min-height: 40px;
-    }
-
-    .dataTables_wrapper .dataTables_paginate {
-        margin-top: 15px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-    }
-
-    .dataTables_wrapper .dataTables_paginate .paginate_button {
-        padding: 8px 12px !important;
-        min-width: 40px;
-        min-height: 40px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 4px;
-        font-size: 14px;
-        background-color: var(--bg-alt) !important;
-        border: 1px solid var(--border) !important;
-        color: var(--fg) !important;
-        transition: all 0.2s ease;
-    }
-
-    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
-        background-color: var(--primary-green) !important;
-        color: white !important;
-        border-color: var(--primary-green) !important;
-    }
-
-    .dataTables_wrapper .dataTables_paginate .paginate_button.current {
-        background-color: var(--primary-green) !important;
-        color: white !important;
-        border-color: var(--primary-green) !important;
-    }
-
-    .dataTables_wrapper .dataTables_info {
-        font-size: 13px;
-        padding-top: 15px;
-        color: var(--fg-light);
-    }
-
-    label {
-        font-family: 'Lato', sans-serif;
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--fg);
-        margin-bottom: 8px;
-        display: inline-block;
-    }
-
-    select {
-        font-family: 'Lato', sans-serif;
-        font-size: 14px;
-        color: var(--fg);
-        background-color: var(--bg-alt);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        padding: 10px 12px;
-        min-height: 40px;
-    }
-
-    select:focus {
-        outline: none;
-        border-color: var(--primary-green);
-        box-shadow: 0 0 0 2px rgba(74, 124, 89, 0.1);
-    }
-
-    .upload-controls {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 12px;
-        align-items: center;
-        margin-bottom: 25px;
-        padding: 20px;
-        background-color: var(--bg-alt);
-        border: 1px solid var(--border);
-        border-radius: 4px;
-    }
-
-    @media (min-width: 700px) {
-        .upload-controls {
-            grid-template-columns: minmax(0, 1fr) auto;
-        }
-    }
-
-    #uploadButton {
-        padding: 10px 24px;
-        border: none;
-        border-radius: 4px;
-        background-color: var(--primary-green);
-        color: white;
-        cursor: pointer;
-        font-family: 'Lato', sans-serif;
-        font-weight: 700;
-        font-size: 14px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        box-shadow: var(--shadow);
-        transition: all 0.2s ease;
-        min-height: 40px;
-        white-space: nowrap;
-    }
-
-    #uploadButton:hover {
-        background-color: var(--primary-green-hover);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    }
-
-    #uploadButton:active {
-        transform: translateY(0);
-    }
-
-    #csvFile {
-        padding: 8px;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        background-color: var(--bg);
-        color: var(--fg);
-        font-family: 'Lato', sans-serif;
-        font-size: 14px;
-        min-height: 40px;
-        max-width: 100%;
-    }
-
-    #csvFile:focus {
-        outline: none;
-        border-color: var(--primary-green);
-    }
-
-    #uploadProgress {
-        flex: 1;
-        min-width: 100px;
-    }
-
-    /* Back link styling */
-    .back-link {
-        display: inline-block;
-        margin-bottom: 20px;
-        color: var(--primary-green);
-        text-decoration: none;
-        font-weight: 700;
-        text-transform: uppercase;
-        font-size: 0.9em;
-        letter-spacing: 1px;
-    }
-
-    .back-link:hover {
-        text-decoration: underline;
-    }
-
-    /* Chart container styling */
-    .running-figure {
-        border-radius: 4px;
-        box-shadow: var(--shadow);
-        margin: 25px 0;
-        opacity: 0;
-        animation: fadeIn 0.3s ease-in forwards;
-        width: 100%;
-        overflow: hidden;
-        background-color: var(--bg-alt);
-    }
-
-    .running-figure .js-plotly-plot,
-    .running-figure .plotly {
-        width: 100% !important;
-    }
-
-    .running-figure .main-svg {
-        width: 100% !important;
-        height: auto !important;
-    }
-
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-
-    .running-figure svg {
-        max-width: 100%;
-        height: auto;
-        display: block;
-    }
-
-    /* Tablet breakpoint */
-    @media only screen and (max-width: 768px) {
-        body {
-            padding: 20px 15px;
-        }
-
-        .page-header h1 {
-            font-size: 2em;
-        }
-
-        .content-card {
-            padding: 16px;
-        }
-
-        .upload-controls {
-            grid-template-columns: minmax(0, 1fr);
-        }
-
-        #csvFile,
-        #uploadButton {
-            width: 100%;
-            text-align: center;
-        }
-
-        .dataTables_wrapper .dataTables_length,
-        .dataTables_wrapper .dataTables_filter {
-            float: none;
-            text-align: left;
-            width: 100%;
-        }
-
-        .dataTables_wrapper .dataTables_filter input {
-            width: 100%;
-            margin-left: 0;
-            margin-top: 8px;
-        }
-
-        table.dataTable {
-            min-width: 100%;
-        }
-    }
-
-    /* Mobile breakpoint */
-    @media only screen and (max-width: 480px) {
-        body {
-            padding: 15px 10px;
-        }
-
-        .page-header h1 {
-            font-size: 1.75em;
-        }
-
-        .dataTables_wrapper .dataTables_paginate .paginate_button {
-            padding: 6px 10px !important;
-            min-width: 36px;
-            font-size: 13px;
-        }
-
-        .dataTables_wrapper .dataTables_info {
-            text-align: center;
-            width: 100%;
-        }
-
-        .dataTables_wrapper .dataTables_paginate {
-            justify-content: center;
-            width: 100%;
-        }
-    }
-    </style>
-    """
-    )
-
-    upload_html = """
-    <a href="/" class="back-link">&larr; Back to Home</a>
-    <div class="page-header">
-        <h1><span class="brand-name">KAISER</span><span class="brand-accent">LIFT</span></h1>
-        <p class="subtitle">Go further. Find your pace.</p>
-        <nav class="dashboard-nav" aria-label="Training mode"><a href="../lifting/">Lifting</a><a href="../running/" aria-current="page">Running</a></nav>
-    </div>
-    <div class="content-card">
-        <div class="upload-controls">
-            <input type="file" id="csvFile" accept=".csv">
-            <button id="uploadButton">Upload</button>
-            <progress id="uploadProgress" value="0" max="100" style="display:none;"></progress>
-        </div>
-    </div>
-    """
-
-    scripts = """
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize DataTable (jQuery + DataTables are loaded with defer,
-        // which executes before DOMContentLoaded fires)
-        $('#runningTable').DataTable({
-            pageLength: 25,
-            responsive: true,
-            autoWidth: false,
-            order: [[4, 'desc']]  // Sort by "Distance Below Pareto" column (index 4) - easiest targets first
-        });
-    });
-    </script>
-    """
-
-    meta = """
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <meta name="description" content="KaiserLift running analysis - Data-driven pace optimization with Pareto front">
-    """
-    version_footer = """
-    <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.85em; color: var(--fg-light); text-align: center;">
-        <span id="version-info">Loading version...</span>
-        <span style="margin: 0 10px;">|</span>
-        <a href="https://douglastkaiser.github.io" target="_blank" style="color: var(--primary-green); text-decoration: none;">douglastkaiser.github.io</a>
-    </footer>
-    <script type="module">
-        import { VERSION, GIT_HASH, GIT_HASH_FULL } from '../version.js';
-        const versionEl = document.getElementById('version-info');
-        const commitUrl = `https://github.com/douglastkaiser/kaiserlift/commit/${GIT_HASH_FULL}`;
-        versionEl.innerHTML = `v${VERSION} (<a href="${commitUrl}" target="_blank" style="color: var(--primary-green);">${GIT_HASH}</a>)`;
-    </script>
-    """
-    body_html = (
-        dashboard_assets()
-        + upload_html
-        + f'<div id="result">{fragment}</div>'
-        + version_footer
-    )
-    return f"<!DOCTYPE html><html><head>{meta}{js_and_css}</head><body>{body_html}{scripts}</body></html>"
+    return render_dashboard(fragment, mode="running")

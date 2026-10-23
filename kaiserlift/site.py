@@ -256,10 +256,14 @@ to replace the example with your own training history.</p>
     content = f"""
 <section class="home-hero"><div><p class="eyebrow">Training intelligence / Est. one rep at a time</p>
 <h1>Training,<br><em>plotted.</em></h1>
-<p class="hero-copy">Your history is a map. Find the gaps, see your strongest sets,
-and make your next move count.</p></div>
-<aside class="home-field"><p class="eyebrow">The operating principle</p><div class="field-number" aria-hidden="true">+1</div>
-<p>One more rep.<br>A little more weight.<br>A new distance.<br><br>Small steps. Visible progress.</p></aside></section>
+<p class="hero-copy">Find the rep range where you have the most room to improve.
+For each lift, keep the sets no other set beats in both weight and reps: your
+<strong>Pareto front</strong>. Estimate the weight you could lift once from each record:
+its <strong>estimated one-rep max</strong>. That lets you compare heavy, short sets with
+lighter, longer sets. The lowest estimate
+points to your weakest recorded rep range. Aim for a small PR there.</p></div>
+<aside class="home-field"><p class="eyebrow">The lifting thesis</p><div class="field-number" aria-hidden="true">+1</div>
+<p>Compare your unbeaten sets.<br>Find the lowest one-rep-max equivalent.<br>Try one more rep or a little more weight.</p></aside></section>
 <section id="modes" class="mode-grid" aria-label="Choose your training mode">
 <article class="mode-card"><div><span class="section-code">01 / Strength</span><span class="mode-icon" aria-hidden="true">↗</span></div>
 <h2>Lifting lab.</h2><p>Map weight against reps. Explore your best sets and the targets just beyond them.</p>
@@ -269,8 +273,8 @@ and make your next move count.</p></div>
 <a class="button" href="running/">Enter running lab <span aria-hidden="true">→</span></a></article></section>
 <section id="method" class="method-strip" aria-label="How it works">
 <div><h3>01. Bring the history</h3><p>Start with the sample data or import your FitNotes CSV.</p></div>
-<div><h3>02. Read the pattern</h3><p>Performance curves show your records across reps and distances.</p></div>
-<div><h3>03. Pick the next move</h3><p>Explore proposed targets and choose a challenge for your next session.</p></div></section>
+<div><h3>02. Compare your records</h3><p>For lifting, compare unbeaten sets using estimated one-rep max. For running, compare time and pace across distances.</p></div>
+<div><h3>03. Choose a small PR</h3><p>For each lift, start with the record with the lowest one-rep-max estimate, then explore targets just beyond your records.</p></div></section>
 <section id="import"><div class="page-intro"><div><p class="eyebrow">Your records belong here</p>
 <h2>Bring your data.</h2></div><p>FitNotes CSV exports. No account required.</p></div>{imports}</section>"""
     return site_shell(content)
